@@ -34,9 +34,14 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 
+/**
+ * 认证应用服务类，负责处理用户认证、会话管理、安全事件记录等相关业务逻辑
+ */
 @Service
 public class AuthApplicationService {
+    // 默认设备ID常量
     private static final String DEFAULT_DEVICE_ID = "web-default";
+    // 认证会话相关的事件类型常量
     private static final String TARGET_TYPE_AUTH_SESSION = "AUTH_SESSION";
     private static final String TARGET_TYPE_AUTH_EXPORT_TASK = "AUTH_EXPORT_TASK";
     private static final String ACTION_LOGIN_SUCCESS = "AUTH_LOGIN_SUCCESS";

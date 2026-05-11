@@ -54,6 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -71,9 +72,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * 回收应用服务类，负责处理回收、二销、评价等相关业务逻辑
+ */
 @Service
 public class RecycleApplicationService {
 
+    /**
+     * AI审核服务
+     */
+    /**
+     * SN码解析服务
+     */
     private final AiAuditService aiAuditService;
     private final SnParseService snParseService;
     private final ValuationService valuationService;
@@ -349,13 +359,13 @@ public class RecycleApplicationService {
         userAccountRepository.save(user);
 
         return Map.ofEntries(
-            Map.entry("orderNo", orderNo),
-            Map.entry("trackingNo", trackingNo),
-            Map.entry("estimatedGrade", valuation.gradeLevel()),
-            Map.entry("estimatedPrice", valuation.estimatedPrice()),
-            Map.entry("rewardPoints", points),
-            Map.entry("userPointsTotal", user.getPoints()),
-            Map.entry("product", draft)
+        Map.entry("orderNo", orderNo),
+        Map.entry("trackingNo", trackingNo),
+        Map.entry("estimatedGrade", valuation.gradeLevel()),
+        Map.entry("estimatedPrice", valuation.estimatedPrice()),
+        Map.entry("rewardPoints", points),
+        Map.entry("userPointsTotal", user.getPoints()),
+        Map.entry("product", draft)
         );
     }
 
@@ -370,7 +380,7 @@ public class RecycleApplicationService {
     }
 
     public List<Map<String, Object>> listRecycleOrders() {
-        return recycleOrderRepository.findAll().stream().map(order -> Map.of(
+        return recycleOrderRepository.findAll().stream().map(order -> Map.<String, Object>of(
                 "orderNo", order.getOrderNo(),
                 "status", order.getStatus(),
                 "grade", order.getGrade(),
@@ -470,22 +480,15 @@ public class RecycleApplicationService {
         if ("desc".equals(safeSortOrder)) {
             comparator = comparator.reversed();
         }
-        return listings.stream().sorted(comparator).map(item -> Map.ofEntries(
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("listingId"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(item.getId()),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("brand"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(item.getProduct().getBrand()),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("model"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(item.getProduct().getModel()),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("grade"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(item.getProduct().getRecycleGrade()),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("salePrice"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(item.getSalePrice()),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("stock"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(item.getStock()),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry("favoriteCount"),
-        return listings.stream().sorted(comparator).map(item ->     Map.entry(resaleFavoriteRepository.countByListing_Id(item.getId()))
-        return listings.stream().sorted(comparator).map(item -> )).toList();
+        return listings.stream().sorted(comparator).map(item -> Map.<String, Object>ofEntries(
+                Map.entry("listingId", item.getId()),
+                Map.entry("brand", item.getProduct().getBrand()),
+                Map.entry("model", item.getProduct().getModel()),
+                Map.entry("grade", item.getProduct().getRecycleGrade()),
+                Map.entry("salePrice", item.getSalePrice()),
+                Map.entry("stock", item.getStock()),
+                Map.entry("favoriteCount", resaleFavoriteRepository.countByListing_Id(item.getId()))
+        )).toList();
     }
 
     private Comparator<ResaleListingEntity> buildListingComparator(String sortBy) {
@@ -546,22 +549,15 @@ public class RecycleApplicationService {
     public List<Map<String, Object>> listFavoriteListings(Long userId) {
         userAccountRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item -> Map.ofEntries(
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("listingId"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getListing().getId()),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("brand"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getListing().getProduct().getBrand()),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("model"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getListing().getProduct().getModel()),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("grade"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getListing().getProduct().getRecycleGrade()),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("salePrice"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getListing().getSalePrice()),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("stock"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getListing().getStock()),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry("favoriteAt"),
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item ->     Map.entry(item.getCreatedAt())
-        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item -> )).toList();
+        return resaleFavoriteRepository.findByUser_IdOrderByCreatedAtDesc(userId).stream().map(item -> Map.<String, Object>ofEntries(
+                Map.entry("listingId", item.getListing().getId()),
+                Map.entry("brand", item.getListing().getProduct().getBrand()),
+                Map.entry("model", item.getListing().getProduct().getModel()),
+                Map.entry("grade", item.getListing().getProduct().getRecycleGrade()),
+                Map.entry("salePrice", item.getListing().getSalePrice()),
+                Map.entry("stock", item.getListing().getStock()),
+                Map.entry("favoriteAt", item.getCreatedAt())
+        )).toList();
     }
 
     @Transactional
@@ -803,19 +799,13 @@ public class RecycleApplicationService {
         reviewEligibility.put("appendRemainingText", appendRemainingText);
         reviewEligibility.put("appendRemainingTextI18n", appendRemainingTextI18n);
         return Map.ofEntries(
-        return     Map.entry("orderNo"),
-        return     Map.entry(orderNo),
-        return     Map.entry("buyerUserId"),
-        return     Map.entry(buyerUserId),
-        return     Map.entry("payStatus"),
-        return     Map.entry(order.getPayStatus()),
-        return     Map.entry("fulfillStatus"),
-        return     Map.entry(order.getFulfillStatus()),
-        return     Map.entry("timeline"),
-        return     Map.entry(events),
-        return     Map.entry("reviewEligibility"),
-        return     Map.entry(reviewEligibility)
-        return );
+        Map.entry("orderNo", orderNo),
+        Map.entry("buyerUserId", buyerUserId),
+        Map.entry("payStatus", order.getPayStatus()),
+        Map.entry("fulfillStatus", order.getFulfillStatus()),
+        Map.entry("timeline", events),
+        Map.entry("reviewEligibility", reviewEligibility)
+                );
     }
 
     @Transactional(readOnly = true)
@@ -1267,73 +1257,36 @@ public class RecycleApplicationService {
         List<Map<String, Object>> insights = new ArrayList<>();
         if (completionRate.compareTo(new BigDecimal("70")) < 0) {
             insights.add(Map.ofEntries(
-            insights.add(    Map.entry("type"),
-            insights.add(    Map.entry("COMPLETION"),
-            insights.add(    Map.entry("severity"),
-            insights.add(    Map.entry("WARN"),
-            insights.add(    Map.entry("title"),
-            insights.add(    Map.entry("完成率偏低"),
-            insights.add(    Map.entry("titleI18n"),
-            insights.add(    Map.entry(Map.of("zh-CN", "完成率偏低", "en-US", "Completion rate is low")),
-            insights.add(    Map.entry("suggestion"),
-            insights.add(    Map.entry("建议优化发货与收货跟进，提升 COMPLETED 转化"),
-            insights.add(    Map.entry("suggestionI18n"),
-            insights.add(    Map.entry(Map.of(
+                    Map.entry("type", "COMPLETION"),
+                    Map.entry("severity", "WARN"),
+                    Map.entry("title", "完成率偏低"),
+                    Map.entry("titleI18n", Map.of("zh-CN", "完成率偏低", "en-US", "Completion rate is low")),
+                    Map.entry("suggestion", "建议优化发货与收货跟进，提升 COMPLETED 转化"),
+                    Map.entry("suggestionI18n", Map.of(
                             "zh-CN", "建议优化发货与收货跟进，提升 COMPLETED 转化",
                             "en-US", "Improve shipment and receipt follow-up to increase COMPLETED conversion"
                     ))
-            insights.add());
-        }
-        if (refundRate.compareTo(new BigDecimal("20")) > 0) {
-            insights.add(Map.ofEntries(
-            insights.add(    Map.entry("type"),
-            insights.add(    Map.entry("REFUND"),
-            insights.add(    Map.entry("severity"),
-            insights.add(    Map.entry("WARN"),
-            insights.add(    Map.entry("title"),
-            insights.add(    Map.entry("退款率偏高"),
-            insights.add(    Map.entry("titleI18n"),
-            insights.add(    Map.entry(Map.of("zh-CN", "退款率偏高", "en-US", "Refund rate is high")),
-            insights.add(    Map.entry("suggestion"),
-            insights.add(    Map.entry("建议排查商品描述一致性与履约时效，降低退款请求"),
-            insights.add(    Map.entry("suggestionI18n"),
-            insights.add(    Map.entry(Map.of(
-                            "zh-CN", "建议排查商品描述一致性与履约时效，降低退款请求",
-                            "en-US", "Review listing accuracy and fulfillment SLA to reduce refund requests"
-                    ))
-            insights.add());
+            ));
         }
         if (insights.isEmpty()) {
             insights.add(Map.ofEntries(
-            insights.add(    Map.entry("type"),
-            insights.add(    Map.entry("OVERALL"),
-            insights.add(    Map.entry("severity"),
-            insights.add(    Map.entry("INFO"),
-            insights.add(    Map.entry("title"),
-            insights.add(    Map.entry("订单健康度稳定"),
-            insights.add(    Map.entry("titleI18n"),
-            insights.add(    Map.entry(Map.of("zh-CN", "订单健康度稳定", "en-US", "Order health is stable")),
-            insights.add(    Map.entry("suggestion"),
-            insights.add(    Map.entry("可持续保持当前履约与售后策略"),
-            insights.add(    Map.entry("suggestionI18n"),
-            insights.add(    Map.entry(Map.of("zh-CN", "可持续保持当前履约与售后策略", "en-US", "Maintain current fulfillment and after-sales strategy"))
-            insights.add());
+                    Map.entry("type", "OVERALL"),
+                    Map.entry("severity", "INFO"),
+                    Map.entry("title", "订单健康度稳定"),
+                    Map.entry("titleI18n", Map.of("zh-CN", "订单健康度稳定", "en-US", "Order health is stable")),
+                    Map.entry("suggestion", "可持续保持当前履约与售后策略"),
+                    Map.entry("suggestionI18n", Map.of("zh-CN", "可持续保持当前履约与售后策略", "en-US", "Maintain current fulfillment and after-sales strategy"))
+            ));
         }
         if ("ATTENTION".equals(healthLevel)) {
             insights.add(Map.ofEntries(
-            insights.add(    Map.entry("type"),
-            insights.add(    Map.entry("LEVEL"),
-            insights.add(    Map.entry("severity"),
-            insights.add(    Map.entry("CRITICAL"),
-            insights.add(    Map.entry("title"),
-            insights.add(    Map.entry("健康等级需关注"),
-            insights.add(    Map.entry("titleI18n"),
-            insights.add(    Map.entry(Map.of("zh-CN", "健康等级需关注", "en-US", "Health level needs attention")),
-            insights.add(    Map.entry("suggestion"),
-            insights.add(    Map.entry("建议优先处理高退款订单与超时履约订单"),
-            insights.add(    Map.entry("suggestionI18n"),
-            insights.add(    Map.entry(Map.of("zh-CN", "建议优先处理高退款订单与超时履约订单", "en-US", "Prioritize high-refund and overdue fulfillment orders"))
-            insights.add());
+                    Map.entry("type", "LEVEL"),
+                    Map.entry("severity", "CRITICAL"),
+                    Map.entry("title", "健康等级需关注"),
+                    Map.entry("titleI18n", Map.of("zh-CN", "健康等级需关注", "en-US", "Health level needs attention")),
+                    Map.entry("suggestion", "建议优先处理高退款订单与超时履约订单"),
+                    Map.entry("suggestionI18n", Map.of("zh-CN", "建议优先处理高退款订单与超时履约订单", "en-US", "Prioritize high-refund and overdue fulfillment orders"))
+            ));
         }
         return insights;
     }
@@ -1361,19 +1314,13 @@ public class RecycleApplicationService {
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     Map<String, String> labelI18n = labelBuilder.apply(status);
                     return Map.ofEntries(
-                    return     Map.entry("status"),
-                    return     Map.entry(status),
-                    return     Map.entry("count"),
-                    return     Map.entry(items.size()),
-                    return     Map.entry("ratio"),
-                    return     Map.entry(ratio),
-                    return     Map.entry("amount"),
-                    return     Map.entry(amount),
-                    return     Map.entry("label"),
-                    return     Map.entry(labelI18n.getOrDefault("zh-CN", status)),
-                    return     Map.entry("labelI18n"),
-                    return     Map.entry(labelI18n)
-                    return );
+                            Map.entry("status", status),
+                            Map.entry("count", items.size()),
+                            Map.entry("ratio", ratio),
+                            Map.entry("amount", amount),
+                            Map.entry("label", labelI18n.getOrDefault("zh-CN", status)),
+                            Map.entry("labelI18n", labelI18n)
+                    );
                 })
                 .toList();
     }
@@ -1501,29 +1448,18 @@ public class RecycleApplicationService {
         String statusText = buildOrderStatusText(order.getPayStatus(), order.getFulfillStatus());
         Map<String, String> statusTextI18n = buildOrderStatusTextI18n(order.getPayStatus(), order.getFulfillStatus());
         return Map.ofEntries(
-        return     Map.entry("orderNo"),
-        return     Map.entry(order.getOrderNo()),
-        return     Map.entry("listingId"),
-        return     Map.entry(order.getListing().getId()),
-        return     Map.entry("productId"),
-        return     Map.entry(product.getId()),
-        return     Map.entry("productBrand"),
-        return     Map.entry(product.getBrand()),
-        return     Map.entry("productModel"),
-        return     Map.entry(product.getModel()),
-        return     Map.entry("amount"),
-        return     Map.entry(order.getAmount()),
-        return     Map.entry("payStatus"),
-        return     Map.entry(order.getPayStatus()),
-        return     Map.entry("fulfillStatus"),
-        return     Map.entry(order.getFulfillStatus()),
-        return     Map.entry("statusText"),
-        return     Map.entry(statusText),
-        return     Map.entry("statusTextI18n"),
-        return     Map.entry(statusTextI18n),
-        return     Map.entry("createdAt"),
-        return     Map.entry(order.getCreatedAt())
-        return );
+        Map.entry("orderNo", order.getOrderNo()),
+        Map.entry("listingId", order.getListing().getId()),
+        Map.entry("productId", product.getId()),
+        Map.entry("productBrand", product.getBrand()),
+        Map.entry("productModel", product.getModel()),
+        Map.entry("amount", order.getAmount()),
+        Map.entry("payStatus", order.getPayStatus()),
+        Map.entry("fulfillStatus", order.getFulfillStatus()),
+        Map.entry("statusText", statusText),
+        Map.entry("statusTextI18n", statusTextI18n),
+        Map.entry("createdAt", order.getCreatedAt())
+        );
     }
 
     private Map<String, Object> statusDictItem(String code, String zhCn, String enUs) {
@@ -1604,19 +1540,13 @@ public class RecycleApplicationService {
             logAction("RESALE_REVIEW_SENSITIVE_HIT", "RESALE_ORDER", orderNo, "contentSensitive=true");
         }
         return Map.ofEntries(
-        return     Map.entry("orderNo"),
-        return     Map.entry(orderNo),
-        return     Map.entry("buyerUserId"),
-        return     Map.entry(buyerUserId),
-        return     Map.entry("rating"),
-        return     Map.entry(rating),
-        return     Map.entry("content"),
-        return     Map.entry(content),
-        return     Map.entry("imageUrls"),
-        return     Map.entry(imageUrls == null ? List.of() : imageUrls),
-        return     Map.entry("sensitiveHit"),
-        return     Map.entry(sensitiveHit)
-        return );
+        Map.entry("orderNo", orderNo),
+        Map.entry("buyerUserId", buyerUserId),
+        Map.entry("rating", rating),
+        Map.entry("content", content),
+        Map.entry("imageUrls", imageUrls == null ? List.of() : imageUrls),
+        Map.entry("sensitiveHit", sensitiveHit)
+        );
     }
 
     @Transactional
@@ -1719,19 +1649,13 @@ public class RecycleApplicationService {
             return item;
         }).sorted(buildReviewComparator(safeSortStrategy)).toList();
         return Map.ofEntries(
-        return     Map.entry("listingId"),
-        return     Map.entry(listingId),
-        return     Map.entry("reviewCount"),
-        return     Map.entry(reviews.size()),
-        return     Map.entry("avgRating"),
-        return     Map.entry(avgRating),
-        return     Map.entry("sortStrategy"),
-        return     Map.entry(safeSortStrategy),
-        return     Map.entry("includeHidden"),
-        return     Map.entry(includeHidden),
-        return     Map.entry("items"),
-        return     Map.entry(items)
-        return );
+        Map.entry("listingId", listingId),
+        Map.entry("reviewCount", reviews.size()),
+        Map.entry("avgRating", avgRating),
+        Map.entry("sortStrategy", safeSortStrategy),
+        Map.entry("includeHidden", includeHidden),
+        Map.entry("items", items)
+        );
     }
 
     @Transactional
@@ -1908,21 +1832,14 @@ public class RecycleApplicationService {
                         + ",failed=" + failedItems.size()
         );
         return Map.ofEntries(
-        return     Map.entry("action"),
-        return     Map.entry(safeAction),
-        return     Map.entry("operator"),
-        return     Map.entry(safeOperator),
-        return     Map.entry("total"),
-        return     Map.entry(reportIds.size()),
-        return     Map.entry("successCount"),
-        return     Map.entry(successItems.size()),
-        return     Map.entry("failedCount"),
-        return     Map.entry(failedItems.size()),
-        return     Map.entry("successItems"),
-        return     Map.entry(successItems),
-        return     Map.entry("failedItems"),
-        return     Map.entry(failedItems)
-        return );
+        Map.entry("action", safeAction),
+        Map.entry("operator", safeOperator),
+        Map.entry("total", reportIds.size()),
+        Map.entry("successCount", successItems.size()),
+        Map.entry("failedCount", failedItems.size()),
+        Map.entry("successItems", successItems),
+        Map.entry("failedItems", failedItems)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -1942,23 +1859,15 @@ public class RecycleApplicationService {
                 .count();
         String riskLevel = buildReviewRiskLevel(sensitiveRate, pendingReportCount, reports.size());
         return Map.ofEntries(
-        return     Map.entry("lookbackMinutes"),
-        return     Map.entry(safeLookbackMinutes),
-        return     Map.entry("totalReviews"),
-        return     Map.entry(reviews.size()),
-        return     Map.entry("sensitiveReviewCount"),
-        return     Map.entry(sensitiveCount),
-        return     Map.entry("sensitiveRate"),
-        return     Map.entry(sensitiveRate),
-        return     Map.entry("reportCount"),
-        return     Map.entry(reports.size()),
-        return     Map.entry("pendingReportCount"),
-        return     Map.entry(pendingReportCount),
-        return     Map.entry("riskLevel"),
-        return     Map.entry(riskLevel),
-        return     Map.entry("recommendation"),
-        return     Map.entry(buildReviewRiskRecommendation(riskLevel))
-        return );
+        Map.entry("lookbackMinutes", safeLookbackMinutes),
+        Map.entry("totalReviews", reviews.size()),
+        Map.entry("sensitiveReviewCount", sensitiveCount),
+        Map.entry("sensitiveRate", sensitiveRate),
+        Map.entry("reportCount", reports.size()),
+        Map.entry("pendingReportCount", pendingReportCount),
+        Map.entry("riskLevel", riskLevel),
+        Map.entry("recommendation", buildReviewRiskRecommendation(riskLevel))
+        );
     }
 
     @Transactional(readOnly = true)
@@ -2106,40 +2015,25 @@ public class RecycleApplicationService {
                         "请输入 0-100000 的整数", "Enter an integer between 0 and 100000")
         );
         return Map.ofEntries(
-        return     Map.entry("version"),
-        return     Map.entry(REVIEW_STRATEGY_SCHEMA_VERSION),
-        return     Map.entry("updatedAt"),
-        return     Map.entry(reviewStrategyUpdatedAt),
-        return     Map.entry("compatibility"),
-        return     Map.entry(Map.of(
+        Map.entry("version", REVIEW_STRATEGY_SCHEMA_VERSION),
+        Map.entry("updatedAt", reviewStrategyUpdatedAt),
+        Map.entry("compatibility", Map.of(
                         "status", "STABLE",
                         "minimumSupportedVersion", REVIEW_STRATEGY_SCHEMA_VERSION
                 )),
-        return     Map.entry("cacheHintSeconds"),
-        return     Map.entry(60),
-        return     Map.entry("includeHiddenDefault"),
-        return     Map.entry(reviewIncludeHiddenDefault),
-        return     Map.entry("appendWindowDays"),
-        return     Map.entry(reviewAppendWindowDays),
-        return     Map.entry("deboostPenalty"),
-        return     Map.entry(reviewSortDeboostPenalty),
-        return     Map.entry("highSensitiveRate"),
-        return     Map.entry(reviewRiskHighSensitiveRate),
-        return     Map.entry("mediumSensitiveRate"),
-        return     Map.entry(reviewRiskMediumSensitiveRate),
-        return     Map.entry("highPendingReports"),
-        return     Map.entry(reviewRiskHighPendingReports),
-        return     Map.entry("mediumPendingReports"),
-        return     Map.entry(reviewRiskMediumPendingReports),
-        return     Map.entry("highTotalReports"),
-        return     Map.entry(reviewRiskHighTotalReports),
-        return     Map.entry("mediumTotalReports"),
-        return     Map.entry(reviewRiskMediumTotalReports),
-        return     Map.entry("groupMeta"),
-        return     Map.entry(groupMeta),
-        return     Map.entry("fieldMeta"),
-        return     Map.entry(fieldMeta)
-        return );
+                Map.entry("cacheHintSeconds", 60),
+                Map.entry("includeHiddenDefault", reviewIncludeHiddenDefault),
+                Map.entry("appendWindowDays", reviewAppendWindowDays),
+                Map.entry("deboostPenalty", reviewSortDeboostPenalty),
+                Map.entry("highSensitiveRate", reviewRiskHighSensitiveRate),
+                Map.entry("mediumSensitiveRate", reviewRiskMediumSensitiveRate),
+                Map.entry("highPendingReports", reviewRiskHighPendingReports),
+                Map.entry("mediumPendingReports", reviewRiskMediumPendingReports),
+                Map.entry("highTotalReports", reviewRiskHighTotalReports),
+                Map.entry("mediumTotalReports", reviewRiskMediumTotalReports),
+                Map.entry("groupMeta", groupMeta),
+                Map.entry("fieldMeta", fieldMeta)
+        );
     }
 
     private Map<String, Object> buildReviewStrategyGroupMeta(
@@ -2363,122 +2257,71 @@ public class RecycleApplicationService {
         );
         List<Map<String, Object>> fieldMeta = List.of(
                 Map.ofEntries(
-                    Map.entry("displayOrder"),
-                    Map.entry(1),
-                    Map.entry("groupKey"),
-                    Map.entry("alert.routing"),
-                    Map.entry("editable"),
-                    Map.entry(true),
-                    Map.entry("key"),
-                    Map.entry("allowlistKeys"),
-                    Map.entry("type"),
-                    Map.entry("array"),
-                    Map.entry("uiComponentHint"),
-                    Map.entry("tags-input"),
-                    Map.entry("labelI18n"),
-                    Map.entry(Map.of("zh-CN", "白名单键", "en-US", "Allowlist Keys")),
-                    Map.entry("descriptionI18n"),
-                    Map.entry(Map.of("zh-CN", "始终放行的告警 key 列表", "en-US", "Alert keys always allowed")),
-                    Map.entry("validationMessageI18n"),
-                    Map.entry(Map.of("zh-CN", "请输入字符串数组", "en-US", "Please provide a string array"))
+                        Map.entry("displayOrder", 1),
+                        Map.entry("groupKey", "alert.routing"),
+                        Map.entry("editable", true),
+                        Map.entry("key", "allowlistKeys"),
+                        Map.entry("type", "array"),
+                        Map.entry("uiComponentHint", "tags-input"),
+                        Map.entry("labelI18n", Map.of("zh-CN", "白名单键", "en-US", "Allowlist Keys")),
+                        Map.entry("descriptionI18n", Map.of("zh-CN", "始终放行的告警 key 列表", "en-US", "Alert keys always allowed")),
+                        Map.entry("validationMessageI18n", Map.of("zh-CN", "请输入字符串数组", "en-US", "Please provide a string array"))
                 ),
                 Map.ofEntries(
-                    Map.entry("displayOrder"),
-                    Map.entry(2),
-                    Map.entry("groupKey"),
-                    Map.entry("alert.routing"),
-                    Map.entry("editable"),
-                    Map.entry(true),
-                    Map.entry("key"),
-                    Map.entry("denylistKeys"),
-                    Map.entry("type"),
-                    Map.entry("array"),
-                    Map.entry("uiComponentHint"),
-                    Map.entry("tags-input"),
-                    Map.entry("labelI18n"),
-                    Map.entry(Map.of("zh-CN", "黑名单键", "en-US", "Denylist Keys")),
-                    Map.entry("descriptionI18n"),
-                    Map.entry(Map.of("zh-CN", "始终屏蔽的告警 key 列表", "en-US", "Alert keys always suppressed")),
-                    Map.entry("validationMessageI18n"),
-                    Map.entry(Map.of("zh-CN", "请输入字符串数组", "en-US", "Please provide a string array"))
+                        Map.entry("displayOrder", 2),
+                        Map.entry("groupKey", "alert.routing"),
+                        Map.entry("editable", true),
+                        Map.entry("key", "denylistKeys"),
+                        Map.entry("type", "array"),
+                        Map.entry("uiComponentHint", "tags-input"),
+                        Map.entry("labelI18n", Map.of("zh-CN", "黑名单键", "en-US", "Denylist Keys")),
+                        Map.entry("descriptionI18n", Map.of("zh-CN", "始终屏蔽的告警 key 列表", "en-US", "Alert keys always suppressed")),
+                        Map.entry("validationMessageI18n", Map.of("zh-CN", "请输入字符串数组", "en-US", "Please provide a string array"))
                 ),
                 Map.ofEntries(
-                    Map.entry("displayOrder"),
-                    Map.entry(3),
-                    Map.entry("groupKey"),
-                    Map.entry("alert.quiet-hours"),
-                    Map.entry("editable"),
-                    Map.entry(true),
-                    Map.entry("key"),
-                    Map.entry("quietHoursStart"),
-                    Map.entry("type"),
-                    Map.entry("string"),
-                    Map.entry("uiComponentHint"),
-                    Map.entry("time-input"),
-                    Map.entry("labelI18n"),
-                    Map.entry(Map.of("zh-CN", "静默开始时间", "en-US", "Quiet Hours Start")),
-                    Map.entry("descriptionI18n"),
-                    Map.entry(Map.of("zh-CN", "静默窗口开始时间（HH:mm）", "en-US", "Quiet window start time (HH:mm)")),
-                    Map.entry("validationMessageI18n"),
-                    Map.entry(Map.of("zh-CN", "请输入 HH:mm 格式", "en-US", "Please use HH:mm format"))
+                        Map.entry("displayOrder", 3),
+                        Map.entry("groupKey", "alert.quiet-hours"),
+                        Map.entry("editable", true),
+                        Map.entry("key", "quietHoursStart"),
+                        Map.entry("type", "string"),
+                        Map.entry("uiComponentHint", "time-input"),
+                        Map.entry("labelI18n", Map.of("zh-CN", "静默开始时间", "en-US", "Quiet Hours Start")),
+                        Map.entry("descriptionI18n", Map.of("zh-CN", "静默窗口开始时间（HH:mm）", "en-US", "Quiet window start time (HH:mm)")),
+                        Map.entry("validationMessageI18n", Map.of("zh-CN", "请输入 HH:mm 格式", "en-US", "Please use HH:mm format"))
                 ),
                 Map.ofEntries(
-                    Map.entry("displayOrder"),
-                    Map.entry(4),
-                    Map.entry("groupKey"),
-                    Map.entry("alert.quiet-hours"),
-                    Map.entry("editable"),
-                    Map.entry(true),
-                    Map.entry("key"),
-                    Map.entry("quietHoursEnd"),
-                    Map.entry("type"),
-                    Map.entry("string"),
-                    Map.entry("uiComponentHint"),
-                    Map.entry("time-input"),
-                    Map.entry("labelI18n"),
-                    Map.entry(Map.of("zh-CN", "静默结束时间", "en-US", "Quiet Hours End")),
-                    Map.entry("descriptionI18n"),
-                    Map.entry(Map.of("zh-CN", "静默窗口结束时间（HH:mm）", "en-US", "Quiet window end time (HH:mm)")),
-                    Map.entry("validationMessageI18n"),
-                    Map.entry(Map.of("zh-CN", "请输入 HH:mm 格式", "en-US", "Please use HH:mm format"))
+                        Map.entry("displayOrder", 4),
+                        Map.entry("groupKey", "alert.quiet-hours"),
+                        Map.entry("editable", true),
+                        Map.entry("key", "quietHoursEnd"),
+                        Map.entry("type", "string"),
+                        Map.entry("uiComponentHint", "time-input"),
+                        Map.entry("labelI18n", Map.of("zh-CN", "静默结束时间", "en-US", "Quiet Hours End")),
+                        Map.entry("descriptionI18n", Map.of("zh-CN", "静默窗口结束时间（HH:mm）", "en-US", "Quiet window end time (HH:mm)")),
+                        Map.entry("validationMessageI18n", Map.of("zh-CN", "请输入 HH:mm 格式", "en-US", "Please use HH:mm format"))
                 ),
                 Map.ofEntries(
-                    Map.entry("displayOrder"),
-                    Map.entry(5),
-                    Map.entry("groupKey"),
-                    Map.entry("alert.quiet-hours"),
-                    Map.entry("editable"),
-                    Map.entry(true),
-                    Map.entry("key"),
-                    Map.entry("quietHourPassLevels"),
-                    Map.entry("type"),
-                    Map.entry("array"),
-                    Map.entry("uiComponentHint"),
-                    Map.entry("multi-select"),
-                    Map.entry("options"),
-                    Map.entry(List.of("INFO", "WARN", "CRITICAL")),
-                    Map.entry("labelI18n"),
-                    Map.entry(Map.of("zh-CN", "静默时段放行级别", "en-US", "Quiet-Hour Pass Levels")),
-                    Map.entry("descriptionI18n"),
-                    Map.entry(Map.of("zh-CN", "静默时段仍允许通知的告警级别", "en-US", "Levels still allowed during quiet hours")),
-                    Map.entry("validationMessageI18n"),
-                    Map.entry(Map.of("zh-CN", "仅支持 INFO/WARN/CRITICAL", "en-US", "Only INFO/WARN/CRITICAL are allowed"))
+                        Map.entry("displayOrder", 5),
+                        Map.entry("groupKey", "alert.quiet-hours"),
+                        Map.entry("editable", true),
+                        Map.entry("key", "quietHourPassLevels"),
+                        Map.entry("type", "array"),
+                        Map.entry("uiComponentHint", "multi-select"),
+                        Map.entry("options", List.of("INFO", "WARN", "CRITICAL")),
+                        Map.entry("labelI18n", Map.of("zh-CN", "静默时段放行级别", "en-US", "Quiet-Hour Pass Levels")),
+                        Map.entry("descriptionI18n", Map.of("zh-CN", "静默时段仍允许通知的告警级别", "en-US", "Levels still allowed during quiet hours")),
+                        Map.entry("validationMessageI18n", Map.of("zh-CN", "仅支持 INFO/WARN/CRITICAL", "en-US", "Only INFO/WARN/CRITICAL are allowed"))
                 )
         );
         return Map.ofEntries(
-        return     Map.entry("version"),
-        return     Map.entry(ALERT_NOISE_RULES_VERSION),
-        return     Map.entry("updatedAt"),
-        return     Map.entry(alertNoiseRulesUpdatedAt),
-        return     Map.entry("compatibility"),
-        return     Map.entry(Map.of(
+                Map.entry("version", ALERT_NOISE_RULES_VERSION),
+                Map.entry("updatedAt", alertNoiseRulesUpdatedAt),
+                Map.entry("compatibility", Map.of(
                         "status", "STABLE",
                         "minimumSupportedVersion", ALERT_NOISE_RULES_VERSION
                 )),
-        return     Map.entry("cacheHintSeconds"),
-        return     Map.entry(60),
-        return     Map.entry("rules"),
-        return     Map.entry(Map.of(
+                Map.entry("cacheHintSeconds", 60),
+                Map.entry("rules", Map.of(
                         "allowlistKeys", alertNoiseAllowlistKeys,
                         "denylistKeys", alertNoiseDenylistKeys,
                         "quietHours", Map.of(
@@ -2487,11 +2330,9 @@ public class RecycleApplicationService {
                         ),
                         "quietHourPassLevels", alertNoiseQuietHourPassLevels
                 )),
-        return     Map.entry("groupMeta"),
-        return     Map.entry(groupMeta),
-        return     Map.entry("fieldMeta"),
-        return     Map.entry(fieldMeta)
-        return );
+                Map.entry("groupMeta", groupMeta),
+                Map.entry("fieldMeta", fieldMeta)
+        );
     }
 
     @Transactional
@@ -2577,27 +2418,20 @@ public class RecycleApplicationService {
             String recommendedActionEn
     ) {
         return Map.ofEntries(
-        return     Map.entry("errorCode"),
-        return     Map.entry(errorCode),
-        return     Map.entry("httpStatus"),
-        return     Map.entry(httpStatus),
-        return     Map.entry("exceptionType"),
-        return     Map.entry(exceptionType),
-        return     Map.entry("defaultMessage"),
-        return     Map.entry(defaultMessageZh),
-        return     Map.entry("defaultMessageI18n"),
-        return     Map.entry(Map.of(
+                Map.entry("errorCode", errorCode),
+                Map.entry("httpStatus", httpStatus),
+                Map.entry("exceptionType", exceptionType),
+                Map.entry("defaultMessage", defaultMessageZh),
+                Map.entry("defaultMessageI18n", Map.of(
                         "zh-CN", defaultMessageZh,
                         "en-US", defaultMessageEn
                 )),
-        return     Map.entry("recommendedAction"),
-        return     Map.entry(recommendedActionZh),
-        return     Map.entry("recommendedActionI18n"),
-        return     Map.entry(Map.of(
+                Map.entry("recommendedAction", recommendedActionZh),
+                Map.entry("recommendedActionI18n", Map.of(
                         "zh-CN", recommendedActionZh,
                         "en-US", recommendedActionEn
                 ))
-        return );
+        );
     }
 
     @Transactional(readOnly = true)
@@ -2664,12 +2498,9 @@ public class RecycleApplicationService {
             default -> "继续按 bootstrapPlan 执行初始化";
         };
         return Map.ofEntries(
-        return     Map.entry("version"),
-        return     Map.entry(CONFIG_CENTER_BUNDLE_VERSION),
-        return     Map.entry("updatedAt"),
-        return     Map.entry(bundleUpdatedAt),
-        return     Map.entry("compatibility"),
-        return     Map.entry(Map.of(
+                Map.entry("version", CONFIG_CENTER_BUNDLE_VERSION),
+                Map.entry("updatedAt", bundleUpdatedAt),
+                Map.entry("compatibility", Map.of(
                         "status", compatibilityStatus,
                         "minimumSupportedVersion", CONFIG_CENTER_BUNDLE_VERSION,
                         "clientVersion", safeClientVersion,
@@ -2678,36 +2509,30 @@ public class RecycleApplicationService {
                         "message", compatibilityMessage,
                         "recommendedAction", compatibilityRecommendedAction
                 )),
-        return     Map.entry("cacheHintSeconds"),
-        return     Map.entry(60),
-        return     Map.entry("bootstrapPlan"),
-        return     Map.entry(Map.of(
+                Map.entry("cacheHintSeconds", 60),
+                Map.entry("bootstrapPlan", Map.of(
                         "version", "1.0.0",
                         "steps", steps,
                         "cachePolicy", "命中 304 时继续使用本地缓存并跳过重渲染",
                         "fallbackPolicy", "接口失败时回退到上次成功缓存；首次启动失败时使用内置默认策略"
                 )),
-        return     Map.entry("moduleIndex"),
-        return     Map.entry(Map.of(
+                Map.entry("moduleIndex", Map.of(
                         "reviewStrategy", buildModuleIndexEntry(reviewStrategy),
                         "globalErrorCodes", buildModuleIndexEntry(errorCodes),
                         "degradeActionTypes", buildModuleIndexEntry(degradeActions),
                         "alertNoiseRules", buildModuleIndexEntry(alertNoiseRules)
                 )),
-        return     Map.entry("modules"),
-        return     Map.entry(Map.of(
+                Map.entry("modules", Map.of(
                         "reviewStrategy", reviewStrategy,
                         "globalErrorCodes", errorCodes,
                         "degradeActionTypes", degradeActions,
                         "alertNoiseRules", alertNoiseRules
                 ))
-        return );
+        );
     }
 
-    @Transactional(readOnly = true)
-    public Map<String, Object> adminConfigCenterModule(String moduleName, String clientVersion) {
-        String safeModuleName = moduleName == null ? "" : moduleName.trim();
-        return switch (safeModuleName) {
+    private Map<String, Object> adminConfigCenterModule(String moduleName, String clientVersion) {
+        return switch (moduleName) {    
             case "reviewStrategy" -> adminGetReviewStrategyConfig();
             case "globalErrorCodes" -> adminGlobalErrorCodeDictionary();
             case "degradeActionTypes" -> adminDegradeActionTypeDictionary();
@@ -2814,23 +2639,15 @@ public class RecycleApplicationService {
             }
         }
         Map<String, Object> result = Map.ofEntries(
-        Map<String, Object> result =     Map.entry("version"),
-        Map<String, Object> result =     Map.entry("1.0.0"),
-        Map<String, Object> result =     Map.entry("updatedAt"),
-        Map<String, Object> result =     Map.entry(modules.get("updatedAt")),
-        Map<String, Object> result =     Map.entry("clientVersion"),
-        Map<String, Object> result =     Map.entry(normalizeVersion(clientVersion)),
-        Map<String, Object> result =     Map.entry("totalModules"),
-        Map<String, Object> result =     Map.entry(items.size()),
-        Map<String, Object> result =     Map.entry("changedCount"),
-        Map<String, Object> result =     Map.entry(changed.size()),
-        Map<String, Object> result =     Map.entry("unchangedCount"),
-        Map<String, Object> result =     Map.entry(unchanged.size()),
-        Map<String, Object> result =     Map.entry("changed"),
-        Map<String, Object> result =     Map.entry(changed),
-        Map<String, Object> result =     Map.entry("unchanged"),
-        Map<String, Object> result =     Map.entry(unchanged)
-        Map<String, Object> result = );
+                Map.entry("version", "1.0.0"),
+                Map.entry("updatedAt", modules.get("updatedAt")),
+                Map.entry("clientVersion", normalizeVersion(clientVersion)),
+                Map.entry("totalModules", items.size()),
+                Map.entry("changedCount", changed.size()),
+                Map.entry("unchangedCount", unchanged.size()),
+                Map.entry("changed", changed),
+                Map.entry("unchanged", unchanged)
+        );
         moduleDiffCache.put(
                 requestHash,
                 new ModuleDiffCacheEntry(
@@ -2900,7 +2717,7 @@ public class RecycleApplicationService {
 
     private Map<String, Object> buildModuleIndexEntry(Map<String, Object> module) {
         String version = String.valueOf(module.getOrDefault("version", "UNKNOWN"));
-        Object updatedAt = module.get("updatedAt");
+        Object updatedAt = module.getOrDefault("updatedAt", "");
         String digest = buildModuleDigest(module);
         return Map.of(
                 "version", version,
@@ -2908,6 +2725,7 @@ public class RecycleApplicationService {
                 "digest", digest
         );
     }
+
 
     private String buildModuleDigest(Map<String, Object> module) {
         try {
@@ -2965,23 +2783,15 @@ public class RecycleApplicationService {
     ) {
         boolean compatible = compareVersion(clientVersion, minClientVersion) >= 0;
         return Map.ofEntries(
-        return     Map.entry("id"),
-        return     Map.entry(id),
-        return     Map.entry("order"),
-        return     Map.entry(order),
-        return     Map.entry("required"),
-        return     Map.entry(required),
-        return     Map.entry("minClientVersion"),
-        return     Map.entry(minClientVersion),
-        return     Map.entry("action"),
-        return     Map.entry(action),
-        return     Map.entry("degradeAction"),
-        return     Map.entry(degradeAction),
-        return     Map.entry("compatible"),
-        return     Map.entry(compatible),
-        return     Map.entry("filtered"),
-        return     Map.entry(!compatible)
-        return );
+                Map.entry("id", id),
+                Map.entry("order", order),
+                Map.entry("required", required),
+                Map.entry("minClientVersion", minClientVersion),
+                Map.entry("action", action),
+                Map.entry("degradeAction", degradeAction),
+                Map.entry("compatible", compatible),
+                Map.entry("filtered", !compatible)
+        );
     }
 
     private Map<String, Object> buildDegradeAction(
@@ -3392,21 +3202,16 @@ public class RecycleApplicationService {
                 buildAuditLogSpec(actionType, targetId),
                 PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"))
         );
-        return page.getContent().stream().map(log -> Map.ofEntries(
-        return page.getContent().stream().map(log ->     Map.entry("id"),
-        return page.getContent().stream().map(log ->     Map.entry(log.getId()),
-        return page.getContent().stream().map(log ->     Map.entry("actionType"),
-        return page.getContent().stream().map(log ->     Map.entry(log.getActionType()),
-        return page.getContent().stream().map(log ->     Map.entry("targetType"),
-        return page.getContent().stream().map(log ->     Map.entry(log.getTargetType()),
-        return page.getContent().stream().map(log ->     Map.entry("targetId"),
-        return page.getContent().stream().map(log ->     Map.entry(log.getTargetId()),
-        return page.getContent().stream().map(log ->     Map.entry("detail"),
-        return page.getContent().stream().map(log ->     Map.entry(log.getDetail()),
-        return page.getContent().stream().map(log ->     Map.entry("createdAt"),
-        return page.getContent().stream().map(log ->     Map.entry(log.getCreatedAt())
-        return page.getContent().stream().map(log -> )).toList();
+        return page.getContent().stream().map(log -> Map.<String, Object>ofEntries(
+                Map.entry("id", log.getId()),
+                Map.entry("actionType", log.getActionType()),
+                Map.entry("targetType", log.getTargetType()),
+                Map.entry("targetId", log.getTargetId()),
+                Map.entry("detail", log.getDetail()),
+                Map.entry("createdAt", log.getCreatedAt())
+        )).toList();
     }
+
 
     @Transactional(readOnly = true)
     public Map<String, Object> pageAuditLogs(String actionType, String targetId, int page, int size) {
@@ -3537,18 +3342,18 @@ public class RecycleApplicationService {
                 "size", safeSize,
                 "totalElements", result.getTotalElements(),
                 "totalPages", result.getTotalPages(),
-                "items", result.getContent().stream().map(log -> Map.of(
-                        "id", log.getId(),
-                        "orderNo", log.getOrderNo(),
-                        "idempotencyKey", log.getIdempotencyKey(),
-                        "payStatus", log.getPayStatus(),
-                        "callbackStatus", log.getCallbackStatus(),
-                        "errorMessage", log.getErrorMessage() == null ? "" : log.getErrorMessage(),
-                        "responseBody", log.getResponseBody(),
-                        "source", log.getSource(),
-                        "replayCount", log.getReplayCount(),
-                        "createdAt", log.getCreatedAt(),
-                        "lastReplayAt", log.getLastReplayAt()
+                "items", result.getContent().stream().map(log -> Map.<String, Object>ofEntries(
+                        Map.entry("id", log.getId()),
+                        Map.entry("orderNo", log.getOrderNo()),
+                        Map.entry("idempotencyKey", log.getIdempotencyKey()),
+                        Map.entry("payStatus", log.getPayStatus()),
+                        Map.entry("callbackStatus", log.getCallbackStatus()),
+                        Map.entry("errorMessage", log.getErrorMessage() == null ? "" : log.getErrorMessage()),
+                        Map.entry("responseBody", log.getResponseBody()),
+                        Map.entry("source", log.getSource()),
+                        Map.entry("replayCount", log.getReplayCount()),
+                        Map.entry("createdAt", log.getCreatedAt()),
+                        Map.entry("lastReplayAt", log.getLastReplayAt())
                 )).toList()
         );
     }
@@ -3712,36 +3517,21 @@ public class RecycleApplicationService {
                 "activeRate", activeRate
         );
         Map<String, Object> response = Map.ofEntries(
-        Map<String, Object> response =     Map.entry("queryAuditActionsSchemaVersion"),
-        Map<String, Object> response =     Map.entry(QUERY_AUDIT_ACTIONS_SCHEMA_VERSION),
-        Map<String, Object> response =     Map.entry("requestId"),
-        Map<String, Object> response =     Map.entry(normalizedRequestId),
-        Map<String, Object> response =     Map.entry("generatedAt"),
-        Map<String, Object> response =     Map.entry(now),
-        Map<String, Object> response =     Map.entry("requestedLang"),
-        Map<String, Object> response =     Map.entry(requestedLang),
-        Map<String, Object> response =     Map.entry("langFallbackApplied"),
-        Map<String, Object> response =     Map.entry(langFallbackApplied),
-        Map<String, Object> response =     Map.entry("langFallbackReason"),
-        Map<String, Object> response =     Map.entry(langFallbackReason),
-        Map<String, Object> response =     Map.entry("defaultLang"),
-        Map<String, Object> response =     Map.entry(DEFAULT_LANG),
-        Map<String, Object> response =     Map.entry("supportedLangs"),
-        Map<String, Object> response =     Map.entry(supportedLangs()),
-        Map<String, Object> response =     Map.entry("supportedLangFallbackReasons"),
-        Map<String, Object> response =     Map.entry(supportedLangFallbackReasons()),
-        Map<String, Object> response =     Map.entry("preferredReadPath"),
-        Map<String, Object> response =     Map.entry("meta"),
-        Map<String, Object> response =     Map.entry("requestSpecVersion"),
-        Map<String, Object> response =     Map.entry(REQUEST_SPEC_VERSION),
-        Map<String, Object> response =     Map.entry("requestSpec"),
-        Map<String, Object> response =     Map.entry(queryAuditActionsRequestSpec()),
-        Map<String, Object> response =     Map.entry("compatibility"),
-        Map<String, Object> response =     Map.entry(queryAuditActionsCompatibility(normalizedLang)),
-        Map<String, Object> response =     Map.entry("dictionaryVersions"),
-        Map<String, Object> response =     Map.entry(queryAuditActionsDictionaryVersions()),
-        Map<String, Object> response =     Map.entry("meta"),
-        Map<String, Object> response =     Map.entry(buildQueryAuditActionsMeta(
+                Map.entry("queryAuditActionsSchemaVersion", QUERY_AUDIT_ACTIONS_SCHEMA_VERSION),
+                Map.entry("requestId", normalizedRequestId),
+                Map.entry("generatedAt", now),
+                Map.entry("requestedLang", requestedLang),
+                Map.entry("langFallbackApplied", langFallbackApplied),
+                Map.entry("langFallbackReason", langFallbackReason),
+                Map.entry("defaultLang", DEFAULT_LANG),
+                Map.entry("supportedLangs", supportedLangs()),
+                Map.entry("supportedLangFallbackReasons", supportedLangFallbackReasons()),
+                Map.entry("preferredReadPath", "meta"),
+                Map.entry("requestSpecVersion", REQUEST_SPEC_VERSION),
+                Map.entry("requestSpec", queryAuditActionsRequestSpec()),
+                Map.entry("compatibility", queryAuditActionsCompatibility(normalizedLang)),
+                Map.entry("dictionaryVersions", queryAuditActionsDictionaryVersions()),
+                Map.entry("meta", buildQueryAuditActionsMeta(
                         normalizedRequestId,
                         now,
                         requestedLang,
@@ -3750,29 +3540,19 @@ public class RecycleApplicationService {
                         langFallbackReason,
                         summary
                 )),
-        Map<String, Object> response =     Map.entry("statusDictionaryVersion"),
-        Map<String, Object> response =     Map.entry(STATUS_DICTIONARY_VERSION),
-        Map<String, Object> response =     Map.entry("statusDictionary"),
-        Map<String, Object> response =     Map.entry(queryAuditActionsStatusDictionary(normalizedLang)),
-        Map<String, Object> response =     Map.entry("descDictionaryVersion"),
-        Map<String, Object> response =     Map.entry(DESC_DICTIONARY_VERSION),
-        Map<String, Object> response =     Map.entry("langFallbackReasonDictionaryVersion"),
-        Map<String, Object> response =     Map.entry(LANG_FALLBACK_REASON_DICTIONARY_VERSION),
-        Map<String, Object> response =     Map.entry("langFallbackReasonDictionary"),
-        Map<String, Object> response =     Map.entry(langFallbackReasonDictionary(normalizedLang)),
-        Map<String, Object> response =     Map.entry("lang"),
-        Map<String, Object> response =     Map.entry(normalizedLang),
-        Map<String, Object> response =     Map.entry("descDictionary"),
-        Map<String, Object> response =     Map.entry(descDictionary),
-        Map<String, Object> response =     Map.entry("summary"),
-        Map<String, Object> response =     Map.entry(summary),
-        Map<String, Object> response =     Map.entry("actions"),
-        Map<String, Object> response =     Map.entry(actions),
-        Map<String, Object> response =     Map.entry("convention"),
-        Map<String, Object> response =     Map.entry(queryAuditActionsConventionText(normalizedLang)),
-        Map<String, Object> response =     Map.entry("conventionStatus"),
-        Map<String, Object> response =     Map.entry(QUERY_AUDIT_CONVENTION_STATUS_EXTERNAL_ONLY)
-        Map<String, Object> response = );
+                Map.entry("statusDictionaryVersion", STATUS_DICTIONARY_VERSION),
+                Map.entry("statusDictionary", queryAuditActionsStatusDictionary(normalizedLang)),
+                Map.entry("descDictionaryVersion", DESC_DICTIONARY_VERSION),
+                Map.entry("langFallbackReasonDictionaryVersion", LANG_FALLBACK_REASON_DICTIONARY_VERSION),
+                Map.entry("langFallbackReasonDictionary", langFallbackReasonDictionary(normalizedLang)),
+                Map.entry("lang", normalizedLang),
+                Map.entry("descDictionary", descDictionary),
+                Map.entry("summary", summary),
+                Map.entry("actions", actions),
+                Map.entry("convention", queryAuditActionsConventionText(normalizedLang)),
+                Map.entry("conventionStatus", QUERY_AUDIT_CONVENTION_STATUS_EXTERNAL_ONLY)
+        );
+
         if (writeAuditLog) {
             logExternalQueryAction(
                     ACTION_PAYMENT_REPLAY_QUERY_AUDIT_ACTIONS_QUERY,
@@ -3836,22 +3616,14 @@ public class RecycleApplicationService {
         }
 
         Map<String, Object> response = Map.ofEntries(
-        Map<String, Object> response =     Map.entry("healthSchemaVersion"),
-        Map<String, Object> response =     Map.entry(HEALTH_SCHEMA_VERSION),
-        Map<String, Object> response =     Map.entry("requestId"),
-        Map<String, Object> response =     Map.entry(normalizedRequestId),
-        Map<String, Object> response =     Map.entry("generatedAt"),
-        Map<String, Object> response =     Map.entry(now),
-        Map<String, Object> response =     Map.entry("statusDictionaryVersion"),
-        Map<String, Object> response =     Map.entry(STATUS_DICTIONARY_VERSION),
-        Map<String, Object> response =     Map.entry("statusDictionary"),
-        Map<String, Object> response =     Map.entry(healthStatusDictionary()),
-        Map<String, Object> response =     Map.entry("overallStatus"),
-        Map<String, Object> response =     Map.entry(alerts.isEmpty() ? STATUS_OK : STATUS_WARN),
-        Map<String, Object> response =     Map.entry("alerts"),
-        Map<String, Object> response =     Map.entry(alerts),
-        Map<String, Object> response =     Map.entry("metrics"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("healthSchemaVersion", HEALTH_SCHEMA_VERSION),
+                Map.entry("requestId", normalizedRequestId),
+                Map.entry("generatedAt", now),
+                Map.entry("statusDictionaryVersion", STATUS_DICTIONARY_VERSION),
+                Map.entry("statusDictionary", healthStatusDictionary()),
+                Map.entry("overallStatus", alerts.isEmpty() ? STATUS_OK : STATUS_WARN),
+                Map.entry("alerts", alerts),
+                Map.entry("metrics", Map.of(
                         "pending", pending,
                         "processing", processing,
                         "success", success,
@@ -3862,14 +3634,14 @@ public class RecycleApplicationService {
                         "recentCleanupSlowWarn", recentCleanupSlowWarn,
                         "latestCleanupWarnAt", latestCleanupWarnLog == null ? "" : latestCleanupWarnLog.getCreatedAt()
                 )),
-        Map<String, Object> response =     Map.entry("thresholds"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("thresholds", Map.of(
                         "pending", replayHealthPendingThreshold,
                         "dead", replayHealthDeadThreshold,
                         "oldestPendingAgeMinutes", replayHealthOldestPendingMinutesThreshold,
                         "cleanupWarnLookbackMinutes", Math.max(1, replayHealthCleanupWarnLookbackMinutes)
                 ))
-        Map<String, Object> response = );
+        );
+
         if (writeAuditLog) {
             logExternalQueryAction(
                     ACTION_PAYMENT_REPLAY_HEALTH_QUERY,
@@ -3891,6 +3663,7 @@ public class RecycleApplicationService {
     }
 
     private Map<String, Object> replayTaskDiagnosis(String requestId, boolean writeAuditLog) {
+        LocalDateTime now = LocalDateTime.now();
         Map<String, Object> health = replayTaskHealth(requestId, false);
         String normalizedRequestId = resolveRequestId(requestId);
         Map<String, Object> cleanupPerformanceCheck = replayCleanupPerformanceCheck(normalizedRequestId, false);
@@ -3995,44 +3768,31 @@ public class RecycleApplicationService {
         }
 
         Map<String, Object> response = Map.ofEntries(
-        Map<String, Object> response =     Map.entry("diagnosisSchemaVersion"),
-        Map<String, Object> response =     Map.entry(DIAGNOSIS_SCHEMA_VERSION),
-        Map<String, Object> response =     Map.entry("requestId"),
-        Map<String, Object> response =     Map.entry(normalizedRequestId),
-        Map<String, Object> response =     Map.entry("generatedAt"),
-        Map<String, Object> response =     Map.entry(now),
-        Map<String, Object> response =     Map.entry("dependentSchemaVersions"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("diagnosisSchemaVersion", DIAGNOSIS_SCHEMA_VERSION),
+                Map.entry("requestId", normalizedRequestId),
+                Map.entry("generatedAt", now),
+                Map.entry("dependentSchemaVersions", Map.of(
                         "healthSchemaVersion", health.get("healthSchemaVersion"),
                         "cleanupPerformanceCheckSchemaVersion", cleanupPerformanceCheck.get("cleanupPerformanceCheckSchemaVersion")
                 )),
-        Map<String, Object> response =     Map.entry("dependentStatusDictionaryVersions"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("dependentStatusDictionaryVersions", Map.of(
                         "healthStatusDictionaryVersion", health.get("statusDictionaryVersion"),
                         "cleanupStatusDictionaryVersion", cleanupPerformanceCheck.get("statusDictionaryVersion")
                 )),
-        Map<String, Object> response =     Map.entry("statusDictionaryVersion"),
-        Map<String, Object> response =     Map.entry(STATUS_DICTIONARY_VERSION),
-        Map<String, Object> response =     Map.entry("statusDictionary"),
-        Map<String, Object> response =     Map.entry(diagnosisStatusDictionary()),
-        Map<String, Object> response =     Map.entry("overallStatus"),
-        Map<String, Object> response =     Map.entry(diagnosisOverallStatus),
-        Map<String, Object> response =     Map.entry("statusBreakdown"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("statusDictionaryVersion", STATUS_DICTIONARY_VERSION),
+                Map.entry("statusDictionary", diagnosisStatusDictionary()),
+                Map.entry("overallStatus", diagnosisOverallStatus),
+                Map.entry("statusBreakdown", Map.of(
                         "queueHealth", healthOverallStatus,
                         "cleanupPerformanceCheck", cleanupOverallStatus
                 )),
-        Map<String, Object> response =     Map.entry("alerts"),
-        Map<String, Object> response =     Map.entry(health.get("alerts")),
-        Map<String, Object> response =     Map.entry("metrics"),
-        Map<String, Object> response =     Map.entry(metrics),
-        Map<String, Object> response =     Map.entry("thresholds"),
-        Map<String, Object> response =     Map.entry(health.get("thresholds")),
-        Map<String, Object> response =     Map.entry("suggestedActions"),
-        Map<String, Object> response =     Map.entry(suggestedActions),
-        Map<String, Object> response =     Map.entry("cleanupPerformanceCheck"),
-        Map<String, Object> response =     Map.entry(cleanupPerformanceCheck)
-        Map<String, Object> response = );
+                Map.entry("alerts", health.get("alerts")),
+                Map.entry("metrics", metrics),
+                Map.entry("thresholds", health.get("thresholds")),
+                Map.entry("suggestedActions", suggestedActions),
+                Map.entry("cleanupPerformanceCheck", cleanupPerformanceCheck)
+        );
+
         if (writeAuditLog) {
             logExternalQueryAction(
                     ACTION_PAYMENT_REPLAY_DIAGNOSIS_QUERY,
@@ -4088,7 +3848,7 @@ public class RecycleApplicationService {
                         "name", SIGNAL_HAS_RECENT_CLEANUP_RUN,
                         "pass", hasRecentCleanupRun,
                         "expected", "观察窗口内至少有一次 cleanup 执行",
-                        "actual", hasRecentCleanupRun
+                        "actual", hasRecentCleanupRun && latestCleanupLog != null
                                 ? "latestCleanupAt=" + latestCleanupLog.getCreatedAt()
                                 : "观察窗口内未发现 cleanup 记录"
                 ),
@@ -4129,43 +3889,31 @@ public class RecycleApplicationService {
         if (recommendations.isEmpty()) {
             recommendations.add("清理性能验收通过，保持当前配置并持续观察");
         }
-
         Map<String, Object> response = Map.ofEntries(
-        Map<String, Object> response =     Map.entry("cleanupPerformanceCheckSchemaVersion"),
-        Map<String, Object> response =     Map.entry(CLEANUP_PERFORMANCE_CHECK_SCHEMA_VERSION),
-        Map<String, Object> response =     Map.entry("requestId"),
-        Map<String, Object> response =     Map.entry(normalizedRequestId),
-        Map<String, Object> response =     Map.entry("generatedAt"),
-        Map<String, Object> response =     Map.entry(now),
-        Map<String, Object> response =     Map.entry("statusDictionaryVersion"),
-        Map<String, Object> response =     Map.entry(STATUS_DICTIONARY_VERSION),
-        Map<String, Object> response =     Map.entry("statusDictionary"),
-        Map<String, Object> response =     Map.entry(cleanupStatusDictionary()),
-        Map<String, Object> response =     Map.entry("overallStatus"),
-        Map<String, Object> response =     Map.entry(pass ? STATUS_PASS : STATUS_WARN),
-        Map<String, Object> response =     Map.entry("summary"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("cleanupPerformanceCheckSchemaVersion", CLEANUP_PERFORMANCE_CHECK_SCHEMA_VERSION),
+                Map.entry("requestId", normalizedRequestId),
+                Map.entry("generatedAt", now),
+                Map.entry("statusDictionaryVersion", STATUS_DICTIONARY_VERSION),
+                Map.entry("statusDictionary", cleanupStatusDictionary()),
+                Map.entry("overallStatus", pass ? STATUS_PASS : STATUS_WARN),
+                Map.entry("summary", Map.of(
                         "signalPassCount", signalPassCount,
                         "signalTotalCount", signalTotalCount,
                         "signalPassRate", signalPassRate
                 )),
-        Map<String, Object> response =     Map.entry("signals"),
-        Map<String, Object> response =     Map.entry(signals),
-        Map<String, Object> response =     Map.entry("metrics"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("signals", signals),
+                Map.entry("metrics", Map.of(
                         "recentCleanupSlowWarn", recentCleanupSlowWarn,
                         "latestCleanupAt", latestCleanupLog == null ? "" : latestCleanupLog.getCreatedAt(),
                         "latestCleanupWarnAt", latestCleanupWarnLog == null ? "" : latestCleanupWarnLog.getCreatedAt(),
                         "latestCleanupDurationMs", latestCleanupDurationMs == null ? "" : latestCleanupDurationMs
                 )),
-        Map<String, Object> response =     Map.entry("thresholds"),
-        Map<String, Object> response =     Map.entry(Map.of(
+                Map.entry("thresholds", Map.of(
                         "cleanupWarnDurationMs", replayAutoHandleIdempotencyCleanupWarnDurationMs,
                         "cleanupWarnLookbackMinutes", safeLookbackMinutes
                 )),
-        Map<String, Object> response =     Map.entry("recommendations"),
-        Map<String, Object> response =     Map.entry(recommendations)
-        Map<String, Object> response = );
+                Map.entry("recommendations", recommendations)
+        );
         if (writeAuditLog) {
             logExternalQueryAction(
                     ACTION_PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY,
@@ -4225,20 +3973,15 @@ public class RecycleApplicationService {
             consumeResult = consumeReplayTasks((int) Math.min(readyToConsume, safeConsumeMaxCount));
         } else {
             consumeResult = Map.ofEntries(
-            consumeResult =     Map.entry("processed"),
-            consumeResult =     Map.entry(0),
-            consumeResult =     Map.entry("success"),
-            consumeResult =     Map.entry(0),
-            consumeResult =     Map.entry("retriableFailed"),
-            consumeResult =     Map.entry(0),
-            consumeResult =     Map.entry("dead"),
-            consumeResult =     Map.entry(0),
-            consumeResult =     Map.entry("skipped"),
-            consumeResult =     Map.entry(true),
-            consumeResult =     Map.entry("reason"),
-            consumeResult =     Map.entry("无可立即消费任务")
-            consumeResult = );
+                    Map.entry("processed", 0),
+                    Map.entry("success", 0),
+                    Map.entry("retriableFailed", 0),
+                    Map.entry("dead", 0),
+                    Map.entry("skipped", true),
+                    Map.entry("reason", "无可立即消费任务")
+            );
         }
+
 
         Map<String, Object> requeueResult;
         if (allowRequeueDead && dead > 0) {
@@ -4330,19 +4073,13 @@ public class RecycleApplicationService {
                 .orElseThrow(() -> new IllegalArgumentException("幂等记录不存在: " + traceId));
         LocalDateTime now = LocalDateTime.now();
         return Map.ofEntries(
-        return     Map.entry("id"),
-        return     Map.entry(record.getId()),
-        return     Map.entry("traceId"),
-        return     Map.entry(record.getTraceId()),
-        return     Map.entry("createdAt"),
-        return     Map.entry(record.getCreatedAt()),
-        return     Map.entry("expireAt"),
-        return     Map.entry(record.getExpireAt()),
-        return     Map.entry("expired"),
-        return     Map.entry(record.getExpireAt().isBefore(now)),
-        return     Map.entry("response"),
-        return     Map.entry(fromJsonMap(record.getResponseJson()))
-        return );
+                Map.entry("id", record.getId()),
+                Map.entry("traceId", record.getTraceId()),
+                Map.entry("createdAt", record.getCreatedAt()),
+                Map.entry("expireAt", record.getExpireAt()),
+                Map.entry("expired", record.getExpireAt().isBefore(now)),
+                Map.entry("response", fromJsonMap(record.getResponseJson()))
+        );
     }
 
     @Transactional
@@ -4408,23 +4145,15 @@ public class RecycleApplicationService {
             );
         }
         return Map.ofEntries(
-        return     Map.entry("retainDays"),
-        return     Map.entry(safeRetainDays),
-        return     Map.entry("expiredDeleted"),
-        return     Map.entry(expiredDeleted),
-        return     Map.entry("historyDeleted"),
-        return     Map.entry(historyDeleted),
-        return     Map.entry("totalDeleted"),
-        return     Map.entry(totalDeleted),
-        return     Map.entry("skipped"),
-        return     Map.entry(false),
-        return     Map.entry("durationMs"),
-        return     Map.entry(durationMs),
-        return     Map.entry("warnThresholdMs"),
-        return     Map.entry(replayAutoHandleIdempotencyCleanupWarnDurationMs),
-        return     Map.entry("slowWarnTriggered"),
-        return     Map.entry(durationMs > replayAutoHandleIdempotencyCleanupWarnDurationMs)
-        return );
+                Map.entry("retainDays", safeRetainDays),
+                Map.entry("expiredDeleted", expiredDeleted),
+                Map.entry("historyDeleted", historyDeleted),
+                Map.entry("totalDeleted", totalDeleted),
+                Map.entry("skipped", false),
+                Map.entry("durationMs", durationMs),
+                Map.entry("warnThresholdMs", replayAutoHandleIdempotencyCleanupWarnDurationMs),
+                Map.entry("slowWarnTriggered", durationMs > replayAutoHandleIdempotencyCleanupWarnDurationMs)
+        );
         } finally {
             replayAutoHandleIdempotencyCleanupLock.unlock();
         }
@@ -4723,72 +4452,45 @@ public class RecycleApplicationService {
             Map<String, Object> summary
     ) {
         return Map.ofEntries(
-        return     Map.entry("requestId"),
-        return     Map.entry(requestId),
-        return     Map.entry("generatedAt"),
-        return     Map.entry(generatedAt),
-        return     Map.entry("requestedLang"),
-        return     Map.entry(requestedLang),
-        return     Map.entry("lang"),
-        return     Map.entry(lang),
-        return     Map.entry("langFallbackApplied"),
-        return     Map.entry(langFallbackApplied),
-        return     Map.entry("langFallbackReason"),
-        return     Map.entry(langFallbackReason),
-        return     Map.entry("defaultLang"),
-        return     Map.entry(DEFAULT_LANG),
-        return     Map.entry("supportedLangs"),
-        return     Map.entry(supportedLangs()),
-        return     Map.entry("supportedLangFallbackReasons"),
-        return     Map.entry(supportedLangFallbackReasons()),
-        return     Map.entry("schemaVersion"),
-        return     Map.entry(QUERY_AUDIT_ACTIONS_SCHEMA_VERSION),
-        return     Map.entry("requestSpecVersion"),
-        return     Map.entry(REQUEST_SPEC_VERSION),
-        return     Map.entry("requestSpec"),
-        return     Map.entry(queryAuditActionsRequestSpec()),
-        return     Map.entry("dictionaryVersions"),
-        return     Map.entry(queryAuditActionsDictionaryVersions()),
-        return     Map.entry("summary"),
-        return     Map.entry(summary),
-        return     Map.entry("compatibility"),
-        return     Map.entry(queryAuditActionsCompatibility(lang))
-        return );
+                Map.entry("requestId", requestId),
+                Map.entry("generatedAt", generatedAt),
+                Map.entry("requestedLang", requestedLang),
+                Map.entry("lang", lang),
+                Map.entry("langFallbackApplied", langFallbackApplied),
+                Map.entry("langFallbackReason", langFallbackReason),
+                Map.entry("defaultLang", DEFAULT_LANG),
+                Map.entry("supportedLangs", supportedLangs()),
+                Map.entry("supportedLangFallbackReasons", supportedLangFallbackReasons()),
+                Map.entry("schemaVersion", QUERY_AUDIT_ACTIONS_SCHEMA_VERSION),
+                Map.entry("requestSpecVersion", REQUEST_SPEC_VERSION),
+                Map.entry("requestSpec", queryAuditActionsRequestSpec()),
+                Map.entry("dictionaryVersions", queryAuditActionsDictionaryVersions()),
+                Map.entry("summary", summary),
+                Map.entry("compatibility", queryAuditActionsCompatibility(lang))
+        );
     }
 
     private Map<String, Object> queryAuditActionsCompatibility(String lang) {
         String migrationStatus = MIGRATION_STATUS_STABLE;
         String migrationHintKey = migrationHintKeyByStatus(migrationStatus);
         return Map.ofEntries(
-        return     Map.entry("compatibilityVersion"),
-        return     Map.entry(COMPATIBILITY_VERSION),
-        return     Map.entry("migrationStatus"),
-        return     Map.entry(migrationStatus),
-        return     Map.entry("supportedMigrationStatuses"),
-        return     Map.entry(List.of(
+                Map.entry("compatibilityVersion", COMPATIBILITY_VERSION),
+                Map.entry("migrationStatus", migrationStatus),
+                Map.entry("supportedMigrationStatuses", List.of(
                         MIGRATION_STATUS_STABLE,
                         MIGRATION_STATUS_DEPRECATING,
                         MIGRATION_STATUS_SUNSET
                 )),
-        return     Map.entry("migrationStatusDictionary"),
-        return     Map.entry(migrationStatusDictionary(lang)),
-        return     Map.entry("topLevelFieldsRetained"),
-        return     Map.entry(true),
-        return     Map.entry("topLevelFieldsDeprecated"),
-        return     Map.entry(false),
-        return     Map.entry("topLevelDeprecatedFields"),
-        return     Map.entry(List.of()),
-        return     Map.entry("topLevelDeprecationTargetDate"),
-        return     Map.entry(""),
-        return     Map.entry("migrationHintKey"),
-        return     Map.entry(migrationHintKey),
-        return     Map.entry("migrationHint"),
-        return     Map.entry(migrationHintByStatus(migrationStatus, lang)),
-        return     Map.entry("migrationHintDictionaryVersion"),
-        return     Map.entry(MIGRATION_HINT_DICTIONARY_VERSION),
-        return     Map.entry("migrationHintDictionary"),
-        return     Map.entry(migrationHintDictionary(lang))
-        return );
+                Map.entry("migrationStatusDictionary", migrationStatusDictionary(lang)),
+                Map.entry("topLevelFieldsRetained", true),
+                Map.entry("topLevelFieldsDeprecated", false),
+                Map.entry("topLevelDeprecatedFields", List.of()),
+                Map.entry("topLevelDeprecationTargetDate", ""),
+                Map.entry("migrationHintKey", migrationHintKey),
+                Map.entry("migrationHint", migrationHintByStatus(migrationStatus, lang)),
+                Map.entry("migrationHintDictionaryVersion", MIGRATION_HINT_DICTIONARY_VERSION),
+                Map.entry("migrationHintDictionary", migrationHintDictionary(lang))
+        );
     }
 
     private Map<String, String> migrationStatusDictionary(String lang) {

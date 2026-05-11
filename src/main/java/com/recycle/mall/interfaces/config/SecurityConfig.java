@@ -90,14 +90,22 @@ public class SecurityConfig {
         return provider::authenticate;
     }
 
+    /**
+     * 配置用户详情服务，用于认证和授权过程
+     * @param userAccountRepository 用户账户数据访问对象，用于查询用户信息
+     * @return 返回UserDetailsService实例，Spring Security使用它来加载用户特定的数据
+     */
     @Bean
     public UserDetailsService userDetailsService(UserAccountRepository userAccountRepository) {
         return username -> {
+            // 根据用户名查询用户信息，如果用户不存在则抛出UsernameNotFoundException
             UserAccountEntity user = userAccountRepository.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("用户不存在"));
+            // 检查用户账号状态是否为ACTIVE，如果不是则抛出异常
             if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
                 throw new UsernameNotFoundException("账号不可用");
             }
+            // 返回Spring Security的User对象，包含用户名、密码和权限
             return new User(
                     user.getUsername(),
                     user.getPasswordHash(),
