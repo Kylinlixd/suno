@@ -2531,7 +2531,7 @@ public class RecycleApplicationService {
         );
     }
 
-    private Map<String, Object> adminConfigCenterModule(String moduleName, String clientVersion) {
+    public Map<String, Object> adminConfigCenterModule(String moduleName, String clientVersion) {
         return switch (moduleName) {    
             case "reviewStrategy" -> adminGetReviewStrategyConfig();
             case "globalErrorCodes" -> adminGlobalErrorCodeDictionary();

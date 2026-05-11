@@ -30,6 +30,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.recycle.mall.infrastructure.repository.ResaleFavoriteRepository;
+import com.recycle.mall.infrastructure.repository.ResaleReviewReportRepository;
+import com.recycle.mall.infrastructure.repository.ResaleReviewRepository;
+import com.recycle.mall.infrastructure.repository.ResaleReviewVoteRepository;
+
+
 class RecycleApplicationServiceQueryAuditActionsTest {
 
     @Test
@@ -265,8 +271,8 @@ class RecycleApplicationServiceQueryAuditActionsTest {
         }
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> compatibility = (Map<String, Object>) result.get("compatibility");
-        String migrationStatus = String.valueOf(compatibility.get("migrationStatus"));
+        Map<String, Object> compatibility2 = (Map<String, Object>) result.get("compatibility");
+        String migrationStatus = String.valueOf(compatibility2.get("migrationStatus"));
         @SuppressWarnings("unchecked")
         List<String> supportedMigrationStatuses = (List<String>) compatibility.get("supportedMigrationStatuses");
         assertTrue(supportedMigrationStatuses.contains(migrationStatus));
@@ -297,8 +303,12 @@ class RecycleApplicationServiceQueryAuditActionsTest {
                 Mockito.mock(RecycleOrderRepository.class),
                 Mockito.mock(LogisticsTrackRepository.class),
                 Mockito.mock(PointsLedgerRepository.class),
+                Mockito.mock(ResaleFavoriteRepository.class),
                 Mockito.mock(ResaleListingRepository.class),
                 Mockito.mock(ResaleOrderRepository.class),
+                Mockito.mock(ResaleReviewRepository.class),
+                Mockito.mock(ResaleReviewVoteRepository.class),
+                Mockito.mock(ResaleReviewReportRepository.class),
                 Mockito.mock(OperationAuditLogRepository.class),
                 Mockito.mock(PaymentCallbackLogRepository.class),
                 Mockito.mock(PaymentIdempotencyRepository.class),
@@ -307,4 +317,5 @@ class RecycleApplicationServiceQueryAuditActionsTest {
                 new ObjectMapper()
         );
     }
+
 }
