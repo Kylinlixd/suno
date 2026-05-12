@@ -3,19 +3,14 @@ package com.recycle.mall.service;
 import com.recycle.mall.common.BizException;
 import com.recycle.mall.common.ErrorCode;
 import com.recycle.mall.entity.AuthRefreshTokenEntity;
-import com.recycle.mall.entity.AuthExportTaskEntity;
 import com.recycle.mall.entity.AuthTokenBlacklistEntity;
 import com.recycle.mall.entity.OperationAuditLogEntity;
 import com.recycle.mall.entity.UserAccountEntity;
 import com.recycle.mall.dao.AuthRefreshTokenRepository;
-import com.recycle.mall.dao.AuthExportTaskRepository;
 import com.recycle.mall.dao.AuthTokenBlacklistRepository;
 import com.recycle.mall.dao.OperationAuditLogRepository;
 import com.recycle.mall.dao.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,67 +20,36 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.scheduling.annotation.Scheduled;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.List;
-import java.util.LinkedHashMap;
-import java.util.ArrayList;
 
 /**
- * 认证应用服务类，负责处理用户认证、会话管理、安全事件记录等相关业务逻辑
+ * 认证核心服务
+ * <p>
+ * 负责登录、刷新令牌、登出、Token 签发与黑名单管理。
+ * 会话管理委托 {@link AuthSessionService}，安全事件委托 {@link SecurityEventService}。
  */
 @Service
 public class AuthApplicationService {
-    // 默认设备ID常量
-    private static final String DEFAULT_DEVICE_ID = "web-default";
-    // 认证会话相关的事件类型常量
+
     private static final String TARGET_TYPE_AUTH_SESSION = "AUTH_SESSION";
-    private static final String TARGET_TYPE_AUTH_EXPORT_TASK = "AUTH_EXPORT_TASK";
     private static final String ACTION_LOGIN_SUCCESS = "AUTH_LOGIN_SUCCESS";
     private static final String ACTION_REFRESH_SUCCESS = "AUTH_REFRESH_SUCCESS";
     private static final String ACTION_REFRESH_REPLAY_BLOCKED = "AUTH_REFRESH_REPLAY_BLOCKED";
     private static final String ACTION_LOGOUT = "AUTH_LOGOUT";
-    private static final String ACTION_SESSION_REVOKE_DEVICE = "AUTH_SESSION_REVOKE_DEVICE";
-    private static final String ACTION_SESSION_REVOKE_ALL = "AUTH_SESSION_REVOKE_ALL";
-    private static final String ACTION_ADMIN_SESSION_REVOKE_DEVICE = "AUTH_ADMIN_SESSION_REVOKE_DEVICE";
-    private static final String ACTION_ADMIN_SESSION_REVOKE_ALL = "AUTH_ADMIN_SESSION_REVOKE_ALL";
-    private static final String ACTION_ADMIN_SESSION_QUERY = "AUTH_ADMIN_SESSION_QUERY";
-    private static final String ACTION_EXPORT_TASK_CREATED = "AUTH_EXPORT_TASK_CREATED";
-    private static final String ACTION_EXPORT_TASK_SUCCESS = "AUTH_EXPORT_TASK_SUCCESS";
-    private static final String ACTION_EXPORT_TASK_FAILED = "AUTH_EXPORT_TASK_FAILED";
-    private static final String ACTION_EXPORT_TASK_RETRY = "AUTH_EXPORT_TASK_RETRY";
-    private static final String ACTION_EXPORT_TASK_TIMEOUT = "AUTH_EXPORT_TASK_TIMEOUT";
-    private static final String ERROR_CODE_NONE = "NONE";
-    private static final String ERROR_CODE_EXECUTION_FAILED = "EXPORT_EXECUTION_FAILED";
-    private static final String ERROR_CODE_TASK_TIMEOUT = "EXPORT_TASK_TIMEOUT";
-    private static final List<String> SECURITY_EVENT_ACTIONS = List.of(
-            ACTION_REFRESH_REPLAY_BLOCKED,
-            ACTION_ADMIN_SESSION_REVOKE_DEVICE,
-            ACTION_ADMIN_SESSION_REVOKE_ALL,
-            ACTION_SESSION_REVOKE_DEVICE,
-            ACTION_SESSION_REVOKE_ALL,
-            ACTION_EXPORT_TASK_TIMEOUT,
-            ACTION_EXPORT_TASK_FAILED,
-            ACTION_EXPORT_TASK_RETRY,
-            ACTION_EXPORT_TASK_SUCCESS,
-            ACTION_EXPORT_TASK_CREATED,
-            ACTION_LOGOUT,
-            ACTION_LOGIN_SUCCESS,
-            ACTION_REFRESH_SUCCESS
-    );
 
     private final UserAccountRepository userAccountRepository;
-    private final AuthExportTaskRepository authExportTaskRepository;
     private final AuthRefreshTokenRepository authRefreshTokenRepository;
     private final AuthTokenBlacklistRepository authTokenBlacklistRepository;
     private final OperationAuditLogRepository operationAuditLogRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtEncoder jwtEncoder;
+    private final AuthSessionService authSessionService;
 
     @Value("${security.auth.jwt.expire-minutes:120}")
     private long accessTokenExpireMinutes;
@@ -93,34 +57,22 @@ public class AuthApplicationService {
     @Value("${security.auth.jwt.refresh-expire-minutes:10080}")
     private long refreshTokenExpireMinutes;
 
-    @Value("${security.auth.export-task.retain-days:7}")
-    private int exportTaskRetainDays;
-
-    @Value("${security.auth.export-task.max-running:3}")
-    private int exportTaskMaxRunning;
-
-    @Value("${security.auth.export-task.default-max-retry:2}")
-    private int exportTaskDefaultMaxRetry;
-
-    @Value("${security.auth.export-task.running-timeout-minutes:10}")
-    private int exportTaskRunningTimeoutMinutes;
-
     public AuthApplicationService(
             UserAccountRepository userAccountRepository,
-            AuthExportTaskRepository authExportTaskRepository,
             AuthRefreshTokenRepository authRefreshTokenRepository,
             AuthTokenBlacklistRepository authTokenBlacklistRepository,
             OperationAuditLogRepository operationAuditLogRepository,
             AuthenticationManager authenticationManager,
-            JwtEncoder jwtEncoder
+            JwtEncoder jwtEncoder,
+            AuthSessionService authSessionService
     ) {
         this.userAccountRepository = userAccountRepository;
-        this.authExportTaskRepository = authExportTaskRepository;
         this.authRefreshTokenRepository = authRefreshTokenRepository;
         this.authTokenBlacklistRepository = authTokenBlacklistRepository;
         this.operationAuditLogRepository = operationAuditLogRepository;
         this.authenticationManager = authenticationManager;
         this.jwtEncoder = jwtEncoder;
+        this.authSessionService = authSessionService;
     }
 
     @Transactional
@@ -223,35 +175,124 @@ public class AuthApplicationService {
         return result;
     }
 
+    // ==================== 会话管理（委托 AuthSessionService） ====================
+
     @Transactional(readOnly = true)
     public Map<String, Object> listActiveSessions(Jwt jwt) {
-        return listActiveSessionsByUsername(jwt.getSubject());
+        return authSessionService.listActiveSessions(jwt);
     }
 
     @Transactional(readOnly = true)
     public Map<String, Object> adminListUserSessions(String username) {
-        logAction(ACTION_ADMIN_SESSION_QUERY, username, "operator=admin");
-        return listActiveSessionsByUsername(username);
+        return authSessionService.adminListUserSessions(username);
     }
 
-    private Map<String, Object> listActiveSessionsByUsername(String username) {
-        List<AuthRefreshTokenEntity> sessions =
-                authRefreshTokenRepository.findByUsernameAndRevokedFalseOrderByCreatedAtDesc(username);
-        Map<String, Object> data = new HashMap<>();
-        List<Map<String, Object>> items = new java.util.ArrayList<>();
-        for (AuthRefreshTokenEntity session : sessions) {
-            Map<String, Object> row = new HashMap<>();
-            row.put("deviceId", session.getDeviceId());
-            row.put("createdAt", session.getCreatedAt().toString());
-            row.put("expireAt", session.getExpireAt().toString());
-            row.put("revoked", session.getRevoked());
-            items.add(row);
+    @Transactional
+    public Map<String, Object> revokeDeviceSession(Jwt jwt, String deviceId) {
+        return authSessionService.revokeDeviceSession(jwt, deviceId);
+    }
+
+    @Transactional
+    public Map<String, Object> adminRevokeUserDeviceSession(String username, String deviceId) {
+        return authSessionService.adminRevokeUserDeviceSession(username, deviceId);
+    }
+
+    @Transactional
+    public Map<String, Object> revokeAllSessions(Jwt jwt) {
+        return authSessionService.revokeAllSessions(jwt);
+    }
+
+    @Transactional
+    public Map<String, Object> adminRevokeUserAllSessions(String username) {
+        return authSessionService.adminRevokeUserAllSessions(username);
+    }
+
+    // ==================== Token 构建 ====================
+
+    private Map<String, Object> buildAndPersistTokens(Long userId, String username, String role, String deviceId) {
+        Instant now = Instant.now();
+        Instant accessExpireAt = now.plusSeconds(accessTokenExpireMinutes * 60);
+        String jti = UUID.randomUUID().toString().replace("-", "");
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("recycle-mall")
+                .subject(username)
+                .issuedAt(now)
+                .expiresAt(accessExpireAt)
+                .id(jti)
+                .claim("role", role)
+                .claim("scope", "mall recycle admin")
+                .build();
+
+        String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        String refreshToken = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+
+        LocalDateTime refreshExpireAt = LocalDateTime.now().plusMinutes(refreshTokenExpireMinutes);
+
+        List<AuthRefreshTokenEntity> activeSameDevice =
+                authRefreshTokenRepository.findActiveByUsernameAndDeviceId(username, deviceId);
+        for (AuthRefreshTokenEntity existed : activeSameDevice) {
+            existed.setRevoked(true);
+            existed.setRevokedAt(LocalDateTime.now());
+            authRefreshTokenRepository.save(existed);
         }
+
+        AuthRefreshTokenEntity refreshTokenEntity = new AuthRefreshTokenEntity();
+        refreshTokenEntity.setUserId(userId);
+        refreshTokenEntity.setUsername(username);
+        refreshTokenEntity.setDeviceId(deviceId);
+        refreshTokenEntity.setToken(refreshToken);
+        refreshTokenEntity.setExpireAt(refreshExpireAt);
+        refreshTokenEntity.setRevoked(false);
+        refreshTokenEntity.setCreatedAt(LocalDateTime.now());
+        authRefreshTokenRepository.save(refreshTokenEntity);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("tokenType", "Bearer");
+        data.put("accessToken", accessToken);
+        data.put("expiresIn", accessTokenExpireMinutes * 60);
+        data.put("refreshToken", refreshToken);
+        data.put("refreshExpiresIn", refreshTokenExpireMinutes * 60);
+        data.put("deviceId", deviceId);
         data.put("username", username);
-        data.put("total", items.size());
-        data.put("sessions", items);
+        data.put("role", role);
         return data;
     }
+
+    private String normalizeDeviceId(String deviceId) {
+        return authSessionService.normalizeDeviceId(deviceId);
+    }
+
+    private void revokeAllActiveRefreshTokens(String username) {
+        List<AuthRefreshTokenEntity> activeTokens = authRefreshTokenRepository.findByUsernameAndRevokedFalse(username);
+        for (AuthRefreshTokenEntity tokenEntity : activeTokens) {
+            tokenEntity.setRevoked(true);
+            tokenEntity.setRevokedAt(LocalDateTime.now());
+            authRefreshTokenRepository.save(tokenEntity);
+        }
+    }
+
+    private String resolveRole(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .findFirst()
+                .map(authority -> authority.getAuthority().replace("ROLE_", ""))
+                .orElse("USER");
+    }
+
+    private void logAction(String actionType, String targetId, String detail) {
+        logAction(actionType, TARGET_TYPE_AUTH_SESSION, targetId, detail);
+    }
+
+    private void logAction(String actionType, String targetType, String targetId, String detail) {
+        OperationAuditLogEntity log = new OperationAuditLogEntity();
+        log.setActionType(actionType);
+        log.setTargetType(targetType);
+        log.setTargetId(targetId);
+        log.setDetail(detail);
+        log.setCreatedAt(LocalDateTime.now());
+        operationAuditLogRepository.save(log);
+    }
+}
 
     @Transactional
     public Map<String, Object> revokeDeviceSession(Jwt jwt, String deviceId) {
