@@ -114,7 +114,7 @@ src/main/java/com/recycle/mall/
 |------|------|------|------|
 | POST | `/api/auth/login` | 登录（返回 JWT + Refresh Token） | 公开 |
 | POST | `/api/auth/refresh` | 刷新 Access Token | 公开 |
-| GET | `/api/auth/me` | 查询当前用户 | 登录 |
+| GET | `/api/auth/me` | 查询当前用户信息 | 登录 |
 | POST | `/api/auth/logout` | 登出（黑名单 + 可选撤销 Refresh Token） | 登录 |
 | GET | `/api/auth/sessions` | 查询活跃设备会话 | 登录 |
 | POST | `/api/auth/sessions/revoke-device` | 按设备下线 | 登录 |
@@ -131,10 +131,11 @@ src/main/java/com/recycle/mall/
 | GET | `/api/admin/auth/security-events/timeline` | 安全事件时间序列 |
 | GET | `/api/admin/auth/security-events/risk-users-top` | 风险用户 TopN |
 | GET | `/api/admin/auth/security-events/export` | 同步导出（CSV/JSON） |
+| GET | `/api/admin/auth/security-events/export/tasks` | 异步导出任务列表 |
 | POST | `/api/admin/auth/security-events/export/tasks` | 创建异步导出任务 |
-| GET | `/api/admin/auth/security-events/export/tasks/{id}` | 查询导出任务状态 |
-| GET | `/api/admin/auth/security-events/export/tasks/{id}/download` | 下载导出结果 |
-| POST | `/api/admin/auth/security-events/export/tasks/{id}/retry` | 重试失败任务 |
+| GET | `/api/admin/auth/security-events/export/tasks/{taskId}` | 查询导出任务状态 |
+| GET | `/api/admin/auth/security-events/export/tasks/{taskId}/download` | 下载导出结果 |
+| POST | `/api/admin/auth/security-events/export/tasks/{taskId}/retry` | 重试失败任务 |
 | POST | `/api/admin/auth/security-events/export/tasks/cleanup` | 清理过期任务 |
 
 ### 回收流程 `/api/recycle`
@@ -162,26 +163,27 @@ src/main/java/com/recycle/mall/
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/admin/recycle/review-reports` | 查看举报工单 |
+| GET | `/api/admin/recycle/review-reports` | 查看举报工单列表 |
+| GET | `/api/admin/recycle/review-reports/{reportId}` | 查看举报工单详情 |
 | POST | `/api/admin/recycle/review-reports/process` | 处理举报工单 |
 | POST | `/api/admin/recycle/review-reports/process-batch` | 批量处理举报 |
 | GET | `/api/admin/recycle/review-risk/summary` | 评价风控概览 |
 | GET | `/api/admin/recycle/review-risk/timeline` | 风控时间线 |
 | GET | `/api/admin/recycle/review-risk/top-listings` | 高风险商品 TopN |
-| GET | `/api/admin/recycle/review-strategy` | 查询评价策略 |
+| GET | `/api/admin/recycle/review-strategy` | 查询评价策略（支持 ETag 缓存） |
 | POST | `/api/admin/recycle/review-strategy/update` | 热更新评价策略 |
 
 ### 配置中心 `/api/admin/recycle/config-center`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/admin/recycle/config-center/bundle` | 聚合包（评价策略 + 异常码 + 启动计划） |
-| GET | `/api/admin/recycle/config-center/modules` | 模块摘要（digest） |
+| GET | `/api/admin/recycle/config-center/bundle` | 聚合包（评价策略 + 异常码 + 启动计划，支持 ETag） |
+| GET | `/api/admin/recycle/config-center/modules` | 模块摘要（digest，支持 ETag） |
 | POST | `/api/admin/recycle/config-center/module-diff` | 增量差异比对 |
-| GET | `/api/admin/recycle/config-center/module/{name}` | 按模块拉取配置 |
-| GET | `/api/admin/recycle/error-codes/global` | 全局异常码字典 |
-| GET | `/api/admin/recycle/degrade-actions/dictionary` | 降级动作字典 |
-| GET | `/api/admin/recycle/alert-noise-rules` | 告警降噪规则 |
+| GET | `/api/admin/recycle/config-center/module/{name}` | 按模块拉取配置（支持 ETag） |
+| GET | `/api/admin/recycle/error-codes/global` | 全局异常码字典（支持 ETag） |
+| GET | `/api/admin/recycle/degrade-actions/dictionary` | 降级动作字典（支持 ETag） |
+| GET | `/api/admin/recycle/alert-noise-rules` | 告警降噪规则（支持 ETag） |
 | POST | `/api/admin/recycle/alert-noise-rules/update` | 热更新降噪规则 |
 
 ### C 端商城 `/api/mall`
@@ -190,11 +192,12 @@ src/main/java/com/recycle/mall/
 |------|------|------|
 | GET | `/api/mall/listings` | 在售商品列表（支持筛选排序） |
 | POST | `/api/mall/orders` | 创建订单 |
-| POST | `/api/mall/orders/cancel` | 取消订单 |
+| POST | `/api/mall/orders/pay` | 订单支付（签名校验 + 幂等） |
+| POST | `/api/mall/orders/cancel` | 取消未支付订单 |
 | POST | `/api/mall/orders/confirm-receipt` | 确认收货 |
-| GET | `/api/mall/orders` | 买家订单列表（分页/筛选） |
-| GET | `/api/mall/orders/status-dictionary` | 订单状态字典 |
-| GET | `/api/mall/orders/summary` | 订单概览统计 |
+| GET | `/api/mall/orders` | 买家订单列表（分页/筛选，支持 ETag） |
+| GET | `/api/mall/orders/status-dictionary` | 订单状态字典（支持 ETag） |
+| GET | `/api/mall/orders/summary` | 订单概览统计（支持 ETag） |
 | GET | `/api/mall/orders/{orderNo}/track` | 订单履约轨迹 |
 | POST | `/api/mall/favorites/add` | 添加收藏 |
 | POST | `/api/mall/favorites/remove` | 取消收藏 |
@@ -202,24 +205,36 @@ src/main/java/com/recycle/mall/
 | POST | `/api/mall/reviews/create` | 提交评价 |
 | POST | `/api/mall/reviews/append` | 追评 |
 | POST | `/api/mall/reviews/reply` | 商家回复 |
-| GET | `/api/mall/reviews` | 商品评价列表 |
+| GET | `/api/mall/reviews` | 商品评价列表（智能排序） |
 | POST | `/api/mall/reviews/vote-useful` | 有用性投票 |
 | POST | `/api/mall/reviews/report` | 举报评价 |
 
-### 支付回调与重放 `/api/payment` & `/api/admin/payment`
+### 支付回调 `/api/payment`
+
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/payment/callback` | 支付回调（签名校验 + 幂等 + 日志落库） | 公开 |
+
+### 支付重放管理 `/api/admin/payment`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/payment/callback` | 支付回调（签名校验 + 幂等） |
-| GET | `/api/admin/payment/callback-logs` | 查询回调日志 |
+| GET | `/api/admin/payment/callback-logs` | 分页查询回调日志 |
 | POST | `/api/admin/payment/callback-logs/replay` | 同步重放回调 |
 | POST | `/api/admin/payment/callback-logs/replay/enqueue` | 异步入队重放 |
 | POST | `/api/admin/payment/callback-logs/replay/consume` | 手工消费重放队列 |
 | GET | `/api/admin/payment/replay-tasks` | 分页查询重放任务 |
 | GET | `/api/admin/payment/replay-tasks/summary` | 重放队列摘要 |
+| GET | `/api/admin/payment/replay-tasks/query-audit-actions` | 查询审计动作列表 |
 | GET | `/api/admin/payment/replay-tasks/health` | 队列健康状态 |
 | GET | `/api/admin/payment/replay-tasks/diagnosis` | 一键巡检与处置建议 |
+| GET | `/api/admin/payment/replay-tasks/cleanup-performance-check` | 清理性能检查 |
 | POST | `/api/admin/payment/replay-tasks/auto-handle` | 半自动处置 |
+| GET | `/api/admin/payment/replay-tasks/auto-handle-idempotency` | 分页查询幂等记录 |
+| GET | `/api/admin/payment/replay-tasks/auto-handle-idempotency/detail` | 幂等记录详情 |
+| POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/delete` | 按traceId删除幂等记录 |
+| POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/delete-before` | 批量删除指定时间前的幂等记录 |
+| POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup` | 清理过期幂等记录 |
 | POST | `/api/admin/payment/replay-tasks/requeue` | 单条再投递 |
 | POST | `/api/admin/payment/replay-tasks/requeue/dead` | 批量再投递 DEAD |
 
@@ -229,69 +244,499 @@ src/main/java/com/recycle/mall/
 http://localhost:8080/products/{productId}.html
 ```
 
-## 接口示例
+## curl 测试
 
-### 登录
+以下 curl 命令可直接复制执行，覆盖全链路核心场景。
+
+> 环境变量 `$TOKEN` 和 `$ADMIN_TOKEN` 需先通过登录获取，或使用下方一键登录脚本。
+
+### 一键登录获取 Token
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+# 普通用户 Token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin123","deviceId":"web-chrome-01"}'
+  -d '{"username":"alice","password":"user123","deviceId":"curl-test"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])")
+
+echo "USER TOKEN: $TOKEN"
+
+# 管理员 Token
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123","deviceId":"curl-admin"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])")
+
+echo "ADMIN TOKEN: $ADMIN_TOKEN"
 ```
 
-返回：
+---
 
-```json
-{
-  "success": true,
-  "data": {
-    "tokenType": "Bearer",
-    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "expiresIn": 7200,
-    "refreshToken": "4f...b1",
-    "refreshExpiresIn": 604800,
-    "username": "admin",
-    "role": "ADMIN"
-  }
-}
-```
-
-### 创建回收单
+### 认证鉴权
 
 ```bash
-curl -X POST http://localhost:8080/api/recycle/orders \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
+# 登录（返回 JWT + Refresh Token）
+curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"user123","deviceId":"web-chrome-01"}'
+
+# 刷新 Token（需替换 refreshToken）
+curl -s -X POST http://localhost:8080/api/auth/refresh \
+  -H 'Content-Type: application/json' \
+  -d '{"refreshToken":"<refreshToken>","deviceId":"web-chrome-01"}'
+
+# 查询当前用户
+curl -s http://localhost:8080/api/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+
+# 查询活跃设备会话
+curl -s http://localhost:8080/api/auth/sessions \
+  -H "Authorization: Bearer $TOKEN"
+
+# 按设备下线
+curl -s -X POST http://localhost:8080/api/auth/sessions/revoke-device \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"deviceId":"web-chrome-01"}'
+
+# 全设备下线
+curl -s -X POST http://localhost:8080/api/auth/sessions/revoke-all \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN"
+
+# 登出
+curl -s -X POST http://localhost:8080/api/auth/logout \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"refreshToken":"<refreshToken>"}'
+```
+
+### 管理员 — 认证与安全
+
+```bash
+# 查看指定用户会话
+curl -s "http://localhost:8080/api/admin/auth/sessions?username=alice" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 管理员按设备强制下线
+curl -s -X POST http://localhost:8080/api/admin/auth/sessions/revoke-device \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"username":"alice","deviceId":"web-chrome-01"}'
+
+# 管理员强制全设备下线
+curl -s -X POST http://localhost:8080/api/admin/auth/sessions/revoke-all \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"username":"alice"}'
+
+# 安全事件汇总
+curl -s "http://localhost:8080/api/admin/auth/security-events/summary?lookbackMinutes=60" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 安全事件时间线
+curl -s "http://localhost:8080/api/admin/auth/security-events/timeline?lookbackMinutes=60" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 风险用户 TopN
+curl -s "http://localhost:8080/api/admin/auth/security-events/risk-users-top?lookbackMinutes=60&topN=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 同步导出安全事件（JSON）
+curl -s "http://localhost:8080/api/admin/auth/security-events/export?type=summary&format=json&lookbackMinutes=60" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 同步导出安全事件（CSV）
+curl -s "http://localhost:8080/api/admin/auth/security-events/export?type=summary&format=csv&lookbackMinutes=60" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -o security-events.csv
+
+# 创建异步导出任务
+curl -s -X POST http://localhost:8080/api/admin/auth/security-events/export/tasks \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"type":"summary","format":"json","lookbackMinutes":60,"topN":10,"idempotencyKey":"export-001"}'
+
+# 查询导出任务状态（需替换 taskId）
+curl -s http://localhost:8080/api/admin/auth/security-events/export/tasks/<taskId> \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 下载导出结果
+curl -s http://localhost:8080/api/admin/auth/security-events/export/tasks/<taskId>/download \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -o export-result.json
+
+# 重试失败任务
+curl -s -X POST http://localhost:8080/api/admin/auth/security-events/export/tasks/<taskId>/retry \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 清理过期导出任务
+curl -s -X POST http://localhost:8080/api/admin/auth/security-events/export/tasks/cleanup \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"retainDays":7}'
+```
+
+### 回收流程
+
+```bash
+# 创建回收单
+curl -s -X POST http://localhost:8080/api/recycle/orders \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "userId":1001,
-    "snCode":"SN-123456",
+    "snCode":"SN-DEMO-001",
     "imageUrl":"https://demo/image.jpg",
     "wearScore":85,
     "recycleCount":3
   }'
+
+# 查询物流状态（需替换 trackingNo）
+curl -s "http://localhost:8080/api/recycle/logistics/status?trackingNo=<trackingNo>" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### 创建 C 端订单
+### 后台回收管理
 
 ```bash
-curl -X POST http://localhost:8080/api/mall/orders \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{"buyerUserId":1002,"listingId":1}'
+# 查看回收单列表
+curl -s http://localhost:8080/api/admin/recycle/orders \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 审核回收单（通过）
+curl -s -X PATCH http://localhost:8080/api/admin/recycle/orders/review \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"orderNo":"<orderNo>","action":"APPROVE","reviewedGrade":"GOOD"}'
+
+# 审核回收单（拒绝）
+curl -s -X PATCH http://localhost:8080/api/admin/recycle/orders/review \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"orderNo":"<orderNo>","action":"REJECT"}'
+
+# 发布二销商品
+curl -s -X POST http://localhost:8080/api/admin/recycle/listings/publish \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"recycleOrderNo":"<orderNo>","salePrice":1599.00,"stock":1}'
+
+# 确认发货
+curl -s -X POST http://localhost:8080/api/admin/recycle/resale-orders/deliver \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"orderNo":"<orderNo>"}'
+
+# 退款
+curl -s -X POST http://localhost:8080/api/admin/recycle/resale-orders/refund \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"orderNo":"<orderNo>"}'
+
+# 自动确认收货
+curl -s -X POST http://localhost:8080/api/admin/recycle/resale-orders/auto-confirm-receipt \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 查询审计日志
+curl -s "http://localhost:8080/api/admin/recycle/audit-logs?limit=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 分页查询审计日志
+curl -s "http://localhost:8080/api/admin/recycle/audit-logs/page?page=0&size=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 导出审计日志 CSV
+curl -s "http://localhost:8080/api/admin/recycle/audit-logs/export?limit=1000" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -o audit-logs.csv
 ```
 
-### 提交评价
+### 评价管理
 
 ```bash
-curl -X POST http://localhost:8080/api/mall/reviews/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{
-    "orderNo":"B2C-ABCDEFGH",
-    "buyerUserId":1002,
-    "rating":5,
-    "content":"成色很好，和描述一致"
-  }'
+# 查看举报工单列表
+curl -s "http://localhost:8080/api/admin/recycle/review-reports" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 查看举报工单详情
+curl -s http://localhost:8080/api/admin/recycle/review-reports/1 \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 处理举报工单
+curl -s -X POST http://localhost:8080/api/admin/recycle/review-reports/process \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"reportId":1,"action":"HIDE_REVIEW","processNote":"违规内容","operator":"admin"}'
+
+# 批量处理举报
+curl -s -X POST http://localhost:8080/api/admin/recycle/review-reports/process-batch \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"reportIds":[1,2],"action":"HIDE_REVIEW","processNote":"批量处理","operator":"admin"}'
+
+# 评价风控概览
+curl -s "http://localhost:8080/api/admin/recycle/review-risk/summary?lookbackMinutes=60" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 风控时间线
+curl -s "http://localhost:8080/api/admin/recycle/review-risk/timeline?lookbackMinutes=60" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 高风险商品 TopN
+curl -s "http://localhost:8080/api/admin/recycle/review-risk/top-listings?lookbackMinutes=60&topN=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 查询评价策略
+curl -s http://localhost:8080/api/admin/recycle/review-strategy \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 热更新评价策略
+curl -s -X POST http://localhost:8080/api/admin/recycle/review-strategy/update \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"updates":{"sensitiveWords":["假货","骗子"]},"operator":"admin"}'
+```
+
+### 配置中心
+
+```bash
+# 聚合包
+curl -s http://localhost:8080/api/admin/recycle/config-center/bundle \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 模块摘要
+curl -s http://localhost:8080/api/admin/recycle/config-center/modules \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 增量差异比对
+curl -s -X POST http://localhost:8080/api/admin/recycle/config-center/module-diff \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"localDigests":{"reviewStrategy":"abc123"}}'
+
+# 按模块拉取配置
+curl -s http://localhost:8080/api/admin/recycle/config-center/module/review-strategy \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 全局异常码字典
+curl -s http://localhost:8080/api/admin/recycle/error-codes/global \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 降级动作字典
+curl -s http://localhost:8080/api/admin/recycle/degrade-actions/dictionary \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 告警降噪规则
+curl -s http://localhost:8080/api/admin/recycle/alert-noise-rules \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 热更新降噪规则
+curl -s -X POST http://localhost:8080/api/admin/recycle/alert-noise-rules/update \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"updates":{"rules":[{"pattern":".*timeout.*","action":"IGNORE"}]},"operator":"admin"}'
+```
+
+### C 端商城
+
+```bash
+# 在售商品列表
+curl -s "http://localhost:8080/api/mall/listings" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 按品级筛选
+curl -s "http://localhost:8080/api/mall/listings?grade=GOOD&sortBy=price&sortOrder=asc" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 创建订单
+curl -s -X POST http://localhost:8080/api/mall/orders \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"buyerUserId":1001,"listingId":1}'
+
+# 取消未支付订单
+curl -s -X POST http://localhost:8080/api/mall/orders/cancel \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>"}'
+
+# 确认收货
+curl -s -X POST http://localhost:8080/api/mall/orders/confirm-receipt \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>","buyerUserId":1001}'
+
+# 买家订单列表
+curl -s "http://localhost:8080/api/mall/orders?buyerUserId=1001&page=0&size=10" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 订单状态字典
+curl -s http://localhost:8080/api/mall/orders/status-dictionary \
+  -H "Authorization: Bearer $TOKEN"
+
+# 订单概览统计
+curl -s "http://localhost:8080/api/mall/orders/summary?buyerUserId=1001" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 订单履约轨迹
+curl -s "http://localhost:8080/api/mall/orders/<orderNo>/track?buyerUserId=1001" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 添加收藏
+curl -s -X POST http://localhost:8080/api/mall/favorites/add \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"userId":1001,"listingId":1}'
+
+# 取消收藏
+curl -s -X POST http://localhost:8080/api/mall/favorites/remove \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"userId":1001,"listingId":1}'
+
+# 我的收藏
+curl -s "http://localhost:8080/api/mall/favorites?userId=1001" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 提交评价
+curl -s -X POST http://localhost:8080/api/mall/reviews/create \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>","buyerUserId":1001,"rating":5,"content":"成色很好，和描述一致"}'
+
+# 追评
+curl -s -X POST http://localhost:8080/api/mall/reviews/append \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>","buyerUserId":1001,"appendContent":"用了一周依然很好"}'
+
+# 商家回复
+curl -s -X POST http://localhost:8080/api/mall/reviews/reply \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>","merchantReply":"感谢您的评价"}'
+
+# 商品评价列表
+curl -s "http://localhost:8080/api/mall/reviews?listingId=1" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 有用性投票
+curl -s -X POST http://localhost:8080/api/mall/reviews/vote-useful \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>","voterUserId":1002}'
+
+# 举报评价
+curl -s -X POST http://localhost:8080/api/mall/reviews/report \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"orderNo":"<orderNo>","reporterUserId":1002,"reason":"虚假评价"}'
+```
+
+### 支付回调
+
+```bash
+# 模拟支付回调（需签名，此处仅示例请求格式）
+curl -s -X POST http://localhost:8080/api/payment/callback \
+  -H 'Content-Type: application/json' \
+  -H 'X-Timestamp: 1715500000000' \
+  -H 'X-Signature: <signature>' \
+  -d '{"orderNo":"<orderNo>","idempotencyKey":"pay-001","payStatus":"SUCCESS","nonce":"random-nonce"}'
+```
+
+### 支付重放管理
+
+```bash
+# 分页查询回调日志
+curl -s "http://localhost:8080/api/admin/payment/callback-logs?page=0&size=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 同步重放回调
+curl -s -X POST http://localhost:8080/api/admin/payment/callback-logs/replay \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"callbackLogId":1}'
+
+# 异步入队重放
+curl -s -X POST http://localhost:8080/api/admin/payment/callback-logs/replay/enqueue \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"callbackLogId":1}'
+
+# 手工消费重放队列
+curl -s -X POST http://localhost:8080/api/admin/payment/callback-logs/replay/consume \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"maxCount":10}'
+
+# 分页查询重放任务
+curl -s "http://localhost:8080/api/admin/payment/replay-tasks?page=0&size=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 重放队列摘要
+curl -s http://localhost:8080/api/admin/payment/replay-tasks/summary \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 查询审计动作列表
+curl -s "http://localhost:8080/api/admin/payment/replay-tasks/query-audit-actions" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 队列健康状态
+curl -s http://localhost:8080/api/admin/payment/replay-tasks/health \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 一键巡检与处置建议
+curl -s http://localhost:8080/api/admin/payment/replay-tasks/diagnosis \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 清理性能检查
+curl -s http://localhost:8080/api/admin/payment/replay-tasks/cleanup-performance-check \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 半自动处置
+curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/auto-handle \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"allowRequeueDead":true,"consumeMaxCount":50,"requeueMaxCount":50}'
+
+# 分页查询幂等记录
+curl -s "http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency?page=0&size=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 幂等记录详情
+curl -s "http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency/detail?traceId=<traceId>" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 按traceId删除幂等记录
+curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency/delete \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"traceId":"<traceId>"}'
+
+# 清理过期幂等记录
+curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"retainDays":7}'
+
+# 单条再投递
+curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/requeue \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"taskId":1}'
+
+# 批量再投递 DEAD
+curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/requeue/dead \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"maxCount":50}'
+```
+
+### 商品详情页
+
+```bash
+# 访问商品详情页（Freemarker 模板渲染）
+curl -s http://localhost:8080/products/1.html
 ```
 
 ## 估价算法
