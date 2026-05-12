@@ -3,6 +3,7 @@ package com.recycle.mall.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recycle.mall.service.RecycleApplicationService;
+import com.recycle.mall.service.support.AuditContext;
 import com.recycle.mall.common.ApiResponse;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -309,11 +310,11 @@ public class AdminRecycleController {
         }
     }
 
-    private RecycleApplicationService.AuditContext toAuditContext(String requestId, Map<String, Object> changeSummary) {
+    private AuditContext toAuditContext(String requestId, Map<String, Object> changeSummary) {
         String normalizedRequestId = requestId == null || requestId.isBlank()
                 ? "req-" + UUID.randomUUID().toString().replace("-", "")
                 : requestId.trim();
-        return new RecycleApplicationService.AuditContext(normalizedRequestId, changeSummary);
+        return new AuditContext(normalizedRequestId, changeSummary);
     }
 
     public record ReviewOrderRequest(

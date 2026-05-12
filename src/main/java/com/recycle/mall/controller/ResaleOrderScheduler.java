@@ -1,6 +1,7 @@
 package com.recycle.mall.controller;
 
 import com.recycle.mall.service.RecycleApplicationService;
+import com.recycle.mall.service.support.AuditContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,6 @@ public class ResaleOrderScheduler {
 
     @Scheduled(fixedDelayString = "${mall.order.auto-confirm-receipt-fixed-delay-ms:60000}")
     public void autoConfirmDeliveredOrders() {
-        recycleApplicationService.autoConfirmDeliveredOrders(autoConfirmAfterMinutes, autoConfirmBatchSize);
+        recycleApplicationService.autoConfirmDeliveredOrders(autoConfirmAfterMinutes, autoConfirmBatchSize, AuditContext.empty());
     }
 }

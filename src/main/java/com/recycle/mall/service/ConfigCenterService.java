@@ -311,7 +311,7 @@ public class ConfigCenterService {
 
     private String parseTimeWindowValue(Object raw, String fieldName) {
         if (!(raw instanceof String text)) throw new IllegalArgumentException(fieldName + " 必须是 HH:mm 字符串");
-        String value = text.trim(); if (!value.matches("^([01]\d|2[0-3]):[0-5]\d$")) throw new IllegalArgumentException(fieldName + " 必须是 HH:mm 格式"); return value;
+        String value = text.trim(); if (!value.matches("^([01]\\d|2[0-3]):[0-5]\\d$")) throw new IllegalArgumentException(fieldName + " 必须是 HH:mm 格式"); return value;
     }
 
     record ModuleDiffCacheEntry(LocalDateTime expireAt, LocalDateTime generatedAt, Map<String, Object> result) {}

@@ -66,9 +66,9 @@ public final class VersionHelper {
 
     static SemVer parseVersion(String version) {
         String clean = version == null ? "0.0.0" : version.trim();
-        String withoutBuild = clean.split("\+", 2)[0];
+        String withoutBuild = clean.split("\\+", 2)[0];
         String[] majorAndPre = withoutBuild.split("-", 2);
-        String[] parts = majorAndPre[0].split("\.");
+        String[] parts = majorAndPre[0].split("\\.");
         int[] values = new int[] {0, 0, 0};
         for (int i = 0; i < Math.min(parts.length, 3); i++) {
             try {
@@ -79,7 +79,7 @@ public final class VersionHelper {
         }
         List<String> preRelease = List.of();
         if (majorAndPre.length > 1 && !majorAndPre[1].isBlank()) {
-            preRelease = List.of(majorAndPre[1].split("\."));
+            preRelease = List.of(majorAndPre[1].split("\\."));
         }
         return new SemVer(values, preRelease);
     }

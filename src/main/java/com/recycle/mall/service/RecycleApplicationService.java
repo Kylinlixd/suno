@@ -395,23 +395,8 @@ public class RecycleApplicationService {
     // ==================== 订单调度 ====================
 
     @Transactional
-    public int autoCloseExpiredUnpaidOrders(int expireMinutes) {
-        return resaleOrderService.autoCloseExpiredUnpaidOrders(expireMinutes);
-    }
-
-    @Transactional
     public int autoCloseExpiredUnpaidOrders(int expireMinutes, int batchSize) {
         return resaleOrderService.autoCloseExpiredUnpaidOrders(expireMinutes, batchSize);
-    }
-
-    @Transactional
-    public int autoConfirmDeliveredOrders(int confirmAfterMinutes) {
-        return resaleOrderService.autoConfirmDeliveredOrders(confirmAfterMinutes);
-    }
-
-    @Transactional
-    public int autoConfirmDeliveredOrders(int confirmAfterMinutes, int batchSize) {
-        return resaleOrderService.autoConfirmDeliveredOrders(confirmAfterMinutes, batchSize);
     }
 
     @Transactional
@@ -436,11 +421,4 @@ public class RecycleApplicationService {
         return auditLogService.exportAuditLogsCsv(actionType, targetId, limit);
     }
 
-    // ==================== AuditContext 兼容 ====================
-
-    public record AuditContext(String requestId, Map<String, Object> changeSummary) {
-        public static AuditContext empty() {
-            return new AuditContext(null, null);
-        }
-    }
 }
