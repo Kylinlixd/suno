@@ -1,6 +1,7 @@
 
 package com.recycle.mall.service;
 
+import org.jspecify.annotations.Nullable;
 import com.recycle.mall.service.support.AuditContext;
 import com.recycle.mall.service.support.AuditLogHelper;
 import com.recycle.mall.entity.OperationAuditLogEntity;
@@ -49,12 +50,12 @@ public class AuditLogService {
         logAction(actionType, "PAYMENT_REPLAY_QUEUE", targetId, detail);
     }
 
-    public String buildAuditContextSuffix(AuditContext auditContext) {
+    public String buildAuditContextSuffix(@Nullable AuditContext auditContext) {
         return AuditLogHelper.buildAuditContextSuffix(auditContext, objectMapper);
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> listAuditLogs(String actionType, String targetId, int limit) {
+    public List<Map<String, Object>> listAuditLogs(@Nullable String actionType, @Nullable String targetId, int limit) {
         int safeLimit = Math.max(1, Math.min(200, limit));
         Page<OperationAuditLogEntity> page = operationAuditLogRepository.findAll(
                 buildAuditLogSpec(actionType, targetId),
@@ -71,7 +72,7 @@ public class AuditLogService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> pageAuditLogs(String actionType, String targetId, int page, int size) {
+    public Map<String, Object> pageAuditLogs(@Nullable String actionType, @Nullable String targetId, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(200, size));
         Page<OperationAuditLogEntity> result = operationAuditLogRepository.findAll(
@@ -95,7 +96,7 @@ public class AuditLogService {
     }
 
     @Transactional(readOnly = true)
-    public String exportAuditLogsCsv(String actionType, String targetId, int limit) {
+    public String exportAuditLogsCsv(@Nullable String actionType, @Nullable String targetId, int limit) {
         int safeLimit = Math.max(1, Math.min(5000, limit));
         Page<OperationAuditLogEntity> page = operationAuditLogRepository.findAll(
                 buildAuditLogSpec(actionType, targetId),
@@ -115,6 +116,7 @@ public class AuditLogService {
         return csv.toString();
     }
 
+    @Nullable
     public LocalDateTime resolveOrderCompletedAt(String orderNo) {
         return operationAuditLogRepository.findByTargetIdOrderByCreatedAtDesc(orderNo).stream()
                 .filter(item -> "RESALE_ORDER".equals(item.getTargetType()))
@@ -136,7 +138,7 @@ public class AuditLogService {
     }
 
     private org.springframework.data.jpa.domain.Specification<OperationAuditLogEntity> buildAuditLogSpec(
-            String actionType, String targetId
+            @Nullable String actionType, @Nullable String targetId
     ) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -150,7 +152,7 @@ public class AuditLogService {
         };
     }
 
-    private String csvEscape(String raw) {
+    private String csvEscape(@Nullable String raw) {
         if (raw == null) {
             return "";
         }

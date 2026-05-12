@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
+import org.jspecify.annotations.Nullable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -50,6 +51,7 @@ public class AuthApplicationService {
     private final AuthenticationManager authenticationManager;
     private final JwtEncoder jwtEncoder;
     private final AuthSessionService authSessionService;
+    private final SecurityEventService securityEventService;
 
     @Value("${security.auth.jwt.expire-minutes:120}")
     private long accessTokenExpireMinutes;
@@ -64,7 +66,8 @@ public class AuthApplicationService {
             OperationAuditLogRepository operationAuditLogRepository,
             AuthenticationManager authenticationManager,
             JwtEncoder jwtEncoder,
-            AuthSessionService authSessionService
+            AuthSessionService authSessionService,
+            SecurityEventService securityEventService
     ) {
         this.userAccountRepository = userAccountRepository;
         this.authRefreshTokenRepository = authRefreshTokenRepository;
@@ -73,6 +76,7 @@ public class AuthApplicationService {
         this.authenticationManager = authenticationManager;
         this.jwtEncoder = jwtEncoder;
         this.authSessionService = authSessionService;
+        this.securityEventService = securityEventService;
     }
 
     @Transactional
@@ -148,7 +152,7 @@ public class AuthApplicationService {
     }
 
     @Transactional
-    public Map<String, Object> logout(Jwt jwt, String refreshToken) {
+    public Map<String, Object> logout(Jwt jwt, @Nullable String refreshToken) {
         Instant now = Instant.now();
         if (jwt.getExpiresAt() != null && jwt.getId() != null) {
             if (!authTokenBlacklistRepository.existsByJti(jwt.getId())) {
@@ -292,4 +296,61 @@ public class AuthApplicationService {
         log.setCreatedAt(LocalDateTime.now());
         operationAuditLogRepository.save(log);
     }
+
+    // ==================== 安全事件（委托 SecurityEventService） ====================
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> adminSecurityEventsSummary(int lookbackMinutes) {
+        return securityEventService.adminSecurityEventsSummary(lookbackMinutes);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> adminSecurityEventsTimeline(int lookbackMinutes, List<String> actionTypes) {
+        return securityEventService.adminSecurityEventsTimeline(lookbackMinutes, actionTypes);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> adminSecurityRiskUsersTop(int lookbackMinutes, int topN, List<String> actionTypes) {
+        return securityEventService.adminSecurityRiskUsersTop(lookbackMinutes, topN, actionTypes);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> buildSecurityExportPayload(String type, int lookbackMinutes, int topN, List<String> actionTypes) {
+        return securityEventService.buildSecurityExportPayload(type, lookbackMinutes, topN, actionTypes);
+    }
+
+    public String renderSecurityExportContent(String type, String format, Map<String, Object> payload) {
+        return securityEventService.renderSecurityExportContent(type, format, payload);
+    }
+
+    @Transactional
+    public Map<String, Object> createSecurityExportTask(String type, String format, int lookbackMinutes, int topN, List<String> actionTypes, String idempotencyKey) {
+        return securityEventService.createSecurityExportTask(type, format, lookbackMinutes, topN, actionTypes, idempotencyKey);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSecurityExportTask(String taskId) {
+        return securityEventService.getSecurityExportTask(taskId);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSecurityExportTaskDownload(String taskId) {
+        return securityEventService.getSecurityExportTaskDownload(taskId);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> listSecurityExportTasks(int page, int size, String status) {
+        return securityEventService.listSecurityExportTasks(page, size, status);
+    }
+
+    @Transactional
+    public Map<String, Object> cleanupSecurityExportTasks(int retainDays) {
+        return securityEventService.cleanupSecurityExportTasks(retainDays);
+    }
+
+    @Transactional
+    public Map<String, Object> retrySecurityExportTask(String taskId, int lookbackMinutes, int topN, List<String> actionTypes) {
+        return securityEventService.retrySecurityExportTask(taskId, lookbackMinutes, topN, actionTypes);
+    }
 }
+

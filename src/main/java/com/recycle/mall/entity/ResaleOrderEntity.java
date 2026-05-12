@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.jspecify.annotations.Nullable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ public class ResaleOrderEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Nullable
     private Long id;
 
     @Column(nullable = false, unique = true, length = 64)
@@ -44,11 +46,12 @@ public class ResaleOrderEntity {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Nullable
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(@Nullable Long id) {
         this.id = id;
     }
 

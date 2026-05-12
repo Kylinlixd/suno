@@ -3,6 +3,7 @@ package com.recycle.mall.service.support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
 
@@ -13,7 +14,7 @@ public final class AuditLogHelper {
 
     private AuditLogHelper() {}
 
-    public static String buildAuditContextSuffix(AuditContext auditContext, ObjectMapper objectMapper) {
+    public static String buildAuditContextSuffix(@Nullable AuditContext auditContext, ObjectMapper objectMapper) {
         String safeRequestId = auditContext == null || auditContext.requestId() == null
                 ? ""
                 : auditContext.requestId().trim();
@@ -21,7 +22,7 @@ public final class AuditLogHelper {
         return ",requestId=" + safeRequestId + ",changeSummary=" + compactChangeSummary(safeChangeSummary, objectMapper);
     }
 
-    public static String compactChangeSummary(Map<String, Object> changeSummary, ObjectMapper objectMapper) {
+    public static String compactChangeSummary(@Nullable Map<String, Object> changeSummary, ObjectMapper objectMapper) {
         if (changeSummary == null || changeSummary.isEmpty()) {
             return "{}";
         }

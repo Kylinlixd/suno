@@ -4,6 +4,7 @@ import com.recycle.mall.entity.AuthRefreshTokenEntity;
 import com.recycle.mall.dao.AuthRefreshTokenRepository;
 import com.recycle.mall.dao.OperationAuditLogRepository;
 import com.recycle.mall.entity.OperationAuditLogEntity;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -142,7 +143,7 @@ public class AuthSessionService {
         return result;
     }
 
-    String normalizeDeviceId(String deviceId) {
+    String normalizeDeviceId(@Nullable String deviceId) {
         if (deviceId == null || deviceId.isBlank()) {
             return DEFAULT_DEVICE_ID;
         }

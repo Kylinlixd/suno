@@ -1,14 +1,9 @@
 
 package com.recycle.mall.service;
 
-import com.recycle.mall.service.support.AuditContext;
+import org.jspecify.annotations.Nullable;
 import com.recycle.mall.entity.ProductDraft;
 import com.recycle.mall.entity.ValuationResult;
-import com.recycle.mall.service.AiAuditService;
-import com.recycle.mall.service.LogisticsService;
-import com.recycle.mall.service.PointsService;
-import com.recycle.mall.service.SnParseService;
-import com.recycle.mall.service.ValuationService;
 import com.recycle.mall.entity.LogisticsTrackEntity;
 import com.recycle.mall.entity.PointsLedgerEntity;
 import com.recycle.mall.entity.ProductEntity;
@@ -162,7 +157,7 @@ public class RecycleOrderService {
     }
 
     @Transactional
-    public Map<String, Object> transitionOrder(String orderNo, String action, String reviewedGrade) {
+    public Map<String, Object> transitionOrder(String orderNo, String action, @Nullable String reviewedGrade) {
         RecycleOrderEntity order = recycleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("回收单不存在: " + orderNo));
         String nextStatus = nextStatus(order.getStatus(), action);

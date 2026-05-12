@@ -3,9 +3,11 @@ package com.recycle.mall.service;
 
 import com.recycle.mall.common.BizException;
 import com.recycle.mall.common.ErrorCode;
+import org.jspecify.annotations.Nullable;
 import com.recycle.mall.service.support.AuditContext;
 import com.recycle.mall.service.support.I18nHelper;
 import com.recycle.mall.entity.PaymentIdempotencyEntity;
+import com.recycle.mall.entity.ProductEntity;
 import com.recycle.mall.entity.ResaleListingEntity;
 import com.recycle.mall.entity.ResaleOrderEntity;
 import com.recycle.mall.entity.ResaleReviewEntity;
@@ -16,6 +18,7 @@ import com.recycle.mall.dao.ResaleOrderRepository;
 import com.recycle.mall.dao.ResaleReviewRepository;
 import com.recycle.mall.dao.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +54,7 @@ public class ResaleOrderService {
     private final ResaleListingRepository resaleListingRepository;
     private final PaymentIdempotencyRepository paymentIdempotencyRepository;
     private final AuditLogService auditLogService;
+    private final ResaleListingService resaleListingService;
 
     public ResaleOrderService(
             UserAccountRepository userAccountRepository,
@@ -58,7 +62,8 @@ public class ResaleOrderService {
             ResaleReviewRepository resaleReviewRepository,
             ResaleListingRepository resaleListingRepository,
             PaymentIdempotencyRepository paymentIdempotencyRepository,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            ResaleListingService resaleListingService
     ) {
         this.userAccountRepository = userAccountRepository;
         this.resaleOrderRepository = resaleOrderRepository;
@@ -66,6 +71,7 @@ public class ResaleOrderService {
         this.resaleListingRepository = resaleListingRepository;
         this.paymentIdempotencyRepository = paymentIdempotencyRepository;
         this.auditLogService = auditLogService;
+        this.resaleListingService = resaleListingService;
     }
 
     @Transactional
@@ -163,7 +169,7 @@ public class ResaleOrderService {
     @Transactional
     public Map<String, Object> confirmResaleOrderReceipt(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!order.getBuyerUser().getId().equals(buyerUserId)) {
             throw new BizException("仅允许确认本人订单收货", ErrorCode.ORDER_NOT_OWNER);
         }
@@ -185,7 +191,7 @@ public class ResaleOrderService {
     @Transactional
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"UNPAID".equals(order.getPayStatus())) {
             throw new BizException("仅 UNPAID 订单可取消", ErrorCode.ORDER_STATUS_CONFLICT);
         }
@@ -202,7 +208,7 @@ public class ResaleOrderService {
     @Transactional
     public Map<String, Object> refundPaidResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"PAID".equals(order.getPayStatus())) {
             throw new BizException("仅 PAID 订单可退款", ErrorCode.ORDER_STATUS_CONFLICT);
         }
@@ -221,13 +227,13 @@ public class ResaleOrderService {
     @Transactional(readOnly = true)
     public Map<String, Object> queryResaleOrderTrack(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!order.getBuyerUser().getId().equals(buyerUserId)) {
-            throw new IllegalArgumentException("仅允许查询本人订单履约轨迹");
+            throw new BizException("仅允许查询本人订单履约轨迹", ErrorCode.ORDER_NOT_OWNER);
         }
         List<Map<String, Object>> events = auditLogService.listAuditLogs(null, orderNo, 200).stream()
                 .filter(e -> "RESALE_ORDER".equals(e.get("targetType")))
-                .stream().sorted(Comparator.comparing(e -> (LocalDateTime) e.get("createdAt")))
+                .sorted(Comparator.comparing(e -> (LocalDateTime) e.get("createdAt")))
                 .map(log -> {
                     Map<String, Object> event = new HashMap<>();
                     event.put("actionType", log.get("actionType"));
@@ -272,11 +278,17 @@ public class ResaleOrderService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> listBuyerResaleOrders(
-            Long buyerUserId, String payStatus, String fulfillStatus,
-            String sortBy, String sortOrder, Integer limit, Integer page, Integer size
+            Long buyerUserId,
+            @Nullable String payStatus,
+            @Nullable String fulfillStatus,
+            @Nullable String sortBy,
+            @Nullable String sortOrder,
+            @Nullable Integer limit,
+            @Nullable Integer page,
+            @Nullable Integer size
     ) {
         userAccountRepository.findById(buyerUserId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + buyerUserId));
+                .orElseThrow(() -> new BizException("用户不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
         int normalizedLimit = normalizeOrderListLimit(limit);
         int normalizedPage = normalizePage(page);
         int normalizedSize = normalizePageSize(size);
@@ -342,9 +354,9 @@ public class ResaleOrderService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> summarizeBuyerResaleOrders(Long buyerUserId, Integer lookbackDays) {
+    public Map<String, Object> summarizeBuyerResaleOrders(Long buyerUserId, @Nullable Integer lookbackDays) {
         userAccountRepository.findById(buyerUserId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + buyerUserId));
+                .orElseThrow(() -> new BizException("用户不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
         int normalizedLookbackDays = normalizeSummaryLookbackDays(lookbackDays);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime fromTime = normalizedLookbackDays <= 0 ? null : now.minusDays(normalizedLookbackDays);
@@ -478,15 +490,15 @@ public class ResaleOrderService {
     private int normalizePage(Integer page) { return page == null ? 0 : Math.max(0, page); }
     private int normalizePageSize(Integer size) { return size == null ? 20 : Math.max(1, Math.min(size, 100)); }
     private int normalizeSummaryLookbackDays(Integer lookbackDays) { return lookbackDays == null ? 30 : Math.max(1, Math.min(lookbackDays, 365)); }
-    private String normalizeFilterValue(String value) { return (value == null || value.isBlank()) ? null : value.trim().toUpperCase(Locale.ROOT); }
-    private String normalizeSortBy(String sortBy) {
+    private String normalizeFilterValue(@Nullable String value) { return (value == null || value.isBlank()) ? null : value.trim().toUpperCase(Locale.ROOT); }
+    private String normalizeSortBy(@Nullable String sortBy) {
         if (sortBy == null || sortBy.isBlank()) return "createdAt";
         String n = sortBy.trim();
         if ("createdAt".equalsIgnoreCase(n)) return "createdAt";
         if ("amount".equalsIgnoreCase(n)) return "amount";
         throw new IllegalArgumentException("排序字段仅支持 createdAt 或 amount");
     }
-    private String normalizeSortOrder(String sortOrder) {
+    private String normalizeSortOrder(@Nullable String sortOrder) {
         if (sortOrder == null || sortOrder.isBlank()) return "desc";
         String n = sortOrder.trim().toLowerCase(Locale.ROOT);
         if ("asc".equals(n) || "desc".equals(n)) return n;
@@ -504,22 +516,5 @@ public class ResaleOrderService {
         listing.setStock(listing.getStock() + 1);
         listing.setStatus(LISTING_STATUS_ON_SHELF);
         resaleListingRepository.save(listing);
-    }
-
-    private BigDecimal calculateOrderHealthScore(BigDecimal completionRate, BigDecimal refundRate) {
-        BigDecimal score = completionRate.multiply(new BigDecimal("0.7"))
-                .add(BigDecimal.valueOf(100).subtract(refundRate).multiply(new BigDecimal("0.3")));
-        if (score.compareTo(BigDecimal.ZERO) < 0) return BigDecimal.ZERO;
-        if (score.compareTo(BigDecimal.valueOf(100)) > 0) return BigDecimal.valueOf(100);
-        return score.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private String resolveOrderHealthLevel(BigDecimal completionRate, long refundedCount, int totalOrders) {
-        if (totalOrders <= 0) return "NEUTRAL";
-        BigDecimal refundRatio = BigDecimal.valueOf(refundedCount).multiply(BigDecimal.valueOf(100))
-                .divide(BigDecimal.valueOf(totalOrders), 2, RoundingMode.HALF_UP);
-        if (completionRate.compareTo(new BigDecimal("70")) >= 0 && refundRatio.compareTo(new BigDecimal("20")) <= 0) return "GOOD";
-        if (completionRate.compareTo(new BigDecimal("40")) >= 0 && refundRatio.compareTo(new BigDecimal("35")) <= 0) return "NORMAL";
-        return "ATTENTION";
     }
 }

@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDateTime;
 
@@ -18,6 +19,7 @@ public class ResaleReviewEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Nullable
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -39,12 +41,15 @@ public class ResaleReviewEntity {
     private String content;
 
     @Column(length = 1024)
+    @Nullable
     private String imageUrls;
 
     @Column(length = 512)
+    @Nullable
     private String appendContent;
 
     @Column(length = 512)
+    @Nullable
     private String merchantReply;
 
     @Column(nullable = false)
@@ -54,22 +59,26 @@ public class ResaleReviewEntity {
     private String moderationStatus;
 
     @Column
+    @Nullable
     private LocalDateTime moderatedAt;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Column
+    @Nullable
     private LocalDateTime appendedAt;
 
     @Column
+    @Nullable
     private LocalDateTime repliedAt;
 
+    @Nullable
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(@Nullable Long id) {
         this.id = id;
     }
 
@@ -113,27 +122,30 @@ public class ResaleReviewEntity {
         this.content = content;
     }
 
+    @Nullable
     public String getImageUrls() {
         return imageUrls;
     }
 
-    public void setImageUrls(String imageUrls) {
+    public void setImageUrls(@Nullable String imageUrls) {
         this.imageUrls = imageUrls;
     }
 
+    @Nullable
     public String getAppendContent() {
         return appendContent;
     }
 
-    public void setAppendContent(String appendContent) {
+    public void setAppendContent(@Nullable String appendContent) {
         this.appendContent = appendContent;
     }
 
+    @Nullable
     public String getMerchantReply() {
         return merchantReply;
     }
 
-    public void setMerchantReply(String merchantReply) {
+    public void setMerchantReply(@Nullable String merchantReply) {
         this.merchantReply = merchantReply;
     }
 
@@ -153,11 +165,12 @@ public class ResaleReviewEntity {
         this.moderationStatus = moderationStatus;
     }
 
+    @Nullable
     public LocalDateTime getModeratedAt() {
         return moderatedAt;
     }
 
-    public void setModeratedAt(LocalDateTime moderatedAt) {
+    public void setModeratedAt(@Nullable LocalDateTime moderatedAt) {
         this.moderatedAt = moderatedAt;
     }
 
@@ -169,19 +182,21 @@ public class ResaleReviewEntity {
         this.createdAt = createdAt;
     }
 
+    @Nullable
     public LocalDateTime getAppendedAt() {
         return appendedAt;
     }
 
-    public void setAppendedAt(LocalDateTime appendedAt) {
+    public void setAppendedAt(@Nullable LocalDateTime appendedAt) {
         this.appendedAt = appendedAt;
     }
 
+    @Nullable
     public LocalDateTime getRepliedAt() {
         return repliedAt;
     }
 
-    public void setRepliedAt(LocalDateTime repliedAt) {
+    public void setRepliedAt(@Nullable LocalDateTime repliedAt) {
         this.repliedAt = repliedAt;
     }
 }

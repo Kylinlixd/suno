@@ -1,6 +1,8 @@
 
 package com.recycle.mall.service.support;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +17,7 @@ public final class I18nHelper {
 
     private I18nHelper() {}
 
-    public static String normalizeLang(String lang) {
+    public static String normalizeLang(@Nullable String lang) {
         if (lang == null || lang.isBlank()) {
             return DEFAULT_LANG;
         }
@@ -35,7 +37,7 @@ public final class I18nHelper {
     }
 
     // ---- 支付状态 ----
-    public static Map<String, String> payStatusLabelI18n(String status) {
+    public static Map<String, String> payStatusLabelI18n(@Nullable String status) {
         return switch (status == null ? "" : status) {
             case "UNPAID" -> zhEn("未支付", "Unpaid");
             case "PAID" -> zhEn("已支付", "Paid");
@@ -45,7 +47,7 @@ public final class I18nHelper {
     }
 
     // ---- 履约状态 ----
-    public static Map<String, String> fulfillStatusLabelI18n(String status) {
+    public static Map<String, String> fulfillStatusLabelI18n(@Nullable String status) {
         return switch (status == null ? "" : status) {
             case "WAIT_PAY" -> zhEn("待支付", "Pending Payment");
             case "TO_DELIVER" -> zhEn("待发货", "Pending Shipment");
@@ -58,7 +60,7 @@ public final class I18nHelper {
     }
 
     // ---- 订单状态文本 ----
-    public static String orderStatusText(String payStatus, String fulfillStatus) {
+    public static String orderStatusText(@Nullable String payStatus, String fulfillStatus) {
         if ("REFUNDED".equals(payStatus) || "REFUNDED".equals(fulfillStatus)) {
             return "已退款";
         }
@@ -72,7 +74,7 @@ public final class I18nHelper {
         };
     }
 
-    public static Map<String, String> orderStatusTextI18n(String payStatus, String fulfillStatus) {
+    public static Map<String, String> orderStatusTextI18n(@Nullable String payStatus, String fulfillStatus) {
         if ("REFUNDED".equals(payStatus) || "REFUNDED".equals(fulfillStatus)) {
             return zhEn("已退款", "Refunded");
         }
@@ -87,7 +89,7 @@ public final class I18nHelper {
     }
 
     // ---- 健康等级 ----
-    public static Map<String, String> healthLevelI18n(String level) {
+    public static Map<String, String> healthLevelI18n(@Nullable String level) {
         return switch (level) {
             case "GOOD" -> zhEn("优", "Good");
             case "NORMAL" -> zhEn("中", "Normal");
@@ -130,7 +132,7 @@ public final class I18nHelper {
     }
 
     // ---- 趋势标签 ----
-    public static Map<String, String> trendLabelI18n(String trend) {
+    public static Map<String, String> trendLabelI18n(@Nullable String trend) {
         return switch (trend) {
             case "UP" -> zhEn("上升", "Up");
             case "DOWN" -> zhEn("下降", "Down");
