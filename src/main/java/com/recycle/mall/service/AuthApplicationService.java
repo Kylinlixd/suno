@@ -1,5 +1,7 @@
 package com.recycle.mall.service;
 
+import com.recycle.mall.common.BizException;
+import com.recycle.mall.common.ErrorCode;
 import com.recycle.mall.entity.AuthRefreshTokenEntity;
 import com.recycle.mall.entity.AuthExportTaskEntity;
 import com.recycle.mall.entity.AuthTokenBlacklistEntity;
@@ -143,13 +145,13 @@ public class AuthApplicationService {
     @Transactional
     public Map<String, Object> refresh(String refreshToken, String deviceId) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("refreshToken不能为空");
+            throw new BizException("refreshToken不能为空", ErrorCode.PARAM_INVALID);
         }
         String normalizedDeviceId = normalizeDeviceId(deviceId);
         LocalDateTime now = LocalDateTime.now();
         authRefreshTokenRepository.deleteByExpireAtBefore(now);
         AuthRefreshTokenEntity tokenEntity = authRefreshTokenRepository.findByToken(refreshToken)
-                .orElseThrow(() -> new IllegalArgumentException("refreshToken无效"));
+                .orElseThrow(() -> new BizException("refreshToken无效", ErrorCode.AUTH_REFRESH_TOKEN_INVALID));
         if (Boolean.TRUE.equals(tokenEntity.getRevoked())) {
             revokeAllActiveRefreshTokens(tokenEntity.getUsername());
             logAction(
@@ -157,13 +159,13 @@ public class AuthApplicationService {
                     tokenEntity.getUsername(),
                     "deviceId=" + tokenEntity.getDeviceId() + ", reason=replay-detected"
             );
-            throw new IllegalArgumentException("检测到refresh token重放，已阻断会话");
+            throw new BizException("检测到refresh token重放，已阻断会话", ErrorCode.AUTH_REFRESH_REPLAY_BLOCKED);
         }
         if (tokenEntity.getExpireAt().isBefore(now)) {
-            throw new IllegalArgumentException("refreshToken已失效");
+            throw new BizException("refreshToken已失效", ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
         }
         if (!normalizedDeviceId.equals(tokenEntity.getDeviceId())) {
-            throw new IllegalArgumentException("refreshToken与设备不匹配");
+            throw new BizException("refreshToken与设备不匹配", ErrorCode.AUTH_REFRESH_TOKEN_DEVICE_MISMATCH);
         }
 
         tokenEntity.setRevoked(true);

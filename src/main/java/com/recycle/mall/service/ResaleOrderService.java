@@ -1,6 +1,8 @@
 
 package com.recycle.mall.service;
 
+import com.recycle.mall.common.BizException;
+import com.recycle.mall.common.ErrorCode;
 import com.recycle.mall.service.support.AuditContext;
 import com.recycle.mall.service.support.I18nHelper;
 import com.recycle.mall.entity.PaymentIdempotencyEntity;
@@ -69,14 +71,14 @@ public class ResaleOrderService {
     @Transactional
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
-                .orElseThrow(() -> new IllegalArgumentException("买家不存在: " + buyerUserId));
+                .orElseThrow(() -> new BizException("买家不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
         ResaleListingEntity listing = resaleListingRepository.findById(listingId)
-                .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + listingId));
+                .orElseThrow(() -> new BizException("商品不存在: " + listingId, ErrorCode.ORDER_NOT_FOUND));
         if (!LISTING_STATUS_ON_SHELF.equals(listing.getStatus())) {
-            throw new IllegalArgumentException("商品已下架或售罄");
+            throw new BizException("商品已下架或售罄", ErrorCode.ORDER_LISTING_UNAVAILABLE);
         }
         if (listing.getStock() <= 0) {
-            throw new IllegalArgumentException("库存不足");
+            throw new BizException("库存不足", ErrorCode.ORDER_STOCK_INSUFFICIENT);
         }
         try {
             listing.setStock(listing.getStock() - 1);
@@ -85,7 +87,7 @@ public class ResaleOrderService {
             }
             resaleListingRepository.saveAndFlush(listing);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new IllegalArgumentException("下单冲突，请刷新后重试");
+            throw new BizException("下单冲突，请刷新后重试", ErrorCode.ORDER_CONCURRENT_CONFLICT);
         }
 
         String orderNo = "B2C-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -113,9 +115,9 @@ public class ResaleOrderService {
     @Transactional
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"UNPAID".equals(order.getPayStatus())) {
-            throw new IllegalArgumentException("订单支付状态异常: " + order.getPayStatus());
+            throw new BizException("订单支付状态异常: " + order.getPayStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
         }
         order.setPayStatus("PAID");
         order.setFulfillStatus("TO_DELIVER");
@@ -129,7 +131,7 @@ public class ResaleOrderService {
         PaymentIdempotencyEntity existing = paymentIdempotencyRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (existing != null) {
             if (!existing.getOrderNo().equals(orderNo)) {
-                throw new IllegalArgumentException("幂等键已用于其他订单");
+                throw new BizException("幂等键已用于其他订单", ErrorCode.ORDER_IDEMPOTENT_KEY_CONFLICT);
             }
             return Map.of("orderNo", existing.getOrderNo(), "payStatus", existing.getPayStatusSnapshot(), "idempotentReplay", true);
         }
@@ -147,9 +149,9 @@ public class ResaleOrderService {
     @Transactional
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"PAID".equals(order.getPayStatus())) {
-            throw new IllegalArgumentException("未支付订单不可发货");
+            throw new BizException("未支付订单不可发货", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         order.setFulfillStatus("DELIVERED");
         resaleOrderRepository.save(order);
@@ -163,16 +165,16 @@ public class ResaleOrderService {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
         if (!order.getBuyerUser().getId().equals(buyerUserId)) {
-            throw new IllegalArgumentException("仅允许确认本人订单收货");
+            throw new BizException("仅允许确认本人订单收货", ErrorCode.ORDER_NOT_OWNER);
         }
         if (!"PAID".equals(order.getPayStatus())) {
-            throw new IllegalArgumentException("未支付订单不可确认收货");
+            throw new BizException("未支付订单不可确认收货", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         if ("COMPLETED".equals(order.getFulfillStatus())) {
-            throw new IllegalArgumentException("订单已确认收货");
+            throw new BizException("订单已确认收货", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         if (!"DELIVERED".equals(order.getFulfillStatus())) {
-            throw new IllegalArgumentException("当前履约状态不可确认收货: " + order.getFulfillStatus());
+            throw new BizException("当前履约状态不可确认收货: " + order.getFulfillStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
         }
         order.setFulfillStatus("COMPLETED");
         resaleOrderRepository.save(order);
@@ -185,10 +187,10 @@ public class ResaleOrderService {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
         if (!"UNPAID".equals(order.getPayStatus())) {
-            throw new IllegalArgumentException("仅 UNPAID 订单可取消");
+            throw new BizException("仅 UNPAID 订单可取消", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         if (!"WAIT_PAY".equals(order.getFulfillStatus())) {
-            throw new IllegalArgumentException("当前履约状态不可取消: " + order.getFulfillStatus());
+            throw new BizException("当前履约状态不可取消: " + order.getFulfillStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
         }
         order.setFulfillStatus("CANCELLED");
         resaleOrderRepository.save(order);
@@ -202,10 +204,10 @@ public class ResaleOrderService {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("二销订单不存在: " + orderNo));
         if (!"PAID".equals(order.getPayStatus())) {
-            throw new IllegalArgumentException("仅 PAID 订单可退款");
+            throw new BizException("仅 PAID 订单可退款", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         if ("REFUNDED".equals(order.getFulfillStatus())) {
-            throw new IllegalArgumentException("订单已退款");
+            throw new BizException("订单已退款", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         order.setPayStatus("REFUNDED");
         order.setFulfillStatus("REFUNDED");

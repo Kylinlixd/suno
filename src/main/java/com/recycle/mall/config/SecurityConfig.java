@@ -68,12 +68,14 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(401);
                             response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write(objectMapper.writeValueAsString(ApiResponse.fail("请先登录")));
+                            response.getWriter().write(objectMapper.writeValueAsString(
+                                    ApiResponse.fail("请先登录", "AUTH_UNAUTHORIZED")));
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setStatus(403);
                             response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write(objectMapper.writeValueAsString(ApiResponse.fail("无权限访问该资源")));
+                            response.getWriter().write(objectMapper.writeValueAsString(
+                                    ApiResponse.fail("无权限访问该资源", "AUTH_FORBIDDEN")));
                         })
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
@@ -134,7 +136,7 @@ public class SecurityConfig {
             org.springframework.security.oauth2.jwt.Jwt jwt = delegate.decode(token);
             String jti = jwt.getId();
             if (jti != null && authTokenBlacklistRepository.existsByJti(jti)) {
-                throw new JwtException("token has been revoked");
+                throw new JwtException("AUTH_TOKEN_REVOKED:令牌已被撤销");
             }
             return jwt;
         };

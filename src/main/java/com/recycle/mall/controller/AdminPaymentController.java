@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 import java.time.LocalDateTime;
 
+@Validated
 @RestController
 @RequestMapping("/api/admin/payment")
 public class AdminPaymentController {
