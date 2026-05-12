@@ -124,8 +124,13 @@ public class SecurityConfig {
 
     @Bean
     public JwtEncoder jwtEncoder() {
-        SecretKey secretKey = new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        return new NimbusJwtEncoder(new com.nimbusds.jose.jwk.source.ImmutableSecret<>(secretKey));
+        com.nimbusds.jose.jwk.OctetSequenceKey jwk = new com.nimbusds.jose.jwk.OctetSequenceKey.Builder(jwtSecret.getBytes(StandardCharsets.UTF_8))
+                .algorithm(com.nimbusds.jose.JWSAlgorithm.HS256)
+                .build();
+        com.nimbusds.jose.jwk.JWKSet jwkSet = new com.nimbusds.jose.jwk.JWKSet(jwk);
+        com.nimbusds.jose.jwk.source.ImmutableJWKSet<com.nimbusds.jose.proc.SecurityContext> jwkSource =
+                new com.nimbusds.jose.jwk.source.ImmutableJWKSet<>(jwkSet);
+        return new NimbusJwtEncoder(jwkSource);
     }
 
     @Bean
