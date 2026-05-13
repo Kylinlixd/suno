@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.AuthTokenBlacklistEntity;
+import com.suno.mall.entity.AuthTokenBlacklistEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;

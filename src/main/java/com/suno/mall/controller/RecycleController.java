@@ -1,7 +1,7 @@
 package com.suno.mall.controller;
 
-import com.recycle.mall.service.RecycleApplicationService;
-import com.recycle.mall.common.ApiResponse;
+import com.suno.mall.service.RecycleApplicationService;
+import com.suno.mall.common.ApiResponse;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

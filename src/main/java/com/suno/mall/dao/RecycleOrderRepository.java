@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.RecycleOrderEntity;
+import com.suno.mall.entity.RecycleOrderEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

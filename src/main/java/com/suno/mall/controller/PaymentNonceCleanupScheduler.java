@@ -1,6 +1,6 @@
 package com.suno.mall.controller;
 
-import com.recycle.mall.service.PaymentSignatureService;
+import com.suno.mall.service.PaymentSignatureService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 

@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.UserAccountEntity;
+import com.suno.mall.entity.UserAccountEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

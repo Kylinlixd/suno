@@ -1,8 +1,8 @@
 package com.suno.mall.controller;
 
-import com.recycle.mall.common.ApiResponse;
-import com.recycle.mall.common.BizException;
-import com.recycle.mall.common.ErrorCode;
+import com.suno.mall.common.ApiResponse;
+import com.suno.mall.common.BizException;
+import com.suno.mall.common.ErrorCode;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

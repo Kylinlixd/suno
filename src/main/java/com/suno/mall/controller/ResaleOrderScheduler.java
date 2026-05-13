@@ -1,7 +1,7 @@
 package com.suno.mall.controller;
 
-import com.recycle.mall.service.RecycleApplicationService;
-import com.recycle.mall.service.support.AuditContext;
+import com.suno.mall.service.RecycleApplicationService;
+import com.suno.mall.service.support.AuditContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

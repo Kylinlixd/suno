@@ -3,7 +3,7 @@ package com.suno.mall.common;
 /**
  * 业务异常
  * <p>
- * 携带错误码的业务异常，由 {@link com.recycle.mall.controller.GlobalExceptionHandler} 统一捕获
+ * 携带错误码的业务异常，由 {@link com.suno.mall.controller.GlobalExceptionHandler} 统一捕获
  * 并转换为带 errorCode 的 {@link ApiResponse}。
  *
  * <pre>

@@ -2,10 +2,10 @@ package com.suno.mall.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.recycle.mall.service.RecycleApplicationService;
-import com.recycle.mall.common.ApiResponse;
-import com.recycle.mall.common.CacheContract;
-import com.recycle.mall.service.PaymentSignatureService;
+import com.suno.mall.service.RecycleApplicationService;
+import com.suno.mall.common.ApiResponse;
+import com.suno.mall.common.CacheContract;
+import com.suno.mall.service.PaymentSignatureService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

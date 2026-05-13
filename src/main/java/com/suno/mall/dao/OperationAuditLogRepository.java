@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.OperationAuditLogEntity;
+import com.suno.mall.entity.OperationAuditLogEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

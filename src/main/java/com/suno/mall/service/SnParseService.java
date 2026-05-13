@@ -1,6 +1,6 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.entity.ProductDraft;
+import com.suno.mall.entity.ProductDraft;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;

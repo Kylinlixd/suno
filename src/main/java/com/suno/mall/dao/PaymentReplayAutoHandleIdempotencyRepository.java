@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.PaymentReplayAutoHandleIdempotencyEntity;
+import com.suno.mall.entity.PaymentReplayAutoHandleIdempotencyEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 

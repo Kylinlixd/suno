@@ -1,7 +1,7 @@
 package com.suno.mall.controller;
 
-import com.recycle.mall.service.RecycleApplicationService;
-import com.recycle.mall.service.PaymentSignatureService;
+import com.suno.mall.service.RecycleApplicationService;
+import com.suno.mall.service.PaymentSignatureService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;

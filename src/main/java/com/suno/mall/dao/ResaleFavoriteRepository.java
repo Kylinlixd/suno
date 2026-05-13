@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.ResaleFavoriteEntity;
+import com.suno.mall.entity.ResaleFavoriteEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

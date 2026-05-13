@@ -1,6 +1,6 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.provider.LogisticsProvider;
+import com.suno.mall.provider.LogisticsProvider;
 import org.springframework.stereotype.Service;
 
 @Service

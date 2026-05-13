@@ -1,6 +1,6 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.provider.ImageAuditProvider;
+import com.suno.mall.provider.ImageAuditProvider;
 import org.springframework.stereotype.Service;
 
 @Service

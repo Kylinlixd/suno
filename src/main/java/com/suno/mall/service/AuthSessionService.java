@@ -1,9 +1,9 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.entity.AuthRefreshTokenEntity;
-import com.recycle.mall.dao.AuthRefreshTokenRepository;
-import com.recycle.mall.dao.OperationAuditLogRepository;
-import com.recycle.mall.entity.OperationAuditLogEntity;
+import com.suno.mall.entity.AuthRefreshTokenEntity;
+import com.suno.mall.dao.AuthRefreshTokenRepository;
+import com.suno.mall.dao.OperationAuditLogRepository;
+import com.suno.mall.entity.OperationAuditLogEntity;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;

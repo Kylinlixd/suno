@@ -1,11 +1,11 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.common.BizException;
-import com.recycle.mall.common.ErrorCode;
-import com.recycle.mall.entity.AuthExportTaskEntity;
-import com.recycle.mall.entity.OperationAuditLogEntity;
-import com.recycle.mall.dao.AuthExportTaskRepository;
-import com.recycle.mall.dao.OperationAuditLogRepository;
+import com.suno.mall.common.BizException;
+import com.suno.mall.common.ErrorCode;
+import com.suno.mall.entity.AuthExportTaskEntity;
+import com.suno.mall.entity.OperationAuditLogEntity;
+import com.suno.mall.dao.AuthExportTaskRepository;
+import com.suno.mall.dao.OperationAuditLogRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

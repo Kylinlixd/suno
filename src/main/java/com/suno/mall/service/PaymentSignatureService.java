@@ -1,7 +1,7 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.entity.PaymentNonceEntity;
-import com.recycle.mall.dao.PaymentNonceRepository;
+import com.suno.mall.entity.PaymentNonceEntity;
+import com.suno.mall.dao.PaymentNonceRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

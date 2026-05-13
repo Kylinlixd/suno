@@ -1,10 +1,10 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.entity.GradeLevel;
-import com.recycle.mall.entity.ProductDraft;
-import com.recycle.mall.entity.ValuationResult;
-import com.recycle.mall.entity.ValuationRuleEntity;
-import com.recycle.mall.dao.ValuationRuleRepository;
+import com.suno.mall.entity.GradeLevel;
+import com.suno.mall.entity.ProductDraft;
+import com.suno.mall.entity.ValuationResult;
+import com.suno.mall.entity.ValuationRuleEntity;
+import com.suno.mall.dao.ValuationRuleRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

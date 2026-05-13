@@ -1,8 +1,8 @@
 
 package com.suno.mall.dto.converter;
 
-import com.recycle.mall.dto.response.*;
-import com.recycle.mall.entity.*;
+import com.suno.mall.dto.response.*;
+import com.suno.mall.entity.*;
 
 import java.util.List;
 

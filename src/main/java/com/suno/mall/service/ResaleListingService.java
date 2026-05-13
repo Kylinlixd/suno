@@ -1,14 +1,14 @@
 
 package com.suno.mall.service;
 
-import com.recycle.mall.entity.RecycleOrderEntity;
-import com.recycle.mall.entity.ResaleFavoriteEntity;
-import com.recycle.mall.entity.ResaleListingEntity;
-import com.recycle.mall.entity.UserAccountEntity;
-import com.recycle.mall.dao.RecycleOrderRepository;
-import com.recycle.mall.dao.ResaleFavoriteRepository;
-import com.recycle.mall.dao.ResaleListingRepository;
-import com.recycle.mall.dao.UserAccountRepository;
+import com.suno.mall.entity.RecycleOrderEntity;
+import com.suno.mall.entity.ResaleFavoriteEntity;
+import com.suno.mall.entity.ResaleListingEntity;
+import com.suno.mall.entity.UserAccountEntity;
+import com.suno.mall.dao.RecycleOrderRepository;
+import com.suno.mall.dao.ResaleFavoriteRepository;
+import com.suno.mall.dao.ResaleListingRepository;
+import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

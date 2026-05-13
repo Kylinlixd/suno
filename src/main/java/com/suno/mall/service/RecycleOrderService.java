@@ -2,18 +2,18 @@
 package com.suno.mall.service;
 
 import org.jspecify.annotations.Nullable;
-import com.recycle.mall.entity.ProductDraft;
-import com.recycle.mall.entity.ValuationResult;
-import com.recycle.mall.entity.LogisticsTrackEntity;
-import com.recycle.mall.entity.PointsLedgerEntity;
-import com.recycle.mall.entity.ProductEntity;
-import com.recycle.mall.entity.RecycleOrderEntity;
-import com.recycle.mall.entity.UserAccountEntity;
-import com.recycle.mall.dao.LogisticsTrackRepository;
-import com.recycle.mall.dao.PointsLedgerRepository;
-import com.recycle.mall.dao.ProductRepository;
-import com.recycle.mall.dao.RecycleOrderRepository;
-import com.recycle.mall.dao.UserAccountRepository;
+import com.suno.mall.entity.ProductDraft;
+import com.suno.mall.entity.ValuationResult;
+import com.suno.mall.entity.LogisticsTrackEntity;
+import com.suno.mall.entity.PointsLedgerEntity;
+import com.suno.mall.entity.ProductEntity;
+import com.suno.mall.entity.RecycleOrderEntity;
+import com.suno.mall.entity.UserAccountEntity;
+import com.suno.mall.dao.LogisticsTrackRepository;
+import com.suno.mall.dao.PointsLedgerRepository;
+import com.suno.mall.dao.ProductRepository;
+import com.suno.mall.dao.RecycleOrderRepository;
+import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -1,6 +1,6 @@
 package com.suno.mall.dao;
 
-import com.recycle.mall.entity.ResaleListingEntity;
+import com.suno.mall.entity.ResaleListingEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

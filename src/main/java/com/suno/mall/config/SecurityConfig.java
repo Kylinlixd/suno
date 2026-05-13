@@ -1,8 +1,8 @@
 package com.suno.mall.config;
 
-import com.recycle.mall.entity.UserAccountEntity;
-import com.recycle.mall.dao.AuthTokenBlacklistRepository;
-import com.recycle.mall.dao.UserAccountRepository;
+import com.suno.mall.entity.UserAccountEntity;
+import com.suno.mall.dao.AuthTokenBlacklistRepository;
+import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,7 +29,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.recycle.mall.common.ApiResponse;
+import com.suno.mall.common.ApiResponse;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;

@@ -1,17 +1,17 @@
 
 package com.suno.mall.service;
 
-import com.recycle.mall.service.support.AuditContext;
-import com.recycle.mall.service.support.I18nHelper;
-import com.recycle.mall.entity.ResaleReviewEntity;
-import com.recycle.mall.entity.ResaleReviewReportEntity;
-import com.recycle.mall.entity.ResaleReviewVoteEntity;
-import com.recycle.mall.entity.UserAccountEntity;
-import com.recycle.mall.dao.ResaleListingRepository;
-import com.recycle.mall.dao.ResaleReviewReportRepository;
-import com.recycle.mall.dao.ResaleReviewRepository;
-import com.recycle.mall.dao.ResaleReviewVoteRepository;
-import com.recycle.mall.dao.UserAccountRepository;
+import com.suno.mall.service.support.AuditContext;
+import com.suno.mall.service.support.I18nHelper;
+import com.suno.mall.entity.ResaleReviewEntity;
+import com.suno.mall.entity.ResaleReviewReportEntity;
+import com.suno.mall.entity.ResaleReviewVoteEntity;
+import com.suno.mall.entity.UserAccountEntity;
+import com.suno.mall.dao.ResaleListingRepository;
+import com.suno.mall.dao.ResaleReviewReportRepository;
+import com.suno.mall.dao.ResaleReviewRepository;
+import com.suno.mall.dao.ResaleReviewVoteRepository;
+import com.suno.mall.dao.UserAccountRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

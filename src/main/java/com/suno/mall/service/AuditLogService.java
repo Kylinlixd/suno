@@ -2,10 +2,10 @@
 package com.suno.mall.service;
 
 import org.jspecify.annotations.Nullable;
-import com.recycle.mall.service.support.AuditContext;
-import com.recycle.mall.service.support.AuditLogHelper;
-import com.recycle.mall.entity.OperationAuditLogEntity;
-import com.recycle.mall.dao.OperationAuditLogRepository;
+import com.suno.mall.service.support.AuditContext;
+import com.suno.mall.service.support.AuditLogHelper;
+import com.suno.mall.entity.OperationAuditLogEntity;
+import com.suno.mall.dao.OperationAuditLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;

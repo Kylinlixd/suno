@@ -1,7 +1,7 @@
 package com.suno.mall.controller;
 
-import com.recycle.mall.service.AuthApplicationService;
-import com.recycle.mall.common.ApiResponse;
+import com.suno.mall.service.AuthApplicationService;
+import com.suno.mall.common.ApiResponse;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;

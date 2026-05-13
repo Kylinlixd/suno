@@ -1,15 +1,15 @@
 package com.suno.mall.service;
 
-import com.recycle.mall.common.BizException;
-import com.recycle.mall.common.ErrorCode;
-import com.recycle.mall.entity.AuthRefreshTokenEntity;
-import com.recycle.mall.entity.AuthTokenBlacklistEntity;
-import com.recycle.mall.entity.OperationAuditLogEntity;
-import com.recycle.mall.entity.UserAccountEntity;
-import com.recycle.mall.dao.AuthRefreshTokenRepository;
-import com.recycle.mall.dao.AuthTokenBlacklistRepository;
-import com.recycle.mall.dao.OperationAuditLogRepository;
-import com.recycle.mall.dao.UserAccountRepository;
+import com.suno.mall.common.BizException;
+import com.suno.mall.common.ErrorCode;
+import com.suno.mall.entity.AuthRefreshTokenEntity;
+import com.suno.mall.entity.AuthTokenBlacklistEntity;
+import com.suno.mall.entity.OperationAuditLogEntity;
+import com.suno.mall.entity.UserAccountEntity;
+import com.suno.mall.dao.AuthRefreshTokenRepository;
+import com.suno.mall.dao.AuthTokenBlacklistRepository;
+import com.suno.mall.dao.OperationAuditLogRepository;
+import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
