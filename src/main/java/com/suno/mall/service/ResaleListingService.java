@@ -62,6 +62,7 @@ public class ResaleListingService {
         listing.setStock(stock);
         listing.setStatus(LISTING_STATUS_ON_SHELF);
         listing.setCreatedAt(LocalDateTime.now());
+        listing.setUpdatedAt(LocalDateTime.now());
         resaleListingRepository.save(listing);
         auditLogService.logAction("RESALE_LISTING_PUBLISH", "RESALE_LISTING", String.valueOf(listing.getId()), "recycleOrderNo=" + recycleOrderNo);
         return Map.of(
@@ -151,7 +152,77 @@ public class ResaleListingService {
     void restoreListingStock(ResaleListingEntity listing) {
         listing.setStock(listing.getStock() + 1);
         listing.setStatus(LISTING_STATUS_ON_SHELF);
+        listing.setUpdatedAt(LocalDateTime.now());
         resaleListingRepository.save(listing);
+    }
+
+    /**
+     * 减少商品库存
+     * 当库存减少到0时，自动将状态设置为售罄
+     */
+    @Transactional
+    public Map<String, Object> reduceListingStock(Long listingId, int quantity) {
+        ResaleListingEntity listing = resaleListingRepository.findById(listingId)
+                .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + listingId));
+        
+        if (!LISTING_STATUS_ON_SHELF.equals(listing.getStatus())) {
+            throw new IllegalArgumentException("仅可减少在售商品的库存");
+        }
+        
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("减少数量必须大于0");
+        }
+        
+        if (listing.getStock() < quantity) {
+            throw new IllegalArgumentException("库存不足，当前库存: " + listing.getStock() + ", 请求减少: " + quantity);
+        }
+        
+        // 减少库存
+        listing.setStock(listing.getStock() - quantity);
+        
+        // 如果库存减少到0，将状态设置为售罄
+        if (listing.getStock() == 0) {
+            listing.setStatus(LISTING_STATUS_SOLD_OUT);
+            auditLogService.logAction("RESALE_LISTING_SOLD_OUT", "RESALE_LISTING", String.valueOf(listingId), "stock=" + listing.getStock());
+        }
+        
+        listing.setUpdatedAt(LocalDateTime.now());
+        resaleListingRepository.save(listing);
+        return Map.of(
+                "listingId", listing.getId(),
+                "stock", listing.getStock(),
+                "status", listing.getStatus()
+        );
+    }
+
+    /**
+     * 查询已售罄的商品列表
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listSoldOutListings() {
+        return listSoldOutListings(null, null);
+    }
+
+    /**
+     * 查询已售罄的商品列表（带过滤条件）
+ */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> listSoldOutListings(String grade, String sortBy) {
+        List<ResaleListingEntity> listings = resaleListingRepository.findByStatus(LISTING_STATUS_SOLD_OUT).stream()
+                .filter(item -> grade == null || grade.isBlank() || grade.equalsIgnoreCase(item.getProduct().getRecycleGrade()))
+                .toList();
+        
+        Comparator<ResaleListingEntity> comparator = buildListingComparator(sortBy);
+        return listings.stream().sorted(comparator).map(item -> Map.<String, Object>ofEntries(
+                Map.entry("listingId", item.getId()),
+                Map.entry("brand", item.getProduct().getBrand()),
+                Map.entry("model", item.getProduct().getModel()),
+                Map.entry("grade", item.getProduct().getRecycleGrade()),
+                Map.entry("salePrice", item.getSalePrice()),
+                Map.entry("stock", item.getStock()),
+                Map.entry("status", item.getStatus()),
+                Map.entry("soldAt", item.getUpdatedAt())
+        )).toList();
     }
 
     private Comparator<ResaleListingEntity> buildListingComparator(String sortBy) {

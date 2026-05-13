@@ -57,7 +57,6 @@ public class ConfigCenterService {
     @Value("${mall.config-center.module-diff-cache-window-seconds:30}")
     private int moduleDiffCacheWindowSeconds;
 
-    private volatile LocalDateTime reviewStrategyUpdatedAt = LocalDateTime.of(2026, 4, 28, 23, 26, 0);
     private volatile LocalDateTime alertNoiseRulesUpdatedAt = LocalDateTime.of(2026, 4, 29, 15, 20, 0);
     private volatile List<String> alertNoiseAllowlistKeys = List.of("config.sync.consecutive_failures");
     private volatile List<String> alertNoiseDenylistKeys = List.of("config.sync.cache_miss");

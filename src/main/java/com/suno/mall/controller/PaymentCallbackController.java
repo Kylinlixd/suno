@@ -97,11 +97,11 @@ public class PaymentCallbackController {
     private ResponseEntity<String> buildCallbackResponse(String responseBody) {
         if ("plain".equalsIgnoreCase(responseMode)) {
             return ResponseEntity.ok()
-                    .contentType(MediaType.TEXT_PLAIN)
+                    .contentType(MediaType.parseMediaType("text/plain;charset=UTF-8"))
                     .body(responseBody);
         }
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.parseMediaType("application/json;charset=UTF-8"))
                 .body(responseBody);
     }
 

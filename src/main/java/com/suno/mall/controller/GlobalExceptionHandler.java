@@ -77,7 +77,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        String requiredType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "未知类型";
+        String requiredType = "未知类型";
+        try {
+            Class<?> requiredTypeClass = ex.getRequiredType();
+            if (requiredTypeClass != null) {
+                requiredType = requiredTypeClass.getSimpleName();
+            }
+        } catch (Exception e) {
+            // 忽略获取类型时的异常，使用默认值
+        }
         return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("参数类型错误: " + ex.getName() + " 应为 " + requiredType, ErrorCode.PARAM_TYPE_MISMATCH));
     }

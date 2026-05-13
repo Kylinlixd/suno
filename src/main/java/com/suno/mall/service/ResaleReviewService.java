@@ -2,11 +2,9 @@
 package com.suno.mall.service;
 
 import com.suno.mall.service.support.AuditContext;
-import com.suno.mall.service.support.I18nHelper;
 import com.suno.mall.entity.ResaleReviewEntity;
 import com.suno.mall.entity.ResaleReviewReportEntity;
 import com.suno.mall.entity.ResaleReviewVoteEntity;
-import com.suno.mall.entity.UserAccountEntity;
 import com.suno.mall.dao.ResaleListingRepository;
 import com.suno.mall.dao.ResaleReviewReportRepository;
 import com.suno.mall.dao.ResaleReviewRepository;
@@ -97,8 +95,6 @@ public class ResaleReviewService {
         if (rating < 1 || rating > 5) {
             throw new IllegalArgumentException("评分范围需在 1-5");
         }
-        var order = resaleReviewRepository.findByOrder_OrderNoAndUser_Id(orderNo, buyerUserId)
-                .orElse(null); // just to check existence
         if (resaleReviewRepository.existsByOrder_OrderNoAndUser_Id(orderNo, buyerUserId)) {
             throw new IllegalArgumentException("订单已评价");
         }
@@ -156,6 +152,9 @@ public class ResaleReviewService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> listResaleReviews(Long listingId, String sortStrategy, boolean includeHidden) {
+        if (listingId == null) {
+            throw new IllegalArgumentException("查询失败：商品挂载ID(listingId)不能为空，请提供正确的列表项标识");
+        }
         resaleListingRepository.findById(listingId)
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + listingId));
         List<ResaleReviewEntity> reviews = resaleReviewRepository.findByListing_IdOrderByCreatedAtDesc(listingId);
@@ -198,6 +197,10 @@ public class ResaleReviewService {
 
     @Transactional
     public Map<String, Object> voteResaleReviewUseful(String orderNo, Long voterUserId) {
+        
+        if (voterUserId == null) {
+            throw new IllegalArgumentException("voterUserId 不能为空");
+        }
         userAccountRepository.findById(voterUserId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + voterUserId));
         ResaleReviewEntity review = resaleReviewRepository.findByOrder_OrderNo(orderNo)
@@ -218,6 +221,9 @@ public class ResaleReviewService {
 
     @Transactional
     public Map<String, Object> reportResaleReview(String orderNo, Long reporterUserId, String reason) {
+        if (reporterUserId == null) {
+            throw new IllegalArgumentException("举报用户ID不能为空");
+        }
         userAccountRepository.findById(reporterUserId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + reporterUserId));
         ResaleReviewEntity review = resaleReviewRepository.findByOrder_OrderNo(orderNo)
@@ -254,6 +260,9 @@ public class ResaleReviewService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> adminGetReviewReport(Long reportId) {
+        if (reportId == null) {
+            throw new IllegalArgumentException("查询失败：举报工单ID(reportId)不能为空，请提供正确的工单标识");
+        }    
         ResaleReviewReportEntity report = resaleReviewReportRepository.findById(reportId)
                 .orElseThrow(() -> new IllegalArgumentException("举报工单不存在: " + reportId));
         return toReviewReportItem(report);
