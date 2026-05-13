@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * 消息通知
  */
 @Entity
-@Table(name = "notification")
+@Table(name = "suno_notification")
 public class NotificationEntity {
 
     @Id

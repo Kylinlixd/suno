@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import org.jspecify.annotations.Nullable;
 
 @Entity
-@Table(name = "user_account")
+@Table(name = "suno_user_account")
 public class UserAccountEntity {
 
     @Id

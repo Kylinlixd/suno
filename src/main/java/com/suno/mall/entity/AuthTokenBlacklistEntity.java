@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "auth_token_blacklist")
+@Table(name = "suno_auth_token_blacklist")
 public class AuthTokenBlacklistEntity {
 
     @Id

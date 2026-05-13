@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * 收货地址
  */
 @Entity
-@Table(name = "user_address")
+@Table(name = "suno_user_address")
 public class UserAddressEntity {
 
     @Id

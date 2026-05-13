@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * 退款单
  */
 @Entity
-@Table(name = "refund_order")
+@Table(name = "suno_refund_order")
 public class RefundOrderEntity {
 
     @Id

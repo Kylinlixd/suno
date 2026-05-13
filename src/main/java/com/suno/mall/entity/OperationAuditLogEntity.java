@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "operation_audit_log")
+@Table(name = "suno_operation_audit_log")
 public class OperationAuditLogEntity {
 
     @Id

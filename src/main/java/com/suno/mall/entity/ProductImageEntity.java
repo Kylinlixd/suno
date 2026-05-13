@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * 商品多图
  */
 @Entity
-@Table(name = "product_image")
+@Table(name = "suno_product_image")
 public class ProductImageEntity {
 
     @Id

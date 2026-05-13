@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "payment_callback_log")
+@Table(name = "suno_payment_callback_log")
 public class PaymentCallbackLogEntity {
 
     @Id

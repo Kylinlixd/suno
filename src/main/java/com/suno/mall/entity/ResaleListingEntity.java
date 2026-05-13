@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "resale_listing")
+@Table(name = "suno_resale_listing")
 public class ResaleListingEntity {
 
     @Id

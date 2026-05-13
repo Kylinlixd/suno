@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * 优惠券模板
  */
 @Entity
-@Table(name = "coupon")
+@Table(name = "suno_coupon")
 public class CouponEntity {
 
     @Id

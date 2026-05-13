@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * 商品分类
  */
 @Entity
-@Table(name = "category")
+@Table(name = "suno_category")
 public class CategoryEntity {
 
     @Id

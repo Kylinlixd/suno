@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "recycle_order")
+@Table(name = "suno_recycle_order")
 public class RecycleOrderEntity {
 
     @Id

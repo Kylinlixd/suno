@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "valuation_rule")
+@Table(name = "suno_valuation_rule")
 public class ValuationRuleEntity {
 
     @Id

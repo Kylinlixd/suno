@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "resale_review")
+@Table(name = "suno_resale_review")
 public class ResaleReviewEntity {
 
     @Id

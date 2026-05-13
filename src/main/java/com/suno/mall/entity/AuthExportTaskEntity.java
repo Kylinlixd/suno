@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "auth_export_task")
+@Table(name = "suno_auth_export_task")
 public class AuthExportTaskEntity {
 
     @Id

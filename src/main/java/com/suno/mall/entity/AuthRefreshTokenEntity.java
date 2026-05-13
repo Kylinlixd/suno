@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "auth_refresh_token")
+@Table(name = "suno_auth_refresh_token")
 public class AuthRefreshTokenEntity {
 
     @Id
