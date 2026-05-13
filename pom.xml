@@ -10,10 +10,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.recycle</groupId>
-    <artifactId>recycle-mall</artifactId>
+    <groupId>com.suno</groupId>
+    <artifactId>suno-mall</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>recycle-mall</name>
+    <name>suno-mall</name>
     <description>C2B2C 二手循环交易平台骨架</description>
 
     <properties>
