@@ -1,10 +1,8 @@
 
 package com.suno.mall.service;
 
-import com.suno.mall.service.support.AuditContext;
 import com.suno.mall.entity.OperationAuditLogEntity;
 import com.suno.mall.entity.PaymentCallbackLogEntity;
-import com.suno.mall.entity.PaymentIdempotencyEntity;
 import com.suno.mall.entity.PaymentReplayAutoHandleIdempotencyEntity;
 import com.suno.mall.entity.PaymentReplayTaskEntity;
 import com.suno.mall.dao.OperationAuditLogRepository;
@@ -43,23 +41,10 @@ public class PaymentReplayService {
     private static final String CLEANUP_PERFORMANCE_CHECK_SCHEMA_VERSION = "1.0.0";
     private static final String HEALTH_SCHEMA_VERSION = "1.0.0";
     private static final String QUERY_AUDIT_ACTIONS_SCHEMA_VERSION = "1.0.0";
-    private static final String COMPATIBILITY_VERSION = "1.0.0";
     private static final String STATUS_DICTIONARY_VERSION = "1.0.0";
-    private static final String DESC_DICTIONARY_VERSION = "1.0.0";
-    private static final String LANG_FALLBACK_REASON_DICTIONARY_VERSION = "1.0.0";
-    private static final String MIGRATION_HINT_DICTIONARY_VERSION = "1.0.0";
-    private static final String REQUEST_SPEC_VERSION = "1.0.0";
     private static final String DEFAULT_LANG = "zh-CN";
     private static final String LANG_ZH_CN = "zh-CN";
     private static final String LANG_EN_US = "en-US";
-    private static final String LANG_FALLBACK_REASON_NONE = "NONE";
-    private static final String LANG_FALLBACK_REASON_UNSUPPORTED_LANG = "UNSUPPORTED_LANG";
-    private static final String MIGRATION_STATUS_STABLE = "STABLE";
-    private static final String MIGRATION_STATUS_DEPRECATING = "DEPRECATING";
-    private static final String MIGRATION_STATUS_SUNSET = "SUNSET";
-    private static final String MIGRATION_HINT_KEY_PREFER_META = "PREFER_META";
-    private static final String MIGRATION_HINT_KEY_MIGRATE_SOON = "MIGRATE_SOON";
-    private static final String MIGRATION_HINT_KEY_META_ONLY = "META_ONLY";
     private static final String ACTION_PAYMENT_REPLAY_DIAGNOSIS_QUERY = "PAYMENT_REPLAY_DIAGNOSIS_QUERY";
     private static final String ACTION_PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY = "PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY";
     private static final String ACTION_PAYMENT_REPLAY_HEALTH_QUERY = "PAYMENT_REPLAY_HEALTH_QUERY";
@@ -82,7 +67,7 @@ public class PaymentReplayService {
     private static final String CATEGORY_FAILURE_ANALYSIS = "FAILURE_ANALYSIS";
     private static final String CATEGORY_CLEANUP_PERFORMANCE = "CLEANUP_PERFORMANCE";
     private static final String CATEGORY_NO_ACTION = "NO_ACTION";
-    private static final String TARGET_TYPE_PAYMENT_REPLAY_QUEUE = "PAYMENT_REPLAY_QUEUE";
+
     private static final String TARGET_ID_DIAGNOSIS = "DIAGNOSIS";
     private static final String TARGET_ID_CLEANUP_PERFORMANCE_CHECK = "CLEANUP_PERFORMANCE_CHECK";
     private static final String TARGET_ID_HEALTH = "HEALTH";
@@ -100,14 +85,10 @@ public class PaymentReplayService {
     private static final String STATUS_TEXT_WARN_CLEANUP = "清理性能验收未通过";
     private static final String STATUS_TEXT_OK_HEALTH = "队列健康";
     private static final String STATUS_TEXT_WARN_HEALTH = "队列存在告警";
-    private static final String STATUS_TEXT_QUERY_AUDIT_ACTIVE = "当前生效动作";
-    private static final String STATUS_TEXT_QUERY_AUDIT_DEPRECATED = "已废弃动作";
-    private static final String STATUS_TEXT_QUERY_AUDIT_EXTERNAL_ONLY = "仅外部请求触发记录";
     private static final String SIGNAL_HAS_RECENT_CLEANUP_RUN = "HAS_RECENT_CLEANUP_RUN";
     private static final String SIGNAL_DURATION_RECOVERED = "DURATION_RECOVERED";
     private static final String SIGNAL_SLOW_WARN_CLEARED = "SLOW_WARN_CLEARED";
     private static final String QUERY_AUDIT_ACTION_STATUS_ACTIVE = "ACTIVE";
-    private static final String QUERY_AUDIT_ACTION_STATUS_DEPRECATED = "DEPRECATED";
     private static final String QUERY_AUDIT_CONVENTION_STATUS_EXTERNAL_ONLY = "EXTERNAL_ONLY";
 
     @Value("${payment.callback.replay-max-retry:3}")

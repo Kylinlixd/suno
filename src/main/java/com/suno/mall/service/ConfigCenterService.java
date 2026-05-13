@@ -3,7 +3,6 @@ package com.suno.mall.service;
 
 import com.suno.mall.service.support.AuditContext;
 import com.suno.mall.service.support.VersionHelper;
-import com.suno.mall.dao.OperationAuditLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +31,6 @@ public class ConfigCenterService {
     );
     private static final String GLOBAL_ERROR_CODE_DICT_VERSION = "1.0.0";
     private static final LocalDateTime GLOBAL_ERROR_CODE_DICT_UPDATED_AT = LocalDateTime.of(2026, 4, 28, 23, 22, 0);
-    private static final String REVIEW_STRATEGY_SCHEMA_VERSION = "1.0.0";
     private static final String ALERT_NOISE_RULES_VERSION = "1.0.0";
     private static final String CONFIG_CENTER_BUNDLE_VERSION = "1.0.0";
     private static final String DEGRADE_ACTION_DICT_VERSION = "1.0.0";

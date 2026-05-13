@@ -87,6 +87,23 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:unchecked</arg>
+                        <arg>-Xlint:deprecation</arg>
+                        <arg>-Xlint:varargs</arg>
+                        <arg>-Xlint:rawtypes</arg>
+                        <arg>-Xlint:finally</arg>
+                        <arg>-Xlint:cast</arg>
+                        <arg>-Xlint:static</arg>
+                        <arg>-Xlint:fallthrough</arg>
+                        <arg>-Xlint:path</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
