@@ -274,3 +274,71 @@ CREATE INDEX idx_payment_replay_task_status_next_retry
 
 CREATE INDEX idx_replay_auto_handle_idempotency_expire_at
     ON payment_replay_auto_handle_idempotency(expire_at);
+
+-- ==================== 补充业务索引 ====================
+
+-- 回收订单
+CREATE INDEX idx_recycle_order_user_id ON recycle_order(user_id);
+CREATE INDEX idx_recycle_order_status ON recycle_order(status);
+CREATE INDEX idx_recycle_order_created_at ON recycle_order(created_at);
+
+-- 商品
+CREATE INDEX idx_product_brand_model ON product(brand, model);
+CREATE INDEX idx_product_recycle_grade ON product(recycle_grade);
+
+-- 估值规则
+CREATE INDEX idx_valuation_rule_brand_model ON valuation_rule(brand, model);
+
+-- 物流跟踪
+CREATE INDEX idx_logistics_track_order_id ON logistics_track(order_id);
+
+-- 积分流水
+CREATE INDEX idx_points_ledger_user_id ON points_ledger(user_id);
+CREATE INDEX idx_points_ledger_created_at ON points_ledger(created_at);
+
+-- 二销上架
+CREATE INDEX idx_resale_listing_recycle_order_id ON resale_listing(recycle_order_id);
+CREATE INDEX idx_resale_listing_product_id ON resale_listing(product_id);
+CREATE INDEX idx_resale_listing_status ON resale_listing(status);
+
+-- 二销收藏
+CREATE INDEX idx_resale_favorite_user_id ON resale_favorite(user_id);
+CREATE INDEX idx_resale_favorite_listing_id ON resale_favorite(listing_id);
+
+-- 二销订单
+CREATE INDEX idx_resale_order_buyer_user_id ON resale_order(buyer_user_id);
+CREATE INDEX idx_resale_order_listing_id ON resale_order(listing_id);
+CREATE INDEX idx_resale_order_pay_fulfill ON resale_order(pay_status, fulfill_status);
+CREATE INDEX idx_resale_order_created_at ON resale_order(created_at);
+
+-- 评价
+CREATE INDEX idx_resale_review_listing_id ON resale_review(listing_id);
+CREATE INDEX idx_resale_review_user_id ON resale_review(user_id);
+CREATE INDEX idx_resale_review_order_id ON resale_review(order_id);
+CREATE INDEX idx_resale_review_moderation_status ON resale_review(moderation_status);
+
+-- 评价投票
+CREATE INDEX idx_resale_review_vote_review_id ON resale_review_vote(review_id);
+CREATE INDEX idx_resale_review_vote_user_id ON resale_review_vote(user_id);
+
+-- 评价举报
+CREATE INDEX idx_resale_review_report_review_id ON resale_review_report(review_id);
+CREATE INDEX idx_resale_review_report_status ON resale_review_report(status);
+
+-- 审计日志
+CREATE INDEX idx_audit_log_action_type ON operation_audit_log(action_type);
+CREATE INDEX idx_audit_log_target_type ON operation_audit_log(target_type);
+CREATE INDEX idx_audit_log_created_at ON operation_audit_log(created_at);
+
+-- 认证
+CREATE INDEX idx_auth_refresh_token_user_id ON auth_refresh_token(user_id);
+CREATE INDEX idx_auth_refresh_token_expire_at ON auth_refresh_token(expire_at);
+CREATE INDEX idx_auth_token_blacklist_expire_at ON auth_token_blacklist(expire_at);
+CREATE INDEX idx_auth_export_task_status ON auth_export_task(status);
+CREATE INDEX idx_auth_export_task_idempotency_key ON auth_export_task(idempotency_key);
+
+-- 支付
+CREATE INDEX idx_payment_idempotency_order_no ON payment_idempotency(order_no);
+CREATE INDEX idx_payment_callback_log_order_no ON payment_callback_log(order_no);
+CREATE INDEX idx_payment_callback_log_created_at ON payment_callback_log(created_at);
+CREATE INDEX idx_payment_nonce_expire_at ON payment_nonce(expire_at);
