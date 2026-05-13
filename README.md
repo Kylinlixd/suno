@@ -1,10 +1,10 @@
-# Recycle Mall — C2B2C 二手循环交易平台
+# Suno Mall — C2B2C 二手循环交易平台
 
 > C2B2C 二手商品循环交易平台（第一阶段：主体框架 + 持久层落库）
 
 ## 项目概览
 
-Recycle Mall 是一个完整的二手商品循环交易平台，覆盖从回收估价、物流追踪到二销上架、C 端购买的全链路闭环。项目采用 Spring Boot 3.5 单体架构，内置 H2/MySQL 双数据源切换，适合快速联调与近生产环境验证。
+Suno Mall 是一个完整的二手商品循环交易平台，覆盖从回收估价、物流追踪到二销上架、C 端购买的全链路闭环。项目采用 Spring Boot 3.5 单体架构，内置 H2/MySQL 双数据源切换，适合快速联调与近生产环境验证。
 
 ### 核心业务能力
 
@@ -67,8 +67,8 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mysql
 ## 项目结构
 
 ```
-src/main/java/com/recycle/mall/
-├── RecycleMallApplication.java       # 启动入口
+src/main/java/com/suno/mall/
+├── SunoMallApplication.java       # 启动入口
 ├── common/                           # 通用响应与缓存契约
 │   ├── ApiResponse.java
 │   └── CacheContract.java
@@ -834,7 +834,7 @@ provider:
 security:
   auth:
     jwt:
-      secret: recycle-mall-demo-jwt-secret-key-please-change  # 生产必须替换
+      secret: suno-mall-demo-jwt-secret-key-please-change  # 生产必须替换
       expire-minutes: 120
       refresh-expire-minutes: 10080
     export-task:
