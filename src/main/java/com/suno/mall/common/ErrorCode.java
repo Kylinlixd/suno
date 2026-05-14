@@ -109,4 +109,8 @@ public final class ErrorCode {
     public static final String SYS_OPTIMISTIC_LOCK = "SYS_OPTIMISTIC_LOCK";
     /** 配置更新内容为空 */
     public static final String SYS_CONFIG_UPDATE_EMPTY = "SYS_CONFIG_UPDATE_EMPTY";
+    /** 数据完整性错误 */
+    public static final String DATA_INTEGRITY_VIOLATION = "DATA_INTEGRITY_VIOLATION";
+    /** 数据库操作错误 */
+    public static final String SYS_DATABASE_ERROR = "SYS_DATABASE_ERROR";
 }

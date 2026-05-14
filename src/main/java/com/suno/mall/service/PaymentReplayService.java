@@ -10,6 +10,7 @@ import com.suno.mall.dao.PaymentCallbackLogRepository;
 import com.suno.mall.dao.PaymentReplayAutoHandleIdempotencyRepository;
 import com.suno.mall.dao.PaymentReplayTaskRepository;
 import com.suno.mall.dao.ResaleOrderRepository;
+import com.suno.mall.common.Constants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,16 +38,17 @@ import java.util.concurrent.locks.ReentrantLock;
 @Service
 public class PaymentReplayService {
 
-    private static final String DIAGNOSIS_SCHEMA_VERSION = "1.0.0";
-    private static final String CLEANUP_PERFORMANCE_CHECK_SCHEMA_VERSION = "1.0.0";
-    private static final String HEALTH_SCHEMA_VERSION = "1.0.0";
-    private static final String QUERY_AUDIT_ACTIONS_SCHEMA_VERSION = "1.0.0";
-    private static final String STATUS_DICTIONARY_VERSION = "1.0.0";
-    private static final String DEFAULT_LANG = "zh-CN";
-    private static final String LANG_ZH_CN = "zh-CN";
-    private static final String LANG_EN_US = "en-US";
-    private static final String ACTION_PAYMENT_REPLAY_DIAGNOSIS_QUERY = "PAYMENT_REPLAY_DIAGNOSIS_QUERY";
-    private static final String ACTION_PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY = "PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY";
+    // 使用公共常量替代重复定义
+    private static final String DIAGNOSIS_SCHEMA_VERSION = Constants.DIAGNOSIS_SCHEMA_VERSION;
+    private static final String CLEANUP_PERFORMANCE_CHECK_SCHEMA_VERSION = Constants.CLEANUP_PERFORMANCE_CHECK_SCHEMA_VERSION;
+    private static final String HEALTH_SCHEMA_VERSION = Constants.HEALTH_SCHEMA_VERSION;
+    private static final String QUERY_AUDIT_ACTIONS_SCHEMA_VERSION = Constants.QUERY_AUDIT_ACTIONS_SCHEMA_VERSION;
+    private static final String STATUS_DICTIONARY_VERSION = Constants.STATUS_DICTIONARY_VERSION;
+    private static final String DEFAULT_LANG = Constants.DEFAULT_LANG;
+    private static final String LANG_ZH_CN = Constants.LANG_ZH_CN;
+    private static final String LANG_EN_US = Constants.LANG_EN_US;
+    private static final String ACTION_PAYMENT_REPLAY_DIAGNOSIS_QUERY = Constants.ACTION_PAYMENT_REPLAY_DIAGNOSIS_QUERY;
+    private static final String ACTION_PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY = Constants.ACTION_PAYMENT_REPLAY_CLEANUP_PERFORMANCE_CHECK_QUERY;
     private static final String ACTION_PAYMENT_REPLAY_HEALTH_QUERY = "PAYMENT_REPLAY_HEALTH_QUERY";
     private static final String ACTION_PAYMENT_REPLAY_QUERY_AUDIT_ACTIONS_QUERY = "PAYMENT_REPLAY_QUERY_AUDIT_ACTIONS_QUERY";
     private static final String QUERY_AUDIT_DESC_KEY_HEALTH = "queryAudit.health";
@@ -97,17 +99,17 @@ public class PaymentReplayService {
     private int replayBackoffBaseSeconds;
     @Value("${payment.callback.replay-backoff-max-seconds:300}")
     private int replayBackoffMaxSeconds;
-    @Value("${payment.callback.replay-health-pending-threshold:100}")
+    @Value("${payment.callback.replay-health-pending-threshold:" + Constants.DEFAULT_REPLAY_HEALTH_PENDING_THRESHOLD + "}")
     private int replayHealthPendingThreshold;
-    @Value("${payment.callback.replay-health-dead-threshold:10}")
+    @Value("${payment.callback.replay-health-dead-threshold:" + Constants.DEFAULT_REPLAY_HEALTH_DEAD_THRESHOLD + "}")
     private int replayHealthDeadThreshold;
-    @Value("${payment.callback.replay-health-oldest-pending-minutes-threshold:30}")
+    @Value("${payment.callback.replay-health-oldest-pending-minutes-threshold:" + Constants.DEFAULT_REPLAY_HEALTH_OLDEST_PENDING_MINUTES_THRESHOLD + "}")
     private int replayHealthOldestPendingMinutesThreshold;
-    @Value("${payment.callback.replay-auto-handle-trace-idempotent-window-seconds:30}")
+    @Value("${payment.callback.replay-auto-handle-trace-idempotent-window-seconds:" + Constants.DEFAULT_REPLAY_AUTO_HANDLE_TRACE_IDEMPOTENT_WINDOW_SECONDS + "}")
     private int replayAutoHandleTraceIdempotentWindowSeconds;
-    @Value("${payment.callback.replay-auto-handle-idempotency-cleanup-warn-duration-ms:5000}")
+    @Value("${payment.callback.replay-auto-handle-idempotency-cleanup-warn-duration-ms:" + Constants.DEFAULT_REPLAY_AUTO_HANDLE_IDEMPOTENCY_CLEANUP_WARN_DURATION_MS + "}")
     private long replayAutoHandleIdempotencyCleanupWarnDurationMs;
-    @Value("${payment.callback.replay-health-cleanup-warn-lookback-minutes:30}")
+    @Value("${payment.callback.replay-health-cleanup-warn-lookback-minutes:" + Constants.DEFAULT_REPLAY_HEALTH_CLEANUP_WARN_LOOKBACK_MINUTES + "}")
     private int replayHealthCleanupWarnLookbackMinutes;
 
     private final ReentrantLock replayAutoHandleIdempotencyCleanupLock = new ReentrantLock();

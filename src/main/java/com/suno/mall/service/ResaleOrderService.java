@@ -2,6 +2,7 @@
 package com.suno.mall.service;
 
 import com.suno.mall.common.BizException;
+import com.suno.mall.common.Constants;
 import com.suno.mall.common.ErrorCode;
 import org.jspecify.annotations.Nullable;
 import com.suno.mall.service.support.AuditContext;
@@ -42,10 +43,11 @@ import java.util.stream.Collectors;
 @Service
 public class ResaleOrderService {
 
-    private static final String LISTING_STATUS_ON_SHELF = "ON_SHELF";
-    private static final String LISTING_STATUS_SOLD_OUT = "SOLD_OUT";
+    // 使用公共常量替代重复定义
+    private static final String LISTING_STATUS_ON_SHELF = Constants.LISTING_STATUS_ON_SHELF;
+    private static final String LISTING_STATUS_SOLD_OUT = Constants.LISTING_STATUS_SOLD_OUT;
 
-    @Value("${mall.review.append-window-days:30}")
+    @Value("${mall.review.append-window-days:" + Constants.DEFAULT_REVIEW_APPEND_WINDOW_DAYS + "}")
     private int reviewAppendWindowDays;
 
     private final UserAccountRepository userAccountRepository;

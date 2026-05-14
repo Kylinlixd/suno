@@ -1,6 +1,7 @@
 
 package com.suno.mall.service;
 
+import com.suno.mall.common.Constants;
 import com.suno.mall.service.support.AuditContext;
 import com.suno.mall.service.support.VersionHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -26,27 +27,28 @@ import java.util.concurrent.ConcurrentMap;
 @Service
 public class ConfigCenterService {
 
+    // 使用公共常量替代重复定义
     private static final Set<String> ALERT_NOISE_RULE_KEYS = Set.of(
-            "allowlistKeys", "denylistKeys", "quietHoursStart", "quietHoursEnd", "quietHourPassLevels"
+        "allowlistKeys", "denylistKeys", "quietHoursStart", "quietHoursEnd", "quietHourPassLevels"
     );
-    private static final String GLOBAL_ERROR_CODE_DICT_VERSION = "1.0.0";
+    private static final String GLOBAL_ERROR_CODE_DICT_VERSION = Constants.GLOBAL_ERROR_CODE_DICT_VERSION;
     private static final LocalDateTime GLOBAL_ERROR_CODE_DICT_UPDATED_AT = LocalDateTime.of(2026, 4, 28, 23, 22, 0);
-    private static final String ALERT_NOISE_RULES_VERSION = "1.0.0";
-    private static final String CONFIG_CENTER_BUNDLE_VERSION = "1.0.0";
-    private static final String DEGRADE_ACTION_DICT_VERSION = "1.0.0";
+    private static final String ALERT_NOISE_RULES_VERSION = Constants.ALERT_NOISE_RULES_VERSION;
+    private static final String CONFIG_CENTER_BUNDLE_VERSION = Constants.CONFIG_CENTER_BUNDLE_VERSION;
+    private static final String DEGRADE_ACTION_DICT_VERSION = Constants.DEGRADE_ACTION_DICT_VERSION;
     private static final LocalDateTime DEGRADE_ACTION_DICT_UPDATED_AT = LocalDateTime.of(2026, 4, 29, 0, 3, 0);
 
-    @Value("${mall.review.risk.level-high-sensitive-rate:0.25}")
+    @Value("${mall.review.risk.level-high-sensitive-rate:" + Constants.DEFAULT_REVIEW_RISK_LEVEL_HIGH_SENSITIVE_RATE + "}")
     private double reviewRiskHighSensitiveRate;
-    @Value("${mall.review.risk.level-medium-sensitive-rate:0.12}")
+    @Value("${mall.review.risk.level-medium-sensitive-rate:" + Constants.DEFAULT_REVIEW_RISK_LEVEL_MEDIUM_SENSITIVE_RATE + "}")
     private double reviewRiskMediumSensitiveRate;
-    @Value("${mall.review.risk.level-high-pending-reports:10}")
+    @Value("${mall.review.risk.level-high-pending-reports:" + Constants.DEFAULT_REVIEW_RISK_LEVEL_HIGH_PENDING_REPORTS + "}")
     private int reviewRiskHighPendingReports;
-    @Value("${mall.review.risk.level-medium-pending-reports:5}")
+    @Value("${mall.review.risk.level-medium-pending-reports:" + Constants.DEFAULT_REVIEW_RISK_LEVEL_MEDIUM_PENDING_REPORTS + "}")
     private int reviewRiskMediumPendingReports;
-    @Value("${mall.review.risk.level-high-total-reports:30}")
+    @Value("${mall.review.risk.level-high-total-reports:" + Constants.DEFAULT_REVIEW_RISK_LEVEL_HIGH_TOTAL_REPORTS + "}")
     private int reviewRiskHighTotalReports;
-    @Value("${mall.review.risk.level-medium-total-reports:15}")
+    @Value("${mall.review.risk.level-medium-total-reports:" + Constants.DEFAULT_REVIEW_RISK_LEVEL_MEDIUM_TOTAL_REPORTS + "}")
     private int reviewRiskMediumTotalReports;
     @Value("${mall.review.sort.deboost-penalty:25}")
     private double reviewSortDeboostPenalty;

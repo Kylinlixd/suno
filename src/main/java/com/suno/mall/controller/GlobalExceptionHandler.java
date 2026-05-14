@@ -100,12 +100,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
+        log.warn("认证失败 - 用户名或密码错误: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.fail("用户名或密码错误", ErrorCode.AUTH_BAD_CREDENTIALS));
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex) {
+        log.warn("认证失败: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.fail("认证失败，请重新登录", ErrorCode.AUTH_UNAUTHORIZED));
     }
@@ -114,14 +116,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        log.warn("乐观锁冲突: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.fail("操作过于频繁，请重试", ErrorCode.SYS_OPTIMISTIC_LOCK));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("数据完整性异常: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.fail("数据冲突，请检查请求后重试", ErrorCode.PAYMENT_DATA_CONFLICT));
+                .body(ApiResponse.fail("数据完整性错误，请检查输入参数", ErrorCode.DATA_INTEGRITY_VIOLATION));
     }
 
     // ==================== 状态异常 ====================
@@ -140,5 +144,21 @@ public class GlobalExceptionHandler {
         log.error("未预期异常: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("系统异常，请稍后重试", ErrorCode.SYS_INTERNAL_ERROR));
+    }
+
+    // ==================== 数据库异常 ====================
+
+    @ExceptionHandler(javax.persistence.PersistenceException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePersistenceException(javax.persistence.PersistenceException ex) {
+        log.error("数据库异常: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail("数据库操作异常，请稍后重试", ErrorCode.SYS_DATABASE_ERROR));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataAccessException(org.springframework.dao.DataAccessException ex) {
+        log.error("数据访问异常: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail("数据访问异常，请稍后重试", ErrorCode.SYS_DATABASE_ERROR));
     }
 }
