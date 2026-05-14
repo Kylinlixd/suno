@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -32,7 +31,7 @@ public final class DatabaseOptimizationHelper {
      */
     public static <T, ID> List<T> batchFindByIds(JpaRepository<T, ID> repository, List<ID> ids, int batchSize, 
             Function<T, ID> idFunction) {
-        List<T> result = List.of();
+        List<T> result = new java.util.ArrayList<>();
 
         if (ids == null || ids.isEmpty()) {
             return result;
@@ -41,7 +40,7 @@ public final class DatabaseOptimizationHelper {
         // 分批查询，避免一次性加载过多数据
         for (int i = 0; i < ids.size(); i += batchSize) {
             int end = Math.min(i + batchSize, ids.size());
-            List<ID> batchIds = ids.subList(i, end);
+            List<ID> batchIds = new java.util.ArrayList<>(ids.subList(i, end));
             List<T> batchResult = repository.findAllById(batchIds);
 
             // 验证查询结果是否完整

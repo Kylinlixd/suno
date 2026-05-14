@@ -47,7 +47,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(err -> err.getField() + ": " + Objects.toString(err.getDefaultMessage(), "参数不合法"))
@@ -148,8 +148,8 @@ public class GlobalExceptionHandler {
 
     // ==================== 数据库异常 ====================
 
-    @ExceptionHandler(javax.persistence.PersistenceException.class)
-    public ResponseEntity<ApiResponse<Void>> handlePersistenceException(javax.persistence.PersistenceException ex) {
+    @ExceptionHandler(jakarta.persistence.PersistenceException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePersistenceException(jakarta.persistence.PersistenceException ex) {
         log.error("数据库异常: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("数据库操作异常，请稍后重试", ErrorCode.SYS_DATABASE_ERROR));

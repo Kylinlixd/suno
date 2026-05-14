@@ -128,6 +128,14 @@ public class ConfigCenterService {
 
     // ========== 告警降噪规则 ==========
 
+    /**
+     * 获取告警降噪规则（供外部调用）
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAlertNoiseRules() {
+        return adminAlertNoiseRulesConfig();
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> adminAlertNoiseRulesConfig() {
         List<Map<String, Object>> groupMeta = List.of(

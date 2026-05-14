@@ -1,5 +1,6 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
     "java.configuration.updateBuildConfiguration": "automatic",
-    "Codegeex.RepoIndex": true
+    "Codegeex.RepoIndex": true,
+    "java.debug.settings.onBuildFailureProceed": true
 }
