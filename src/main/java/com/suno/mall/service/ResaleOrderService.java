@@ -21,6 +21,8 @@ import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -77,6 +79,7 @@ public class ResaleOrderService {
     }
 
     @Transactional(timeout = 30)
+    @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
                 .orElseThrow(() -> new BizException("买家不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
@@ -121,6 +124,7 @@ public class ResaleOrderService {
 
 
     @Transactional(timeout = 30)
+    @CacheEvict(value = "resaleOrder", key = "#orderNo")
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -279,6 +283,7 @@ public class ResaleOrderService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "resaleOrder", key = "#buyerUserId + '::list::' + #payStatus + '::' + #fulfillStatus + '::' + #sortBy + '::' + #sortOrder + '::' + #limit + '::' + #page + '::' + #size")
     public Map<String, Object> listBuyerResaleOrders(
             Long buyerUserId,
             @Nullable String payStatus,

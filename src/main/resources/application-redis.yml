@@ -1,0 +1,37 @@
+
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    database: 0
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+    cache:
+      type: redis
+      redis:
+        time-to-live: 600000  # 默认缓存10分钟
+        key-prefix: suno-mall:
+        use-key-prefix: true
+        cache-null-values: false
+
+# 缓存配置
+mall:
+  cache:
+    # 订单状态缓存时间(秒)
+    order-status-ttl: 300
+    # 商品信息缓存时间(秒)
+    product-info-ttl: 600
+    # 用户信息缓存时间(秒)
+    user-info-ttl: 900
+    # 二销上架列表缓存时间(秒)
+    resale-listing-ttl: 120
+    # 回收订单状态缓存时间(秒)
+    recycle-order-ttl: 300
+    # 缓存自动刷新时间(秒)
+    cache-refresh-interval: 60

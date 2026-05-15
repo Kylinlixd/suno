@@ -14,6 +14,7 @@ import com.suno.mall.dao.PointsLedgerRepository;
 import com.suno.mall.dao.ProductRepository;
 import com.suno.mall.dao.RecycleOrderRepository;
 import com.suno.mall.dao.UserAccountRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -138,6 +139,7 @@ public class RecycleOrderService {
         return latestStatus;
     }
 
+    @Cacheable(value = "recycleOrder", key = "listAll")
     public List<Map<String, Object>> listRecycleOrders() {
         return recycleOrderRepository.findAll().stream().map(order -> Map.<String, Object>of(
                 "orderNo", order.getOrderNo(),
@@ -149,6 +151,7 @@ public class RecycleOrderService {
     }
 
     @Transactional(timeout = 30)
+    @CacheEvict(value = "recycleOrder", key = "#orderNo")
     public Map<String, Object> transitionOrder(String orderNo, String action, @Nullable String reviewedGrade) {
         RecycleOrderEntity order = recycleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("回收单不存在: " + orderNo));
