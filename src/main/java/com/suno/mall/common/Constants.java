@@ -24,9 +24,32 @@ public final class Constants {
     public static final String CONFIG_CENTER_BUNDLE_VERSION = "1.0.0";
     public static final String DEGRADE_ACTION_DICT_VERSION = "1.0.0";
 
-    // ==================== 转售状态常量 ====================
+    // ==================== 转售上架状态常量 ====================
     public static final String LISTING_STATUS_ON_SHELF = "ON_SHELF";
     public static final String LISTING_STATUS_SOLD_OUT = "SOLD_OUT";
+    public static final String LISTING_STATUS_LISTED = "LISTED";
+
+    // ==================== 回收订单状态常量 ====================
+    public static final String RECYCLE_STATUS_CREATED = "CREATED";
+    public static final String RECYCLE_STATUS_QUALITY_CHECKED = "QUALITY_CHECKED";
+    public static final String RECYCLE_STATUS_PRICE_REVIEWED = "PRICE_REVIEWED";
+    public static final String RECYCLE_STATUS_LISTED = "LISTED";
+
+    // ==================== 二销订单支付状态常量 ====================
+    public static final String PAY_STATUS_UNPAID = "UNPAID";
+    public static final String PAY_STATUS_PAID = "PAID";
+    public static final String PAY_STATUS_REFUNDED = "REFUNDED";
+
+    // ==================== 二销订单履约状态常量 ====================
+    public static final String FULFILL_STATUS_WAIT_PAY = "WAIT_PAY";
+    public static final String FULFILL_STATUS_TO_DELIVER = "TO_DELIVER";
+    public static final String FULFILL_STATUS_DELIVERED = "DELIVERED";
+    public static final String FULFILL_STATUS_COMPLETED = "COMPLETED";
+    public static final String FULFILL_STATUS_CANCELLED = "CANCELLED";
+    public static final String FULFILL_STATUS_REFUNDED = "REFUNDED";
+
+    // ==================== 物流状态常量 ====================
+    public static final String LOGISTICS_STATUS_TO_SHIP = "TO_SHIP";
 
     // ==================== 操作审计动作常量 ====================
     public static final String ACTION_PAYMENT_REPLAY_DIAGNOSIS_QUERY = "PAYMENT_REPLAY_DIAGNOSIS_QUERY";
