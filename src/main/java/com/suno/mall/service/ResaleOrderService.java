@@ -76,7 +76,7 @@ public class ResaleOrderService {
         this.resaleListingService = resaleListingService;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
                 .orElseThrow(() -> new BizException("买家不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
@@ -120,7 +120,7 @@ public class ResaleOrderService {
     }
 
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -134,7 +134,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> markResaleOrderPaidWithIdempotency(String orderNo, String idempotencyKey) {
         PaymentIdempotencyEntity existing = paymentIdempotencyRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (existing != null) {
@@ -154,7 +154,7 @@ public class ResaleOrderService {
                 "fulfillStatus", paidResult.get("fulfillStatus"), "idempotentReplay", false);
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -168,7 +168,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> confirmResaleOrderReceipt(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -190,7 +190,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "buyerUserId", buyerUserId, "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -207,7 +207,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> refundPaidResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -406,7 +406,7 @@ public class ResaleOrderService {
         return response;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public int autoCloseExpiredUnpaidOrders(int expireMinutes, int batchSize) {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(expireMinutes);
         int closedCount = 0;
@@ -425,7 +425,7 @@ public class ResaleOrderService {
         return closedCount;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public int autoConfirmDeliveredOrders(int confirmAfterMinutes, int batchSize, AuditContext auditContext) {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(confirmAfterMinutes);
         int confirmedCount = 0;

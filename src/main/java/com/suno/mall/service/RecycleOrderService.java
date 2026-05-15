@@ -71,7 +71,7 @@ public class RecycleOrderService {
         this.auditLogService = auditLogService;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> createRecycleOrder(Long userId, String snCode, String imageUrl, int wearScore, int recycleCount) {
         if (!aiAuditService.passImageAudit(imageUrl)) {
             throw new IllegalArgumentException("图片审核不通过，请重新上传商品图片");
@@ -108,22 +108,14 @@ public class RecycleOrderService {
         recycleOrderRepository.save(order);
         auditLogService.logAction("RECYCLE_ORDER_CREATE", "RECYCLE_ORDER", orderNo, "estimatedPrice=" + valuation.estimatedPrice());
 
-        LogisticsTrackEntity logistics = new LogisticsTrackEntity();
-        logistics.setTrackingNo(trackingNo);
-        logistics.setOrder(order);
-        logistics.setStatus("TO_SHIP");
-        logistics.setUpdatedAt(LocalDateTime.now());
-        logisticsTrackRepository.save(logistics);
+        // 使用独立事务记录物流信息
+        createLogisticsTrack(trackingNo, order);
 
-        PointsLedgerEntity ledger = new PointsLedgerEntity();
-        ledger.setUser(user);
-        ledger.setPointsDelta(points);
-        ledger.setReason("RECYCLE_ORDER:" + orderNo);
-        ledger.setCreatedAt(LocalDateTime.now());
-        pointsLedgerRepository.save(ledger);
+        // 使用独立事务记录积分变动
+        createPointsLedger(user, points, orderNo);
 
-        user.setPoints(user.getPoints() + points);
-        userAccountRepository.save(user);
+        // 使用独立事务更新用户积分
+        updateUserPoints(user, points);
 
         return Map.ofEntries(
                 Map.entry("orderNo", orderNo),
@@ -156,7 +148,7 @@ public class RecycleOrderService {
         )).toList();
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public Map<String, Object> transitionOrder(String orderNo, String action, @Nullable String reviewedGrade) {
         RecycleOrderEntity order = recycleOrderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("回收单不存在: " + orderNo));
@@ -199,5 +191,40 @@ public class RecycleOrderService {
                     "当前状态不允许执行该动作, status=" + currentStatus + ", action=" + action
             );
         }
+    }
+
+    /**
+     * 使用独立事务创建物流跟踪记录
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    private void createLogisticsTrack(String trackingNo, RecycleOrderEntity order) {
+        LogisticsTrackEntity logistics = new LogisticsTrackEntity();
+        logistics.setTrackingNo(trackingNo);
+        logistics.setOrder(order);
+        logistics.setStatus("TO_SHIP");
+        logistics.setUpdatedAt(LocalDateTime.now());
+        logisticsTrackRepository.save(logistics);
+    }
+
+    /**
+     * 使用独立事务创建积分流水记录
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    private void createPointsLedger(UserAccountEntity user, int points, String orderNo) {
+        PointsLedgerEntity ledger = new PointsLedgerEntity();
+        ledger.setUser(user);
+        ledger.setPointsDelta(points);
+        ledger.setReason("RECYCLE_ORDER:" + orderNo);
+        ledger.setCreatedAt(LocalDateTime.now());
+        pointsLedgerRepository.save(ledger);
+    }
+
+    /**
+     * 使用独立事务更新用户积分
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    private void updateUserPoints(UserAccountEntity user, int points) {
+        user.setPoints(user.getPoints() + points);
+        userAccountRepository.save(user);
     }
 }
