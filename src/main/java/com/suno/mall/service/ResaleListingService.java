@@ -50,7 +50,7 @@ public class ResaleListingService {
 
     @Transactional
     public Map<String, Object> publishResaleListing(String recycleOrderNo, java.math.BigDecimal salePrice, int stock) {
-        RecycleOrderEntity recycleOrder = recycleOrderRepository.findByOrderNo(recycleOrderNo)
+        RecycleOrderEntity recycleOrder = recycleOrderRepository.findWithDetailsByOrderNo(recycleOrderNo)
                 .orElseThrow(() -> new IllegalArgumentException("回收单不存在: " + recycleOrderNo));
         if (!STATUS_LISTED.equals(recycleOrder.getStatus())) {
             throw new IllegalArgumentException("仅 LISTED 状态回收单可发布二销商品");
@@ -83,7 +83,7 @@ public class ResaleListingService {
     public List<Map<String, Object>> listResaleListings(
             String grade, String sortBy, String sortOrder, Integer minStock
     ) {
-        List<ResaleListingEntity> listings = resaleListingRepository.findByStatus(LISTING_STATUS_ON_SHELF).stream()
+        List<ResaleListingEntity> listings = resaleListingRepository.findByStatusWithDetails(LISTING_STATUS_ON_SHELF).stream()
                 .filter(item -> grade == null || grade.isBlank() || grade.equalsIgnoreCase(item.getProduct().getRecycleGrade()))
                 .filter(item -> minStock == null || item.getStock() >= minStock)
                 .toList();
@@ -107,7 +107,7 @@ public class ResaleListingService {
     public Map<String, Object> addFavoriteListing(Long userId, Long listingId) {
         UserAccountEntity user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));
-        ResaleListingEntity listing = resaleListingRepository.findById(listingId)
+        ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + listingId));
         if (!LISTING_STATUS_ON_SHELF.equals(listing.getStatus())) {
             throw new IllegalArgumentException("仅可收藏在售商品");
@@ -162,7 +162,7 @@ public class ResaleListingService {
      */
     @Transactional
     public Map<String, Object> reduceListingStock(Long listingId, int quantity) {
-        ResaleListingEntity listing = resaleListingRepository.findById(listingId)
+        ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + listingId));
         
         if (!LISTING_STATUS_ON_SHELF.equals(listing.getStatus())) {
@@ -208,7 +208,7 @@ public class ResaleListingService {
  */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listSoldOutListings(String grade, String sortBy) {
-        List<ResaleListingEntity> listings = resaleListingRepository.findByStatus(LISTING_STATUS_SOLD_OUT).stream()
+        List<ResaleListingEntity> listings = resaleListingRepository.findByStatusWithDetails(LISTING_STATUS_SOLD_OUT).stream()
                 .filter(item -> grade == null || grade.isBlank() || grade.equalsIgnoreCase(item.getProduct().getRecycleGrade()))
                 .toList();
         

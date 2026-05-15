@@ -141,7 +141,7 @@ public class RecycleOrderService {
 
     @Cacheable(value = "recycleOrder", key = "listAll")
     public List<Map<String, Object>> listRecycleOrders() {
-        return recycleOrderRepository.findAll().stream().map(order -> Map.<String, Object>of(
+        return recycleOrderRepository.findAllWithDetails().stream().map(order -> Map.<String, Object>of(
                 "orderNo", order.getOrderNo(),
                 "status", order.getStatus(),
                 "grade", order.getGrade(),
@@ -153,7 +153,7 @@ public class RecycleOrderService {
     @Transactional(timeout = 30)
     @CacheEvict(value = "recycleOrder", key = "#orderNo")
     public Map<String, Object> transitionOrder(String orderNo, String action, @Nullable String reviewedGrade) {
-        RecycleOrderEntity order = recycleOrderRepository.findByOrderNo(orderNo)
+        RecycleOrderEntity order = recycleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("回收单不存在: " + orderNo));
         String nextStatus = nextStatus(order.getStatus(), action);
         if (reviewedGrade != null && !reviewedGrade.isBlank()) {

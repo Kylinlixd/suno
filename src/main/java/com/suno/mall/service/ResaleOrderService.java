@@ -83,7 +83,7 @@ public class ResaleOrderService {
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
                 .orElseThrow(() -> new BizException("买家不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
-        ResaleListingEntity listing = resaleListingRepository.findById(listingId)
+        ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
                 .orElseThrow(() -> new BizException("商品不存在: " + listingId, ErrorCode.ORDER_NOT_FOUND));
         if (!LISTING_STATUS_ON_SHELF.equals(listing.getStatus())) {
             throw new BizException("商品已下架或售罄", ErrorCode.ORDER_LISTING_UNAVAILABLE);
@@ -126,7 +126,7 @@ public class ResaleOrderService {
     @Transactional(timeout = 30)
     @CacheEvict(value = "resaleOrder", key = "#orderNo")
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
-        ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"UNPAID".equals(order.getPayStatus())) {
             throw new BizException("订单支付状态异常: " + order.getPayStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
@@ -160,7 +160,7 @@ public class ResaleOrderService {
 
     @Transactional(timeout = 30)
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
-        ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"PAID".equals(order.getPayStatus())) {
             throw new BizException("未支付订单不可发货", ErrorCode.ORDER_STATUS_CONFLICT);
@@ -174,7 +174,7 @@ public class ResaleOrderService {
 
     @Transactional(timeout = 30)
     public Map<String, Object> confirmResaleOrderReceipt(String orderNo, Long buyerUserId) {
-        ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!order.getBuyerUser().getId().equals(buyerUserId)) {
             throw new BizException("仅允许确认本人订单收货", ErrorCode.ORDER_NOT_OWNER);
@@ -196,7 +196,7 @@ public class ResaleOrderService {
 
     @Transactional(timeout = 30)
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo) {
-        ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"UNPAID".equals(order.getPayStatus())) {
             throw new BizException("仅 UNPAID 订单可取消", ErrorCode.ORDER_STATUS_CONFLICT);
@@ -213,7 +213,7 @@ public class ResaleOrderService {
 
     @Transactional(timeout = 30)
     public Map<String, Object> refundPaidResaleOrder(String orderNo, AuditContext auditContext) {
-        ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"PAID".equals(order.getPayStatus())) {
             throw new BizException("仅 PAID 订单可退款", ErrorCode.ORDER_STATUS_CONFLICT);
@@ -232,7 +232,7 @@ public class ResaleOrderService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> queryResaleOrderTrack(String orderNo, Long buyerUserId) {
-        ResaleOrderEntity order = resaleOrderRepository.findByOrderNo(orderNo)
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!order.getBuyerUser().getId().equals(buyerUserId)) {
             throw new BizException("仅允许查询本人订单履约轨迹", ErrorCode.ORDER_NOT_OWNER);
