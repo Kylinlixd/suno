@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.AuthTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -89,7 +90,7 @@ public class SecurityEventService {
 
     // ==================== 安全事件查询 ====================
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminSecurityEventsSummary(int lookbackMinutes) {
         int safeLookback = lookbackMinutes <= 0 ? 60 : lookbackMinutes;
         LocalDateTime from = LocalDateTime.now().minusMinutes(safeLookback);
@@ -113,7 +114,7 @@ public class SecurityEventService {
         return data;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminSecurityEventsTimeline(int lookbackMinutes, List<String> actionTypes) {
         int safeLookback = lookbackMinutes <= 0 ? 60 : lookbackMinutes;
         List<String> selectedActions = normalizeActionTypes(actionTypes);
@@ -160,7 +161,7 @@ public class SecurityEventService {
         return data;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminSecurityRiskUsersTop(int lookbackMinutes, int topN, List<String> actionTypes) {
         int safeLookback = lookbackMinutes <= 0 ? 60 : lookbackMinutes;
         int safeTopN = topN <= 0 ? 10 : Math.min(topN, 100);
@@ -197,7 +198,7 @@ public class SecurityEventService {
 
     // ==================== 导出任务 ====================
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> buildSecurityExportPayload(
             String type, int lookbackMinutes, int topN, List<String> actionTypes
     ) {
@@ -216,7 +217,7 @@ public class SecurityEventService {
         return renderJson(payload);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> createSecurityExportTask(
             String type, String format, int lookbackMinutes, int topN,
             List<String> actionTypes, String idempotencyKey
@@ -256,14 +257,14 @@ public class SecurityEventService {
         return getSecurityExportTask(taskId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getSecurityExportTask(String taskId) {
         AuthExportTaskEntity task = authExportTaskRepository.findByTaskId(taskId)
                 .orElseThrow(() -> new BizException("导出任务不存在", ErrorCode.ORDER_NOT_FOUND));
         return toTaskMap(task);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getSecurityExportTaskDownload(String taskId) {
         AuthExportTaskEntity task = authExportTaskRepository.findByTaskId(taskId)
                 .orElseThrow(() -> new BizException("导出任务不存在", ErrorCode.ORDER_NOT_FOUND));
@@ -277,7 +278,7 @@ public class SecurityEventService {
         return data;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listSecurityExportTasks(int page, int size, String status) {
         int safePage = Math.max(page, 0);
         int safeSize = size <= 0 ? 20 : Math.min(size, 200);
@@ -298,7 +299,7 @@ public class SecurityEventService {
         return data;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> cleanupSecurityExportTasks(int retainDays) {
         int safeRetainDays = retainDays <= 0 ? exportTaskRetainDays : retainDays;
         LocalDateTime cutoff = LocalDateTime.now().minusDays(safeRetainDays);
@@ -311,13 +312,13 @@ public class SecurityEventService {
     }
 
     @Scheduled(fixedDelayString = "${security.auth.export-task.cleanup-fixed-delay-ms:3600000}")
-    @Transactional
+    @AuthTransactional
     public void scheduledCleanupSecurityExportTasks() {
         cleanupSecurityExportTasks(exportTaskRetainDays);
         markTimeoutRunningExportTasks();
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> retrySecurityExportTask(String taskId, int lookbackMinutes, int topN, List<String> actionTypes) {
         AuthExportTaskEntity task = authExportTaskRepository.findByTaskId(taskId)
                 .orElseThrow(() -> new BizException("导出任务不存在", ErrorCode.ORDER_NOT_FOUND));
@@ -341,7 +342,7 @@ public class SecurityEventService {
         return getSecurityExportTask(taskId);
     }
 
-    @Transactional
+    @AuthTransactional
     public void markTimeoutRunningExportTasks() {
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(Math.max(exportTaskRunningTimeoutMinutes, 1));
         List<AuthExportTaskEntity> runningTasks = authExportTaskRepository.findByStatusOrderByCreatedAtAsc("RUNNING");

@@ -10,6 +10,7 @@ import com.suno.mall.dao.ResaleFavoriteRepository;
 import com.suno.mall.dao.ResaleListingRepository;
 import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.ResaleTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -48,7 +49,7 @@ public class ResaleListingService {
         this.auditLogService = auditLogService;
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> publishResaleListing(String recycleOrderNo, java.math.BigDecimal salePrice, int stock) {
         RecycleOrderEntity recycleOrder = recycleOrderRepository.findWithDetailsByOrderNo(recycleOrderNo)
                 .orElseThrow(() -> new IllegalArgumentException("回收单不存在: " + recycleOrderNo));
@@ -74,12 +75,12 @@ public class ResaleListingService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> listResaleListings() {
         return listResaleListings(null, null, null, null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> listResaleListings(
             String grade, String sortBy, String sortOrder, Integer minStock
     ) {
@@ -103,7 +104,7 @@ public class ResaleListingService {
         )).toList();
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> addFavoriteListing(Long userId, Long listingId) {
         UserAccountEntity user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));
@@ -125,7 +126,7 @@ public class ResaleListingService {
         return Map.of("userId", userId, "listingId", listingId, "favorited", true, "idempotentReplay", false);
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> removeFavoriteListing(Long userId, Long listingId) {
         ResaleFavoriteEntity favorite = resaleFavoriteRepository.findByUser_IdAndListing_Id(userId, listingId)
                 .orElseThrow(() -> new IllegalArgumentException("收藏记录不存在"));
@@ -134,7 +135,7 @@ public class ResaleListingService {
         return Map.of("userId", userId, "listingId", listingId, "favorited", false);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> listFavoriteListings(Long userId) {
         userAccountRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));
@@ -160,7 +161,7 @@ public class ResaleListingService {
      * 减少商品库存
      * 当库存减少到0时，自动将状态设置为售罄
      */
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> reduceListingStock(Long listingId, int quantity) {
         ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
                 .orElseThrow(() -> new IllegalArgumentException("商品不存在: " + listingId));
@@ -198,7 +199,7 @@ public class ResaleListingService {
     /**
      * 查询已售罄的商品列表
      */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> listSoldOutListings() {
         return listSoldOutListings(null, null);
     }
@@ -206,7 +207,7 @@ public class ResaleListingService {
     /**
      * 查询已售罄的商品列表（带过滤条件）
  */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> listSoldOutListings(String grade, String sortBy) {
         List<ResaleListingEntity> listings = resaleListingRepository.findByStatusWithDetails(LISTING_STATUS_SOLD_OUT).stream()
                 .filter(item -> grade == null || grade.isBlank() || grade.equalsIgnoreCase(item.getProduct().getRecycleGrade()))

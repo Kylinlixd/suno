@@ -2,6 +2,7 @@
 package com.suno.mall.service;
 
 import org.jspecify.annotations.Nullable;
+import com.suno.mall.config.RecycleTransactional;
 import com.suno.mall.entity.ProductDraft;
 import com.suno.mall.entity.ValuationResult;
 import com.suno.mall.entity.LogisticsTrackEntity;
@@ -15,8 +16,9 @@ import com.suno.mall.dao.ProductRepository;
 import com.suno.mall.dao.RecycleOrderRepository;
 import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -72,7 +74,7 @@ public class RecycleOrderService {
         this.auditLogService = auditLogService;
     }
 
-    @Transactional(timeout = 30)
+    @RecycleTransactional
     public Map<String, Object> createRecycleOrder(Long userId, String snCode, String imageUrl, int wearScore, int recycleCount) {
         if (!aiAuditService.passImageAudit(imageUrl)) {
             throw new IllegalArgumentException("图片审核不通过，请重新上传商品图片");
@@ -150,7 +152,7 @@ public class RecycleOrderService {
         )).toList();
     }
 
-    @Transactional(timeout = 30)
+    @RecycleTransactional
     @CacheEvict(value = "recycleOrder", key = "#orderNo")
     public Map<String, Object> transitionOrder(String orderNo, String action, @Nullable String reviewedGrade) {
         RecycleOrderEntity order = recycleOrderRepository.findWithDetailsByOrderNo(orderNo)
@@ -199,7 +201,7 @@ public class RecycleOrderService {
     /**
      * 使用独立事务创建物流跟踪记录
      */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    @RecycleTransactional
     private void createLogisticsTrack(String trackingNo, RecycleOrderEntity order) {
         LogisticsTrackEntity logistics = new LogisticsTrackEntity();
         logistics.setTrackingNo(trackingNo);
@@ -212,7 +214,7 @@ public class RecycleOrderService {
     /**
      * 使用独立事务创建积分流水记录
      */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    @RecycleTransactional
     private void createPointsLedger(UserAccountEntity user, int points, String orderNo) {
         PointsLedgerEntity ledger = new PointsLedgerEntity();
         ledger.setUser(user);
@@ -225,7 +227,7 @@ public class RecycleOrderService {
     /**
      * 使用独立事务更新用户积分
      */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    @RecycleTransactional
     private void updateUserPoints(UserAccountEntity user, int points) {
         user.setPoints(user.getPoints() + points);
         userAccountRepository.save(user);

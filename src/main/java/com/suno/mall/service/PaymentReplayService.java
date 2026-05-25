@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.PaymentTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -142,7 +143,7 @@ public class PaymentReplayService {
 
     // ========== 支付回调日志 ==========
 
-    @Transactional
+    @PaymentTransactional
     public void logPaymentCallback(String orderNo, String idempotencyKey, String payStatus,
             String nonce, long timestamp, String signature, String callbackStatus,
             String errorMessage, String responseBody, String source) {
@@ -162,7 +163,7 @@ public class PaymentReplayService {
         paymentCallbackLogRepository.save(log);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> pagePaymentCallbackLogs(int page, int size, String callbackStatus) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(200, size));
@@ -188,7 +189,7 @@ public class PaymentReplayService {
 
     // ========== 重放任务 ==========
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> enqueueReplayTask(Long callbackLogId) {
         PaymentCallbackLogEntity callbackLog = paymentCallbackLogRepository.findById(callbackLogId)
                 .orElseThrow(() -> new IllegalArgumentException("回调日志不存在: " + callbackLogId));
@@ -211,7 +212,7 @@ public class PaymentReplayService {
                 "status", task.getStatus(), "deduplicated", false);
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> consumeReplayTasks(int maxCount) {
         int limit = Math.max(1, Math.min(200, maxCount));
         List<PaymentReplayTaskEntity> tasks = paymentReplayTaskRepository
@@ -249,7 +250,7 @@ public class PaymentReplayService {
         return Map.of("processed", processed, "success", success, "retriableFailed", retriableFailed, "dead", dead);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> pageReplayTasks(int page, int size, String status) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(200, size));
@@ -268,7 +269,7 @@ public class PaymentReplayService {
                 )).toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> replayTaskSummary() {
         return Map.of("pending", paymentReplayTaskRepository.countByStatus("PENDING"),
                 "processing", paymentReplayTaskRepository.countByStatus("PROCESSING"),
@@ -277,7 +278,7 @@ public class PaymentReplayService {
                 "readyToConsume", paymentReplayTaskRepository.countByStatusAndNextRetryAtBefore("PENDING", LocalDateTime.now()));
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> requeueReplayTask(Long taskId) {
         PaymentReplayTaskEntity task = paymentReplayTaskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("重放任务不存在: " + taskId));
@@ -300,7 +301,7 @@ public class PaymentReplayService {
                 "retryCount", task.getRetryCount(), "deduplicated", false);
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> batchRequeueDeadTasks(int maxCount) {
         int limit = Math.max(1, Math.min(200, maxCount));
         List<PaymentReplayTaskEntity> deadTasks = paymentReplayTaskRepository.findByStatusOrderByCreatedAtAsc("DEAD", PageRequest.of(0, limit));
@@ -316,7 +317,7 @@ public class PaymentReplayService {
         return Map.of("requested", limit, "requeued", requeued);
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> replayPaymentCallback(Long callbackLogId) {
         PaymentCallbackLogEntity callbackLog = paymentCallbackLogRepository.findById(callbackLogId)
                 .orElseThrow(() -> new IllegalArgumentException("回调日志不存在: " + callbackLogId));
@@ -350,7 +351,7 @@ public class PaymentReplayService {
 
     // ========== 健康检查 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> replayTaskHealth(String requestId) {
         return replayTaskHealth(requestId, true);
     }
@@ -401,7 +402,7 @@ public class PaymentReplayService {
 
     // ========== 诊断 ==========
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> replayTaskDiagnosis(String requestId) { return replayTaskDiagnosis(requestId, true); }
 
     private Map<String, Object> replayTaskDiagnosis(String requestId, boolean writeAuditLog) {
@@ -443,7 +444,7 @@ public class PaymentReplayService {
 
     // ========== 清理性能验收 ==========
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> replayCleanupPerformanceCheck(String requestId) { return replayCleanupPerformanceCheck(requestId, true); }
 
     private Map<String, Object> replayCleanupPerformanceCheck(String requestId, boolean writeAuditLog) {
@@ -484,7 +485,7 @@ public class PaymentReplayService {
 
     // ========== 查询审计动作 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> replayQueryAuditActions(String requestId, String lang) {
         String normalizedRequestId = resolveRequestId(requestId);
         String normalizedLang = normalizeLang(lang);
@@ -503,7 +504,7 @@ public class PaymentReplayService {
 
     // ========== 自动处理 ==========
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> replayTaskAutoHandle(boolean allowRequeueDead, int consumeMaxCount, int requeueMaxCount, String operator, String traceId) {
         LocalDateTime now = LocalDateTime.now();
         String normalizedOperator = (operator == null || operator.isBlank()) ? "anonymous" : operator.trim();
@@ -545,7 +546,7 @@ public class PaymentReplayService {
 
     // ========== 幂等记录管理 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> pageReplayAutoHandleIdempotencyRecords(int page, int size, String traceId, LocalDateTime startAt, LocalDateTime endAt) {
         int safePage = Math.max(0, page), safeSize = Math.max(1, Math.min(200, size));
         Page<PaymentReplayAutoHandleIdempotencyEntity> result = replayAutoHandleIdempotencyRepository.findAll(
@@ -554,26 +555,26 @@ public class PaymentReplayService {
                 "items", result.getContent().stream().map(item -> Map.of("id", item.getId(), "traceId", item.getTraceId(), "createdAt", item.getCreatedAt(), "expireAt", item.getExpireAt())).toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getReplayAutoHandleIdempotencyDetail(String traceId) {
         if (traceId == null || traceId.isBlank()) throw new IllegalArgumentException("traceId 不能为空");
         PaymentReplayAutoHandleIdempotencyEntity record = replayAutoHandleIdempotencyRepository.findByTraceId(traceId.trim()).orElseThrow(() -> new IllegalArgumentException("幂等记录不存在: " + traceId));
         return Map.of("id", record.getId(), "traceId", record.getTraceId(), "createdAt", record.getCreatedAt(), "expireAt", record.getExpireAt(), "expired", record.getExpireAt().isBefore(LocalDateTime.now()), "response", fromJsonMap(record.getResponseJson()));
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> deleteReplayAutoHandleIdempotencyByTraceId(String traceId) {
         if (traceId == null || traceId.isBlank()) throw new IllegalArgumentException("traceId 不能为空");
         return Map.of("traceId", traceId.trim(), "deleted", replayAutoHandleIdempotencyRepository.deleteByTraceId(traceId.trim()));
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> batchDeleteReplayAutoHandleIdempotencyBefore(LocalDateTime beforeTime) {
         if (beforeTime == null) throw new IllegalArgumentException("beforeTime 不能为空");
         return Map.of("beforeTime", beforeTime, "deleted", replayAutoHandleIdempotencyRepository.deleteByCreatedAtBefore(beforeTime));
     }
 
-    @Transactional
+    @PaymentTransactional
     public Map<String, Object> cleanupReplayAutoHandleIdempotencyRecords(int retainDays) {
         if (!replayAutoHandleIdempotencyCleanupLock.tryLock()) return Map.of("skipped", true, "reason", "清理任务正在执行中", "durationMs", 0);
         try {

@@ -1,14 +1,13 @@
-
 package com.suno.mall.service.support;
 
 import java.util.List;
 
 /**
- * 语义版本号比较辅助工具
+ * 任务生成参数据这里快陠
  */
 public final class VersionHelper {
 
-    private VersionHelper() {}
+    public VersionHelper() {}
 
     public static String normalizeVersion(String clientVersion) {
         if (clientVersion == null || clientVersion.isBlank()) {

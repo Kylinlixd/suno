@@ -24,6 +24,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.ResaleTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -78,7 +79,7 @@ public class ResaleOrderService {
         this.resaleListingService = resaleListingService;
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
@@ -123,7 +124,7 @@ public class ResaleOrderService {
     }
 
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     @CacheEvict(value = "resaleOrder", key = "#orderNo")
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
@@ -138,7 +139,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public Map<String, Object> markResaleOrderPaidWithIdempotency(String orderNo, String idempotencyKey) {
         PaymentIdempotencyEntity existing = paymentIdempotencyRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (existing != null) {
@@ -158,7 +159,7 @@ public class ResaleOrderService {
                 "fulfillStatus", paidResult.get("fulfillStatus"), "idempotentReplay", false);
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -172,7 +173,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public Map<String, Object> confirmResaleOrderReceipt(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -194,7 +195,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "buyerUserId", buyerUserId, "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -211,7 +212,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public Map<String, Object> refundPaidResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -230,7 +231,7 @@ public class ResaleOrderService {
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> queryResaleOrderTrack(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -282,7 +283,7 @@ public class ResaleOrderService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     @Cacheable(value = "resaleOrder", key = "#buyerUserId + '::list::' + #payStatus + '::' + #fulfillStatus + '::' + #sortBy + '::' + #sortOrder + '::' + #limit + '::' + #page + '::' + #size")
     public Map<String, Object> listBuyerResaleOrders(
             Long buyerUserId,
@@ -342,7 +343,7 @@ public class ResaleOrderService {
         return response;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getResaleOrderStatusDictionary() {
         List<Map<String, Object>> payStatus = List.of(
                 statusDictItem("UNPAID", "未支付", "Unpaid"),
@@ -360,7 +361,7 @@ public class ResaleOrderService {
         return Map.of("schemaVersion", "1.0.0", "payStatus", payStatus, "fulfillStatus", fulfillStatus, "generatedAt", LocalDateTime.now());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> summarizeBuyerResaleOrders(Long buyerUserId, @Nullable Integer lookbackDays) {
         userAccountRepository.findById(buyerUserId)
                 .orElseThrow(() -> new BizException("用户不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
@@ -411,7 +412,7 @@ public class ResaleOrderService {
         return response;
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public int autoCloseExpiredUnpaidOrders(int expireMinutes, int batchSize) {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(expireMinutes);
         int closedCount = 0;
@@ -430,7 +431,7 @@ public class ResaleOrderService {
         return closedCount;
     }
 
-    @Transactional(timeout = 30)
+    @ResaleTransactional
     public int autoConfirmDeliveredOrders(int confirmAfterMinutes, int batchSize, AuditContext auditContext) {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(confirmAfterMinutes);
         int confirmedCount = 0;

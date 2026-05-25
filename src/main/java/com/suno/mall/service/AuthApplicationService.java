@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.stereotype.Service;
 import org.jspecify.annotations.Nullable;
+import com.suno.mall.config.AuthTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -81,7 +82,7 @@ public class AuthApplicationService {
         this.securityEventService = securityEventService;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> login(String username, String password, String deviceId) {
         Authentication authentication = authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken.unauthenticated(username, password)
@@ -100,7 +101,7 @@ public class AuthApplicationService {
         return result;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> refresh(String refreshToken, String deviceId) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new BizException("refreshToken不能为空", ErrorCode.PARAM_INVALID);
@@ -153,7 +154,7 @@ public class AuthApplicationService {
         return data;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> logout(Jwt jwt, @Nullable String refreshToken) {
         Instant now = Instant.now();
         if (jwt.getExpiresAt() != null && jwt.getId() != null) {
@@ -183,32 +184,32 @@ public class AuthApplicationService {
 
     // ==================== 会话管理（委托 AuthSessionService） ====================
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listActiveSessions(Jwt jwt) {
         return authSessionService.listActiveSessions(jwt);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminListUserSessions(String username) {
         return authSessionService.adminListUserSessions(username);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> revokeDeviceSession(Jwt jwt, String deviceId) {
         return authSessionService.revokeDeviceSession(jwt, deviceId);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> adminRevokeUserDeviceSession(String username, String deviceId) {
         return authSessionService.adminRevokeUserDeviceSession(username, deviceId);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> revokeAllSessions(Jwt jwt) {
         return authSessionService.revokeAllSessions(jwt);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> adminRevokeUserAllSessions(String username) {
         return authSessionService.adminRevokeUserAllSessions(username);
     }
@@ -302,22 +303,22 @@ public class AuthApplicationService {
 
     // ==================== 安全事件（委托 SecurityEventService） ====================
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminSecurityEventsSummary(int lookbackMinutes) {
         return securityEventService.adminSecurityEventsSummary(lookbackMinutes);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminSecurityEventsTimeline(int lookbackMinutes, List<String> actionTypes) {
         return securityEventService.adminSecurityEventsTimeline(lookbackMinutes, actionTypes);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminSecurityRiskUsersTop(int lookbackMinutes, int topN, List<String> actionTypes) {
         return securityEventService.adminSecurityRiskUsersTop(lookbackMinutes, topN, actionTypes);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> buildSecurityExportPayload(String type, int lookbackMinutes, int topN, List<String> actionTypes) {
         return securityEventService.buildSecurityExportPayload(type, lookbackMinutes, topN, actionTypes);
     }
@@ -326,32 +327,32 @@ public class AuthApplicationService {
         return securityEventService.renderSecurityExportContent(type, format, payload);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> createSecurityExportTask(String type, String format, int lookbackMinutes, int topN, List<String> actionTypes, String idempotencyKey) {
         return securityEventService.createSecurityExportTask(type, format, lookbackMinutes, topN, actionTypes, idempotencyKey);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getSecurityExportTask(String taskId) {
         return securityEventService.getSecurityExportTask(taskId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getSecurityExportTaskDownload(String taskId) {
         return securityEventService.getSecurityExportTaskDownload(taskId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listSecurityExportTasks(int page, int size, String status) {
         return securityEventService.listSecurityExportTasks(page, size, status);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> cleanupSecurityExportTasks(int retainDays) {
         return securityEventService.cleanupSecurityExportTasks(retainDays);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> retrySecurityExportTask(String taskId, int lookbackMinutes, int topN, List<String> actionTypes) {
         return securityEventService.retrySecurityExportTask(taskId, lookbackMinutes, topN, actionTypes);
     }

@@ -7,6 +7,7 @@ import com.suno.mall.entity.OperationAuditLogEntity;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.AuthTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -41,18 +42,18 @@ public class AuthSessionService {
         this.operationAuditLogRepository = operationAuditLogRepository;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listActiveSessions(Jwt jwt) {
         return listActiveSessionsByUsername(jwt.getSubject());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminListUserSessions(String username) {
         logAction(ACTION_ADMIN_SESSION_QUERY, username, "operator=admin");
         return listActiveSessionsByUsername(username);
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> revokeDeviceSession(Jwt jwt, String deviceId) {
         Map<String, Object> result = revokeDeviceSessionByUsername(jwt.getSubject(), deviceId);
         logAction(
@@ -63,7 +64,7 @@ public class AuthSessionService {
         return result;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> adminRevokeUserDeviceSession(String username, String deviceId) {
         Map<String, Object> result = revokeDeviceSessionByUsername(username, deviceId);
         logAction(
@@ -74,14 +75,14 @@ public class AuthSessionService {
         return result;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> revokeAllSessions(Jwt jwt) {
         Map<String, Object> result = revokeAllSessionsByUsername(jwt.getSubject());
         logAction(ACTION_SESSION_REVOKE_ALL, jwt.getSubject(), "revokedCount=" + result.get("revokedCount"));
         return result;
     }
 
-    @Transactional
+    @AuthTransactional
     public Map<String, Object> adminRevokeUserAllSessions(String username) {
         Map<String, Object> result = revokeAllSessionsByUsername(username);
         logAction(ACTION_ADMIN_SESSION_REVOKE_ALL, username, "revokedCount=" + result.get("revokedCount"));

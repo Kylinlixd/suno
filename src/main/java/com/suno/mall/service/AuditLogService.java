@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.AuditTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -35,7 +36,7 @@ public class AuditLogService {
         this.operationAuditLogRepository = operationAuditLogRepository;
         this.objectMapper = objectMapper;
     }
-
+    @AuditTransactional
     public void logAction(String actionType, String targetType, String targetId, String detail) {
         OperationAuditLogEntity log = new OperationAuditLogEntity();
         log.setActionType(actionType);
@@ -54,7 +55,7 @@ public class AuditLogService {
         return AuditLogHelper.buildAuditContextSuffix(auditContext, objectMapper);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> listAuditLogs(@Nullable String actionType, @Nullable String targetId, int limit) {
         int safeLimit = Math.max(1, Math.min(200, limit));
         Page<OperationAuditLogEntity> page = operationAuditLogRepository.findAll(
@@ -71,7 +72,7 @@ public class AuditLogService {
         )).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> pageAuditLogs(@Nullable String actionType, @Nullable String targetId, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(200, size));
@@ -95,7 +96,7 @@ public class AuditLogService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public String exportAuditLogsCsv(@Nullable String actionType, @Nullable String targetId, int limit) {
         int safeLimit = Math.max(1, Math.min(5000, limit));
         Page<OperationAuditLogEntity> page = operationAuditLogRepository.findAll(

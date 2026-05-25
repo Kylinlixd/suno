@@ -15,6 +15,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import com.suno.mall.config.ResaleTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -90,7 +91,7 @@ public class ResaleReviewService {
 
     // ========== 评价核心 ==========
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> createResaleReview(String orderNo, Long buyerUserId, int rating, String content, List<String> imageUrls) {
         if (rating < 1 || rating > 5) {
             throw new IllegalArgumentException("评分范围需在 1-5");
@@ -103,7 +104,7 @@ public class ResaleReviewService {
         throw new UnsupportedOperationException("Needs ResaleOrderRepository injection - see original RecycleApplicationService");
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> appendResaleReview(String orderNo, Long buyerUserId, String appendContent) {
         ResaleReviewEntity review = resaleReviewRepository.findByOrder_OrderNoAndUser_Id(orderNo, buyerUserId)
                 .orElseThrow(() -> new IllegalArgumentException("原始评价不存在"));
@@ -129,7 +130,7 @@ public class ResaleReviewService {
         return Map.of("orderNo", orderNo, "buyerUserId", buyerUserId, "appendContent", appendContent, "sensitiveHit", sensitiveHit);
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> replyResaleReview(String orderNo, String merchantReply, String operator) {
         ResaleReviewEntity review = resaleReviewRepository.findByOrder_OrderNo(orderNo)
                 .orElseThrow(() -> new IllegalArgumentException("评价不存在"));
@@ -140,17 +141,17 @@ public class ResaleReviewService {
         return Map.of("orderNo", orderNo, "merchantReply", merchantReply, "repliedAt", review.getRepliedAt());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listResaleReviews(Long listingId) {
         return listResaleReviews(listingId, "SMART", reviewIncludeHiddenDefault);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listResaleReviews(Long listingId, String sortStrategy) {
         return listResaleReviews(listingId, sortStrategy, reviewIncludeHiddenDefault);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> listResaleReviews(Long listingId, String sortStrategy, boolean includeHidden) {
         if (listingId == null) {
             throw new IllegalArgumentException("查询失败：商品挂载ID(listingId)不能为空，请提供正确的列表项标识");
@@ -195,7 +196,7 @@ public class ResaleReviewService {
         );
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> voteResaleReviewUseful(String orderNo, Long voterUserId) {
         
         if (voterUserId == null) {
@@ -219,7 +220,7 @@ public class ResaleReviewService {
                 "usefulCount", resaleReviewVoteRepository.countByReview_Id(review.getId()));
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> reportResaleReview(String orderNo, Long reporterUserId, String reason) {
         if (reporterUserId == null) {
             throw new IllegalArgumentException("举报用户ID不能为空");
@@ -246,7 +247,7 @@ public class ResaleReviewService {
 
     // ========== 评价管理 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> adminListReviewReports(String status) {
         List<ResaleReviewReportEntity> reports;
         if (status == null || status.isBlank()) {
@@ -258,7 +259,7 @@ public class ResaleReviewService {
         return reports.stream().map(this::toReviewReportItem).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminGetReviewReport(Long reportId) {
         if (reportId == null) {
             throw new IllegalArgumentException("查询失败：举报工单ID(reportId)不能为空，请提供正确的工单标识");
@@ -268,7 +269,7 @@ public class ResaleReviewService {
         return toReviewReportItem(report);
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> adminProcessReviewReport(Long reportId, String action, String processNote, String operator, AuditContext auditContext) {
         ResaleReviewReportEntity report = resaleReviewReportRepository.findById(reportId)
                 .orElseThrow(() -> new IllegalArgumentException("举报工单不存在: " + reportId));
@@ -298,7 +299,7 @@ public class ResaleReviewService {
         return toReviewReportItem(report);
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> adminBatchProcessReviewReports(List<Long> reportIds, String action, String processNote, String operator, AuditContext auditContext) {
         if (reportIds == null || reportIds.isEmpty()) throw new IllegalArgumentException("reportIds 不能为空");
         String safeAction = action == null ? "" : action.trim().toUpperCase(Locale.ROOT);
@@ -326,7 +327,7 @@ public class ResaleReviewService {
 
     // ========== 风控 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminReviewRiskSummary(int lookbackMinutes) {
         int safeLookbackMinutes = Math.max(1, lookbackMinutes);
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(safeLookbackMinutes);
@@ -350,7 +351,7 @@ public class ResaleReviewService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> adminReviewRiskTimeline(int lookbackMinutes) {
         int safeLookbackMinutes = Math.max(1, lookbackMinutes);
         LocalDateTime now = LocalDateTime.now();
@@ -381,7 +382,7 @@ public class ResaleReviewService {
         }).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> adminReviewRiskTopListings(int lookbackMinutes, int topN) {
         int safeLookbackMinutes = Math.max(1, lookbackMinutes);
         int safeTopN = Math.max(1, Math.min(50, topN));
@@ -409,7 +410,7 @@ public class ResaleReviewService {
 
     // ========== 策略配置 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminGetReviewStrategyConfig() {
         return Map.ofEntries(
                 Map.entry("version", "1.0.0"),
@@ -426,7 +427,7 @@ public class ResaleReviewService {
         );
     }
 
-    @Transactional
+    @ResaleTransactional
     public Map<String, Object> adminUpdateReviewStrategyConfig(Map<String, Object> updates, String operator, AuditContext auditContext) {
         if (updates == null || updates.isEmpty()) throw new IllegalArgumentException("更新内容不能为空");
         for (String key : updates.keySet()) {

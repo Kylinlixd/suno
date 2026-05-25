@@ -84,19 +84,19 @@ public class ConfigCenterService {
 
     // ========== 评价策略配置（委托给 ResaleReviewService） ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminGetReviewStrategyConfig() {
         return resaleReviewService.adminGetReviewStrategyConfig();
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminUpdateReviewStrategyConfig(Map<String, Object> updates, String operator, AuditContext auditContext) {
         return resaleReviewService.adminUpdateReviewStrategyConfig(updates, operator, auditContext);
     }
 
     // ========== 全局错误码字典 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminGlobalErrorCodeDictionary() {
         List<Map<String, Object>> items = List.of(
                 buildErrorCodeDictionaryItem("BAD_REQUEST", 400, "IllegalArgumentException", "请求参数不合法", "Invalid request parameters", "提示用户修正输入参数后重试", "Ask user to fix inputs and retry"),
@@ -113,7 +113,7 @@ public class ConfigCenterService {
 
     // ========== 降级动作字典 ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminDegradeActionTypeDictionary() {
         List<Map<String, Object>> items = List.of(
                 Map.of("type", "USE_CACHE_AND_RETRY", "description", "使用本地缓存并按 retryDelaySeconds 重试", "paramsSchema", Map.of("retryDelaySeconds", "integer")),
@@ -131,12 +131,12 @@ public class ConfigCenterService {
     /**
      * 获取告警降噪规则（供外部调用）
      */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> getAlertNoiseRules() {
         return adminAlertNoiseRulesConfig();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminAlertNoiseRulesConfig() {
         List<Map<String, Object>> groupMeta = List.of(
                 Map.of("displayOrder", 1, "groupKey", "alert.routing",
@@ -163,7 +163,7 @@ public class ConfigCenterService {
                 Map.entry("groupMeta", groupMeta), Map.entry("fieldMeta", fieldMeta));
     }
 
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminUpdateAlertNoiseRulesConfig(Map<String, Object> updates, String operator, AuditContext auditContext) {
         if (updates == null || updates.isEmpty()) throw new IllegalArgumentException("更新内容不能为空");
         for (String key : updates.keySet()) { if (!ALERT_NOISE_RULE_KEYS.contains(key)) throw new IllegalArgumentException("不支持的策略键: " + key); }
@@ -186,10 +186,10 @@ public class ConfigCenterService {
 
     // ========== 配置中心 Bundle ==========
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminConfigCenterBundle() { return adminConfigCenterBundle(null); }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminConfigCenterBundle(String clientVersion) {
         Map<String, Object> reviewStrategy = adminGetReviewStrategyConfig();
         Map<String, Object> errorCodes = adminGlobalErrorCodeDictionary();
@@ -229,7 +229,7 @@ public class ConfigCenterService {
         };
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminConfigCenterModules() {
         Map<String, Object> reviewStrategy = adminGetReviewStrategyConfig();
         Map<String, Object> globalErrorCodes = adminGlobalErrorCodeDictionary();
@@ -244,7 +244,7 @@ public class ConfigCenterService {
                 Map.of("name", "bootstrapPlan", "description", "启动步骤计划（按 clientVersion 计算兼容性）", "supportsClientVersion", true, "version", bootstrapPlan.get("version"), "updatedAt", bootstrapPlan.get("updatedAt"), "digest", buildModuleDigest(bootstrapPlan))));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> adminConfigCenterModuleDiff(Map<String, String> localDigests, String clientVersion) {
         String requestHash = buildModuleDiffRequestHash(localDigests, clientVersion);
         LocalDateTime now = LocalDateTime.now();

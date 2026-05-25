@@ -5,6 +5,8 @@ import com.suno.mall.entity.ProductDraft;
 import com.suno.mall.entity.ValuationResult;
 import com.suno.mall.entity.ValuationRuleEntity;
 import com.suno.mall.dao.ValuationRuleRepository;
+import com.suno.mall.config.ValuationTransactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,6 +24,7 @@ public class ValuationService {
         this.valuationRuleRepository = valuationRuleRepository;
     }
 
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public ValuationResult evaluate(ProductDraft draft) {
         long months = ChronoUnit.MONTHS.between(draft.productionDate(), LocalDate.now());
         List<ValuationRuleEntity> rules = valuationRuleRepository.findByBrandInAndModelIn(
