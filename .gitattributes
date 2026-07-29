@@ -1,0 +1,2 @@
+# Maven's generated Windows wrapper is intentionally CRLF-terminated.
+mvnw.cmd text eol=crlf whitespace=cr-at-eol
