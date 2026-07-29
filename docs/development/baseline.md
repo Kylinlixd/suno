@@ -1,11 +1,10 @@
-# Executable repository baseline
+# 可执行仓库红色基线
 
-Captured on `2026-07-29T14:56:16+0800` on branch
-`codex/professional-rearchitecture`. This is intentionally a red baseline for
-the Phase 0 modularization work. Do not treat these failures as passing checks
-or weaken the repository verification script to hide them.
+于 `2026-07-29T14:56:16+0800` 在分支
+`codex/professional-rearchitecture` 采集。本基线刻意保持红色，用于 Phase 0
+模块化改造。不得将这些失败视为通过，也不得削弱仓库校验脚本以隐藏它们。
 
-## Toolchain
+## 工具链
 
 ```text
 Apache Maven 3.9.15 (98b2cdbfdb5f1ac8781f537ea9acccaed7922349)
@@ -19,10 +18,9 @@ OpenJDK Runtime Environment Microsoft-13877172 (build 25.0.3+9-LTS)
 OpenJDK 64-Bit Server VM Microsoft-13877172 (build 25.0.3+9-LTS, mixed mode, sharing)
 ```
 
-## `mvn test` result
+## `mvn test` 结果
 
-Exit code: `1` (compilation failure). Test count: `0`; Maven stopped in the
-compile phase before the test phase could run.
+退出码：`1`（编译失败）。测试数量：`0`；Maven 在测试阶段开始前的编译阶段停止。
 
 ```text
 [INFO] --- compiler:3.14.0:compile (default-compile) @ suno-mall ---
@@ -56,14 +54,12 @@ compile phase before the test phase could run.
 [ERROR] -> [Help 1]
 ```
 
-## Repository verification result
+## 仓库校验结果
 
-`./scripts/verify-repository.sh` is expected to fail until the existing
-tracked compiled class, unsafe configuration defaults, and stale README script
-references are cleaned up. The script reports every current category of
-violation in one run.
+在清理已有的受跟踪编译产物、不安全配置默认值和过时 README 脚本引用之前，
+`./scripts/verify-repository.sh` 应当失败。脚本会在一次运行中报告当前每类违规。
 
-Captured on `2026-07-29T14:57:31+0800`; exit code: `1`.
+采集时间：`2026-07-29T14:57:31+0800`；退出码：`1`。
 
 ```text
 src/main/java/com/suno/mall/dto/response/RecycleOrderVO.class
