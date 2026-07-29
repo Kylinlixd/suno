@@ -211,11 +211,11 @@ Controller 不开启事务、不直接访问 Repository，也不拼装领域状�
 
 Flyway 是唯一 schema 权威来源。删除运行时 `schema.sql`、`data.sql` 和 `ddl-auto=update` 依赖；JPA 在所有正式 profile 使用 `ddl-auto=validate`。
 
-采用 `suno_*` 作为规范表名，因为当前 JPA 运行时映射已经使用该命名。基线迁移负责创建规范表；兼容迁移在检测到旧的无前缀开发表时复制数据并记录迁移结果，不静默覆盖已有规范表。
+采用 `suno_*` 作为规范表名，因为当前 JPA 运行时映射已经使用该命名。平台迁移 `V0001__Normalize_legacy_table_names.java` 通过 `DatabaseMetaData` 检查固定白名单中的旧无前缀表：仅旧表存在时，按探测到的 H2/MySQL 方言把它原地重命名为规范 `suno_*` 表；旧表与规范表同时存在且旧表有数据时，以包含冲突表名和修复动作的消息中止迁移，绝不自动合并或覆盖；两者都不存在或仅规范表存在时不执行操作。后续功能基线迁移负责创建仍缺失的规范表并补齐索引和约束，且必须兼容由 `V0001` 重命名得到的表。
 
 ### 7.2 迁移版本范围
 
-- `V0001–V0999`：平台基线与旧 schema 兼容迁移。
+- `V0001–V0999`：平台基线与旧 schema 兼容迁移；当前由 `V0001__Normalize_legacy_table_names.java` 执行固定白名单、元数据驱动、方言感知的原地重命名与碰撞拒绝，不复制或合并数据。
 - `V1000–V1999`：Identity。
 - `V2000–V2999`：Recycle。
 - `V3000–V3999`：Marketplace。
@@ -329,10 +329,11 @@ docs/
 6. 聚合状态变化、数据库不变量、锁或条件更新方式。
 7. 发布和消费的领域事件、审计要求及敏感字段处理。
 8. Mermaid 需求流程图。
-9. 从 API 到应用、领域、持久化、事件和测试的开发调用链图。
-10. 对应测试类与验收场景。
+9. 使用 Phase 0 真实存在符号绘制的当前开发调用链图；不得把 `CurrentActor`、`PaymentEventProcessor` 或其他未来处理器画成当前实现。
+10. 当当前实现与批准目标不同时，额外提供目标架构调用链图和显式差距清单，目标图标明计划阶段。
+11. 对应的已实现测试或计划测试与验收场景；计划映射必须明确标注，不能表述为当前可执行。
 
-需求流程图使用统一语义：圆角节点表示入口/结束，菱形表示业务判断，矩形表示业务动作，数据库形状表示持久化，虚线表示异步事件。开发调用链图必须显示事务起止位置和跨模块公开端口。
+需求流程图使用统一语义：圆角节点表示入口/结束，菱形表示业务判断，矩形表示业务动作，数据库形状表示持久化，虚线表示异步事件。当前开发调用链图必须只引用 Phase 0 代码中可解析的真实符号并诚实显示现有事务边界；目标架构调用链图必须显示目标事务起止位置和跨模块公开端口，并与差距清单一起出现。
 
 示例结构如下：
 
@@ -358,11 +359,15 @@ flowchart LR
 
 ### 12.3 机器校验与持续同步
 
-`docs/requirements/use-cases.yaml` 为用例目录的权威索引，每项记录 `id`、`module`、`entrypoint`、`method`、`path`、`document`、`anchor` 和 `tests`。阶段 0 建立 `scripts/verify-docs.sh`，在 CI 中验证：
+`docs/requirements/use-cases.yaml` 为用例目录的权威索引。每项至少记录 `id`、`kind`、`owner`、`actor`、`trigger`、`permission`、`invariants`、`errors`、`requirementDoc`、`requirementAnchor`、`developmentAnchor`、`implementationStatus`、`currentSymbols` 和 `targetPhase`，并以 `implementedTests` 与 `plannedTests` 取代含混的 `tests` 字段。HTTP 项额外记录 `method` 和 `path`，调度器项额外记录 `scheduledMethod` 和 `scheduleProperty`。
+
+`implementedTests` 中每个 `Class#method` 必须解析到当前存在的测试类和方法并严格执行校验。`plannedTests` 中每项必须记录精确的未来 `Class#method` 与其 `targetPhase`；校验器只检查格式、阶段和值域，不声称它当前可执行。每个用例至少包含一个非空的 `implementedTests` 或 `plannedTests` 列表，需求文档必须把计划映射直白标为计划项。
+
+阶段 0 建立 `scripts/verify-docs.sh`，在 CI 中验证：
 
 - 每个 Controller mapping、Scheduler 和公开事件都存在用例目录项。
-- 每个目录项指向存在的 Markdown 章节和测试文件。
-- 每个用例章节同时包含需求流程图和开发调用链图。
+- 每个目录项指向存在的 Markdown 章节；`implementedTests` 指向存在的方法，`plannedTests` 只按格式和目标阶段校验。
+- 每个用例章节包含需求流程图和使用 `currentSymbols` 的当前开发流程；当前实现与目标不同时还包含目标架构流程和差距清单。
 - README 中的接口和测试命令指向真实文件与可执行命令。
 - 删除或重命名功能时，同一提交同步更新目录、流程图、OpenAPI 和测试。
 
@@ -457,4 +462,4 @@ flowchart TD
 6. 非 dev profile 不含演示账户、默认密钥、明文数据库密码或 Mock Provider。
 7. README、开发文档、OpenAPI 和运维说明中的命令均在 CI 验证存在且可执行。
 8. Git 工作树仅包含预期源码、迁移、测试和文档，不包含构建产物。
-9. 用例目录覆盖全部公开 API、调度器和事件；每个功能均有需求流程图、开发调用链和可执行测试映射，文档校验在 CI 中通过。
+9. 用例目录覆盖全部公开 API、调度器和事件；每个功能均有需求流程图、真实当前开发调用链，并在需要时提供目标架构流程与差距清单；已实现和计划测试映射被明确区分，文档校验在 CI 中通过。

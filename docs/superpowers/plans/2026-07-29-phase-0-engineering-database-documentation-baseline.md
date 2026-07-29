@@ -116,30 +116,14 @@ Use dependency management rather than child-level version repetition:
 - Delete: `src/main/java/com/suno/mall/dto/response/RecycleOrderVO.class`
 - Delete: `src/test/java/com/suno/mall/IntegrationTest.java`
 - Delete: `src/test/java/com/suno/mall/TestRunner.java`
-- Create: `suno-bootstrap/src/test/java/com/suno/mall/RecycleMallApplicationSmokeTest.java`
 
-- [ ] Add a smoke test that uses `@SpringBootTest`, obtains `RecycleMallApplication` from the context, and asserts the application bean exists.
 - [ ] Move source and resources with history-preserving `git mv` operations.
 - [ ] Remove the three unused broken transaction wrappers only after `rg` proves no production caller references them. Retain `TransactionalWrapperConfiguration` because it supplies the currently injected `VersionHelper` and `AuditContext` beans.
 - [ ] Delete the duplicated/stale pseudo-integration tests; preserve focused unit tests and repair their imports only as required by the move.
 - [ ] Fix remaining compilation errors with the smallest behavior-preserving changes. Do not refactor business logic in this task.
+- [ ] Run every surviving focused unit test after the compilation repairs. Do not add, disable, or commit a knowingly failing application-context smoke test before Flyway and its minimal startup profile exist.
 
-Smoke test shape:
-
-```java
-@SpringBootTest
-class RecycleMallApplicationSmokeTest {
-    @Autowired
-    private ApplicationContext context;
-
-    @Test
-    void startsApplicationContext() {
-        assertThat(context.getBean(RecycleMallApplication.class)).isNotNull();
-    }
-}
-```
-
-**Verify:** `mvn -pl suno-bootstrap -am -DskipTests compile` succeeds with no Java compilation errors.
+**Verify:** `mvn -pl suno-bootstrap -am test` succeeds with no Java compilation errors and all surviving focused unit tests passing.
 
 **Commit:** `refactor: isolate legacy application in bootstrap module`
 
@@ -174,9 +158,12 @@ wrapperUrl=https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-w
 
 **Files:**
 
+- Modify: `pom.xml`
+- Modify: `suno-bootstrap/pom.xml`
 - Delete: `suno-bootstrap/src/main/resources/schema.sql`
 - Delete: `suno-bootstrap/src/main/resources/data.sql`
 - Delete: `suno-bootstrap/src/main/resources/db/migration/V2__add_optimization_indexes.sql`
+- Create: `suno-bootstrap/src/main/java/db/migration/V0001__Normalize_legacy_table_names.java`
 - Create: `suno-identity/src/main/resources/db/migration/V1000__identity_baseline.sql`
 - Create: `suno-recycle/src/main/resources/db/migration/V2000__recycle_baseline.sql`
 - Create: `suno-marketplace/src/main/resources/db/migration/V3000__marketplace_baseline.sql`
@@ -184,14 +171,28 @@ wrapperUrl=https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-w
 - Create: `suno-operations/src/main/resources/db/migration/V5000__operations_baseline.sql`
 - Create: `suno-bootstrap/src/main/resources/db/dev/R__dev_seed.sql`
 - Modify: `suno-bootstrap/src/main/resources/application.yml`
+- Create: `suno-bootstrap/src/main/resources/application-dev.yml`
 - Modify: `suno-bootstrap/src/main/resources/application-mysql.yml`
+- Create: `suno-bootstrap/src/main/resources/application-staging.yml`
+- Create: `suno-bootstrap/src/main/resources/application-prod.yml`
+- Create: `suno-bootstrap/src/test/resources/application-test.yml`
+- Create: `suno-bootstrap/src/test/resources/db/legacy/legacy-schema.sql`
 - Test: `suno-bootstrap/src/test/java/com/suno/mall/persistence/FlywayH2MigrationTest.java`
+- Test: `suno-bootstrap/src/test/java/com/suno/mall/persistence/LegacySchemaCompatibilityIT.java`
+- Test: `suno-bootstrap/src/test/java/com/suno/mall/persistence/FlywayLocationProfileTest.java`
+- Test: `suno-bootstrap/src/test/java/com/suno/mall/RecycleMallApplicationSmokeTest.java`
 
-- [ ] Write `FlywayH2MigrationTest` first. Start an empty H2 database in MySQL mode, run all five locations, assert no failed migration, and assert every JPA `@Table` name exists.
-- [ ] Convert the current schema to canonical `suno_*` names and split it by the approved version ranges. Include every currently mapped entity, not only tables present in the old `schema.sql`.
+- [ ] Keep Spring Boot 3.5.16 dependency management as the sole version authority for Flyway and Testcontainers. Add unversioned `org.flywaydb:flyway-core` at compile scope for the Java migration, `org.flywaydb:flyway-mysql` at runtime scope, H2 at runtime scope, and Spring Boot Test/Testcontainers JUnit/MySQL dependencies explicitly at test scope; do not repeat managed versions in child POMs.
+- [ ] Write `FlywayH2MigrationTest` first. Start an empty H2 database in MySQL mode, run `classpath:db/migration`, assert no failed migration, and assert every JPA `@Table` name exists.
+- [ ] Implement `V0001__Normalize_legacy_table_names.java` as the platform migration. It inspects `DatabaseMetaData`, detects H2 versus MySQL, and processes only this fixed old-to-canonical allowlist: `user_account`, `auth_refresh_token`, `auth_token_blacklist`, `auth_export_task`, `product`, `valuation_rule`, `recycle_order`, `logistics_track`, `points_ledger`, `resale_listing`, `resale_favorite`, `resale_order`, `resale_review`, `resale_review_vote`, `resale_review_report`, `operation_audit_log`, `payment_idempotency`, `payment_replay_auto_handle_idempotency`, `payment_nonce`, `payment_callback_log`, and `payment_replay_task`, each renamed to the same name prefixed with `suno_`.
+- [ ] For each allowlisted pair, if only the legacy table exists, rename it in place with dialect-correct quoted H2/MySQL SQL. If both names exist and the legacy table contains rows, abort with an actionable message naming both tables and requiring operator resolution; never merge, copy, truncate, drop, or overwrite silently. If neither exists, only the canonical table exists, or both exist with an empty legacy table, leave data unchanged and let feature migrations create/complete canonical schema as applicable.
+- [ ] Convert the current schema to canonical `suno_*` names and split it by the approved version ranges. `V1000`, `V2000`, `V3000`, `V4000`, and `V5000` create missing canonical tables and add the required indexes and constraints, using idempotent metadata-aware statements where needed so a table renamed by `V0001` is accepted and completed rather than recreated. Include every currently mapped entity, not only tables present in the old `schema.sql`.
 - [ ] Preserve and rename useful indexes. Add the already-approved one-to-one listing constraint and existing favorite/review/vote/report uniqueness constraints without yet redesigning application behavior.
-- [ ] Put `{noop}` demo users and sample records only in the `dev` repeatable seed location. Production and MySQL profiles must never load it.
+- [ ] Add `LegacySchemaCompatibilityIT` and the test-only `db/legacy/legacy-schema.sql` fixture. The H2 and Testcontainers MySQL cases start from a populated unprefixed schema, run the full migrations, and assert row counts, representative primary/foreign keys and business fields, canonical table names, and absence of old names. A separate collision case creates populated old and canonical names and asserts the actionable migration failure. The MySQL case may skip only when Docker is unavailable; it is mandatory in Docker-backed `verify`.
+- [ ] Put `{noop}` demo users and sample records only in the idempotent `db/dev/R__dev_seed.sql`; use existence guards/upserts that are safe on repeated dev starts.
+- [ ] Configure common `application.yml`, `application-mysql.yml`, `application-staging.yml`, and production `application-prod.yml` with only `classpath:db/migration`. Only `application-dev.yml` appends `classpath:db/dev`. `FlywayLocationProfileTest` must load each profile and prove non-dev profiles cannot resolve the dev seed location while dev can.
 - [ ] Configure JPA `ddl-auto=validate`, SQL initialization `never`, Flyway enabled, UTC JDBC behavior, and H2 `MODE=MySQL;DATABASE_TO_LOWER=TRUE`.
+- [ ] Add `RecycleMallApplicationSmokeTest` now that Flyway and `application-test.yml` provide a minimal H2 startup profile; it uses `@SpringBootTest` plus `@ActiveProfiles("test")`, obtains `RecycleMallApplication` from the context, and asserts that the application bean exists.
 
 The application configuration must have a single schema owner:
 
@@ -205,10 +206,12 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
-    locations: classpath:db/migration,classpath:db/dev
+    locations: classpath:db/migration
 ```
 
-**Verify:** `./mvnw -pl suno-bootstrap -am -Dtest=FlywayH2MigrationTest test` passes from an empty database.
+`application-dev.yml` is the sole overlay that sets `spring.flyway.locations: classpath:db/migration,classpath:db/dev`.
+
+**Verify:** `./mvnw -pl suno-bootstrap -am -Dtest=FlywayH2MigrationTest,FlywayLocationProfileTest,RecycleMallApplicationSmokeTest,LegacySchemaCompatibilityIT test` passes from empty and populated H2 databases; with Docker available the same command also passes its MySQL compatibility cases.
 
 **Commit:** `db: establish canonical Flyway schema baseline`
 
@@ -225,6 +228,7 @@ spring:
 - [ ] Add Testcontainers MySQL and JUnit dependencies to `suno-test-support`; expose a reusable MySQL 8.4 container definition with UTF-8 and UTC settings.
 - [ ] Configure Failsafe to execute `*IT` classes during `integration-test` and `verify`.
 - [ ] Add `FlywayMySqlIT` to migrate a clean database, validate Hibernate mappings, and prove a second migration run is idempotent.
+- [ ] Run the MySQL branches of `LegacySchemaCompatibilityIT` from Task 5 under Failsafe so populated legacy migration, key-field preservation, and collision rejection are authoritative Docker-backed checks rather than optional local evidence.
 - [ ] Add `SchemaInvariantIT` that queries `information_schema` for the expected unique keys, foreign keys, version columns, and indexes.
 - [ ] Make container reuse opt-in locally and disabled in CI so tests never depend on prior state.
 
@@ -282,14 +286,125 @@ noClasses()
 - Create: `docs/requirements/README.md`
 - Create: `docs/requirements/use-cases.yaml`
 - Create: `docs/requirements/use-case.schema.json`
-- Create: `suno-bootstrap/src/test/java/com/suno/mall/documentation/DocumentationCoverageTest.java`
+- Create: `suno-bootstrap/src/test/java/com/suno/mall/documentation/DocumentationCatalogCoverageTest.java`
 - Create: `scripts/verify-docs.sh`
 
-- [ ] Define the catalog schema first. Required fields are `id`, `kind`, `owner`, `actor`, `trigger`, `permission`, `invariants`, `errors`, `requirementDoc`, `requirementAnchor`, `developmentAnchor`, and `tests`. HTTP entries additionally require `method` and `path`; scheduler entries require `scheduledMethod` and `scheduleProperty`.
-- [ ] Add `DocumentationCoverageTest` that validates unique IDs, schema-required fields, exact endpoint coverage from Spring's `RequestMappingHandlerMapping`, exact `@Scheduled` method coverage, existing anchors, two Mermaid blocks per item, and non-empty exact test mappings.
-- [ ] Add the complete catalog using these stable ID ranges: `IDN-001..`, `REC-001..`, `MKT-001..`, `PAY-001..`, and `OPS-001..`; use `-S` IDs for schedulers and `-E` IDs for cross-module events.
-- [ ] Add `scripts/verify-docs.sh` as the portable entry point that invokes the documentation test and rejects known unfinished-content markers and empty Mermaid blocks in the maintained requirement, development, and architecture directories.
+- [ ] Define the catalog schema first. Required fields are `id`, `kind`, `owner`, `actor`, `trigger`, `permission`, `invariants`, `errors`, `requirementDoc`, `requirementAnchor`, `developmentAnchor`, `implementationStatus`, `currentSymbols`, and `targetPhase`. `implementationStatus` is one of `implemented`, `partial`, or `absent`; `currentSymbols` is a non-empty list of Java symbols that actually exist at the end of Phase 0. HTTP entries additionally require `method` and `path`; scheduler entries require `scheduledMethod` and `scheduleProperty`.
+- [ ] Replace ambiguous `tests` with optional `implementedTests` and `plannedTests`, requiring at least one non-empty list per use case. Each `implementedTests` value is exact `Class#method` and must resolve to an existing test method. Each `plannedTests` item contains exact `test: Class#method` plus integer `targetPhase`; validate its format and phase without claiming it is executable.
+- [ ] Add a complete catalog before enabling its gate. `DocumentationCatalogCoverageTest` must pass in this task and validate unique IDs, all schema-required fields, the exact application HTTP route set from Spring's `RequestMappingHandlerMapping` (excluding framework and Actuator operator endpoints), the exact `@Scheduled` method set, unique route/scheduler ownership, real `currentSymbols`, strict `implementedTests`, and format/phase-only `plannedTests`. It does not inspect requirement-document anchors or Mermaid flows yet.
+- [ ] Add `scripts/verify-docs.sh` as the portable entry point. In Task 8 it invokes the passing catalog coverage test; Task 13 extends it with flow coverage and unfinished-content scans only after all requirement and handbook files exist.
 - [ ] Document actors, shared states, error semantics, pagination, compatibility policy, and the rule for adding a new route/task/event in `docs/requirements/README.md`.
+
+The catalog must use this exact HTTP route ownership table; every row is unique and source ordered within its assigned decision group, and there are no inferred contiguous ranges:
+
+| ID | Method | Path | Owner |
+|---|---|---|---|
+| `IDN-001` | POST | `/api/auth/login` | Identity |
+| `IDN-002` | GET | `/api/auth/me` | Identity |
+| `IDN-003` | GET | `/api/auth/sessions` | Identity |
+| `IDN-004` | POST | `/api/auth/sessions/revoke-device` | Identity |
+| `IDN-005` | POST | `/api/auth/sessions/revoke-all` | Identity |
+| `IDN-006` | POST | `/api/auth/logout` | Identity |
+| `IDN-007` | POST | `/api/auth/refresh` | Identity |
+| `IDN-101` | GET | `/api/admin/auth/sessions` | Identity |
+| `IDN-102` | POST | `/api/admin/auth/sessions/revoke-device` | Identity |
+| `IDN-103` | POST | `/api/admin/auth/sessions/revoke-all` | Identity |
+| `PAY-001` | POST | `/api/payment/callback` | Payment |
+| `PAY-002` | POST | `/api/mall/orders/pay` | Payment |
+| `PAY-101` | GET | `/api/admin/payment/callback-logs` | Payment |
+| `PAY-102` | POST | `/api/admin/payment/callback-logs/replay` | Payment |
+| `PAY-103` | POST | `/api/admin/payment/callback-logs/replay/enqueue` | Payment |
+| `PAY-104` | POST | `/api/admin/payment/callback-logs/replay/consume` | Payment |
+| `PAY-105` | GET | `/api/admin/payment/replay-tasks` | Payment |
+| `PAY-106` | GET | `/api/admin/payment/replay-tasks/summary` | Payment |
+| `PAY-107` | GET | `/api/admin/payment/replay-tasks/query-audit-actions` | Payment |
+| `PAY-108` | GET | `/api/admin/payment/replay-tasks/health` | Payment |
+| `PAY-109` | GET | `/api/admin/payment/replay-tasks/diagnosis` | Payment |
+| `PAY-110` | GET | `/api/admin/payment/replay-tasks/cleanup-performance-check` | Payment |
+| `PAY-111` | POST | `/api/admin/payment/replay-tasks/auto-handle` | Payment |
+| `PAY-112` | GET | `/api/admin/payment/replay-tasks/auto-handle-idempotency` | Payment |
+| `PAY-113` | GET | `/api/admin/payment/replay-tasks/auto-handle-idempotency/detail` | Payment |
+| `PAY-114` | POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/delete` | Payment |
+| `PAY-115` | POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/delete-before` | Payment |
+| `PAY-116` | POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup` | Payment |
+| `PAY-117` | POST | `/api/admin/payment/replay-tasks/requeue` | Payment |
+| `PAY-118` | POST | `/api/admin/payment/replay-tasks/requeue/dead` | Payment |
+| `REC-001` | POST | `/api/recycle/orders` | Recycle |
+| `REC-002` | GET | `/api/recycle/logistics/status` | Recycle |
+| `REC-101` | GET | `/api/admin/recycle/orders` | Recycle |
+| `REC-102` | PATCH | `/api/admin/recycle/orders/review` | Recycle |
+| `MKT-001` | GET | `/products/{id}.html` | Marketplace |
+| `MKT-002` | POST | `/api/resale/listings` | Marketplace |
+| `MKT-003` | GET | `/api/resale/listings` | Marketplace |
+| `MKT-004` | GET | `/api/resale/listings/sold-out` | Marketplace |
+| `MKT-005` | POST | `/api/resale/listings/{listingId}/reduce-stock` | Marketplace |
+| `MKT-006` | POST | `/api/resale/listings/{listingId}/favorite` | Marketplace |
+| `MKT-007` | DELETE | `/api/resale/listings/{listingId}/favorite` | Marketplace |
+| `MKT-008` | GET | `/api/resale/listings/favorites` | Marketplace |
+| `MKT-020` | GET | `/api/mall/listings` | Marketplace |
+| `MKT-021` | GET | `/api/mall/orders` | Marketplace |
+| `MKT-022` | GET | `/api/mall/orders/status-dictionary` | Marketplace |
+| `MKT-023` | GET | `/api/mall/orders/summary` | Marketplace |
+| `MKT-024` | POST | `/api/mall/orders` | Marketplace |
+| `MKT-026` | POST | `/api/mall/orders/cancel` | Marketplace |
+| `MKT-027` | POST | `/api/mall/orders/confirm-receipt` | Marketplace |
+| `MKT-028` | GET | `/api/mall/orders/{orderNo}/track` | Marketplace |
+| `MKT-029` | POST | `/api/mall/favorites/add` | Marketplace |
+| `MKT-030` | POST | `/api/mall/favorites/remove` | Marketplace |
+| `MKT-031` | GET | `/api/mall/favorites` | Marketplace |
+| `MKT-032` | POST | `/api/mall/reviews/create` | Marketplace |
+| `MKT-033` | POST | `/api/mall/reviews/append` | Marketplace |
+| `MKT-034` | POST | `/api/mall/reviews/reply` | Marketplace |
+| `MKT-035` | GET | `/api/mall/reviews` | Marketplace |
+| `MKT-036` | POST | `/api/mall/reviews/vote-useful` | Marketplace |
+| `MKT-037` | POST | `/api/mall/reviews/report` | Marketplace |
+| `MKT-100` | POST | `/api/admin/recycle/listings/publish` | Marketplace |
+| `MKT-101` | POST | `/api/admin/recycle/resale-orders/deliver` | Marketplace |
+| `MKT-102` | POST | `/api/admin/recycle/resale-orders/refund` | Marketplace |
+| `MKT-103` | POST | `/api/admin/recycle/resale-orders/auto-confirm-receipt` | Marketplace |
+| `MKT-110` | GET | `/api/admin/recycle/review-reports` | Marketplace |
+| `MKT-111` | GET | `/api/admin/recycle/review-reports/{reportId}` | Marketplace |
+| `MKT-112` | POST | `/api/admin/recycle/review-reports/process` | Marketplace |
+| `MKT-113` | POST | `/api/admin/recycle/review-reports/process-batch` | Marketplace |
+| `OPS-001` | GET | `/api/admin/auth/security-events/summary` | Operations |
+| `OPS-002` | GET | `/api/admin/auth/security-events/timeline` | Operations |
+| `OPS-003` | GET | `/api/admin/auth/security-events/risk-users-top` | Operations |
+| `OPS-004` | GET | `/api/admin/auth/security-events/export` | Operations |
+| `OPS-005` | POST | `/api/admin/auth/security-events/export/tasks` | Operations |
+| `OPS-006` | POST | `/api/admin/auth/security-events/export/tasks/{taskId}/retry` | Operations |
+| `OPS-007` | GET | `/api/admin/auth/security-events/export/tasks/{taskId}` | Operations |
+| `OPS-008` | GET | `/api/admin/auth/security-events/export/tasks/{taskId}/download` | Operations |
+| `OPS-009` | GET | `/api/admin/auth/security-events/export/tasks` | Operations |
+| `OPS-010` | POST | `/api/admin/auth/security-events/export/tasks/cleanup` | Operations |
+| `OPS-020` | GET | `/api/admin/recycle/audit-logs` | Operations |
+| `OPS-021` | GET | `/api/admin/recycle/audit-logs/page` | Operations |
+| `OPS-022` | GET | `/api/admin/recycle/audit-logs/export` | Operations |
+| `OPS-030` | GET | `/api/admin/recycle/review-risk/summary` | Operations |
+| `OPS-031` | GET | `/api/admin/recycle/review-risk/timeline` | Operations |
+| `OPS-032` | GET | `/api/admin/recycle/review-risk/top-listings` | Operations |
+| `OPS-040` | GET | `/api/admin/recycle/review-strategy` | Operations |
+| `OPS-041` | POST | `/api/admin/recycle/review-strategy/update` | Operations |
+| `OPS-042` | GET | `/api/admin/recycle/error-codes/global` | Operations |
+| `OPS-043` | GET | `/api/admin/recycle/degrade-actions/dictionary` | Operations |
+| `OPS-044` | GET | `/api/admin/recycle/alert-noise-rules` | Operations |
+| `OPS-045` | POST | `/api/admin/recycle/alert-noise-rules/update` | Operations |
+| `OPS-046` | GET | `/api/admin/recycle/config-center/bundle` | Operations |
+| `OPS-047` | GET | `/api/admin/recycle/config-center/module/{moduleName}` | Operations |
+| `OPS-048` | GET | `/api/admin/recycle/config-center/modules` | Operations |
+| `OPS-049` | POST | `/api/admin/recycle/config-center/module-diff` | Operations |
+
+The scheduler ownership table is also exact:
+
+| ID | Current scheduled method | Schedule property | Owner |
+|---|---|---|---|
+| `PAY-S001` | `PaymentNonceCleanupScheduler#cleanupExpiredNonces` | `payment.callback.nonce-cleanup-fixed-delay-ms` | Payment |
+| `PAY-S002` | `PaymentReplayTaskScheduler#consumeReplayTasks` | `payment.callback.replay-consume-fixed-delay-ms` | Payment |
+| `PAY-S003` | `PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords` | `payment.callback.replay-auto-handle-idempotency-cleanup-fixed-delay-ms` | Payment |
+| `MKT-S001` | `ResaleOrderScheduler#autoCloseExpiredUnpaidOrders` | `mall.order.auto-close-fixed-delay-ms` | Marketplace |
+| `MKT-S002` | `ResaleOrderScheduler#autoConfirmDeliveredOrders` | `mall.order.auto-confirm-receipt-fixed-delay-ms` | Marketplace |
+| `OPS-S001` | `SecurityEventService#scheduledCleanupSecurityExportTasks` | `security.auth.export-task.cleanup-fixed-delay-ms` | Operations |
+
+Cross-module events use `-E` IDs and never duplicate an HTTP row. In particular, `POST /api/admin/recycle/listings/publish` is owned only by Marketplace as `MKT-100`; Recycle documents its side only as `REC-E005` (`listing requested`). `MKT-025` is intentionally unallocated because `/api/mall/orders/pay` is `PAY-002`.
 
 Catalog entry shape:
 
@@ -307,10 +422,15 @@ Catalog entry shape:
   requirementDoc: docs/requirements/identity.md
   requirementAnchor: idn-001-login
   developmentAnchor: idn-001-login-dev
-  tests: [AuthControllerWebTest#loginIssuesSessionForActiveAccount]
+  implementationStatus: partial
+  currentSymbols: [AuthController#login, AuthApplicationService#login]
+  targetPhase: 1
+  plannedTests:
+    - test: AuthControllerWebTest#loginIssuesSessionForActiveAccount
+      targetPhase: 1
 ```
 
-**Verify:** Run the new test before documentation files exist and confirm it reports every missing route and scheduler by signature, not only a count.
+**Verify:** `./scripts/verify-docs.sh` passes with the complete catalog and `DocumentationCatalogCoverageTest` proves exact coverage of 93 HTTP routes and 6 scheduled methods.
 
 **Commit:** `test: define executable use case documentation contract`
 
@@ -322,12 +442,12 @@ Catalog entry shape:
 - Create or modify: `docs/requirements/operations.md`
 - Modify: `docs/requirements/use-cases.yaml`
 
-- [ ] Document user authentication flows `IDN-001` through `IDN-007`: login, current user, session list, device revoke, all-session revoke, logout, and refresh rotation.
-- [ ] Document administrator session flows `IDN-101` through `IDN-103`: cross-user session query, device revoke, and all-session revoke.
-- [ ] Document security operations flows `OPS-001` through `OPS-010`: summary, timeline, top-risk users, synchronous legacy export, task creation, retry, detail, download, list, and cleanup.
-- [ ] Document the export cleanup/claim scheduler as `OPS-S001` and the authentication/security events as `IDN-E001` through `IDN-E004`.
-- [ ] For every item, include one specific requirement flow and one specific development flow. Show authorization rejection, account status checks, token/session atomicity, stable errors, audit/security recording, and transaction boundaries where applicable.
-- [ ] Map each item to an exact Phase 1 test method even when that test is not implemented yet; use the catalog lifecycle value `planned` for work scheduled in the next phase.
+- [ ] Document exactly 10 Identity HTTP flows: `IDN-001..IDN-007` for login, current user, session list, device revoke, all-session revoke, logout, and refresh rotation, plus `IDN-101..IDN-103` for administrator cross-user session query, device revoke, and all-session revoke.
+- [ ] Document exactly 10 security Operations HTTP flows `OPS-001..OPS-010`: summary, timeline, top-risk users, synchronous legacy export, task creation, retry, detail, download, list, and cleanup.
+- [ ] Document the current security export cleanup method `SecurityEventService#scheduledCleanupSecurityExportTasks` as `OPS-S001` and the authentication/security events as `IDN-E001` through `IDN-E004`.
+- [ ] For every item, include one specific requirement flow and one **current development flow** that uses only the item's Phase 0 `currentSymbols`. Show the current authorization behavior, account checks, token/session behavior, errors, audit/security recording, and actual transaction boundaries without inventing future handlers.
+- [ ] When current behavior differs from the approved target, add a separately labeled target architecture flow plus an explicit gap list and `targetPhase`; future ports/handlers may appear only there.
+- [ ] Put exact existing `Class#method` mappings in `implementedTests`; put exact future Identity test methods in `plannedTests` with `targetPhase: 1`. Label every planned mapping plainly in the prose.
 
 Each section must follow this structure:
 
@@ -341,7 +461,18 @@ flowchart TD
   Validate -->|invalid| BadRequest
   Authenticate -->|failed| SecurityIncident --> Unauthorized
 ```
-### Development flow {#idn-001-login-dev}
+### Current development flow {#idn-001-login-dev}
+```mermaid
+sequenceDiagram
+  participant C as AuthController
+  participant A as AuthApplicationService
+  participant U as UserAccountRepository
+  participant S as AuthRefreshTokenRepository
+  C->>A: login(username, password, deviceId)
+  A->>U: find current account
+  A->>S: save current refresh token
+```
+### Target architecture flow
 ```mermaid
 sequenceDiagram
   participant C as AuthController
@@ -350,11 +481,13 @@ sequenceDiagram
   participant S as RefreshSessionPort
   C->>H: LoginCommand
   H->>U: load active account
-  H->>S: create session in transaction
+  H->>S: create session atomically
 ```
+### Gaps
+- Phase 0 still uses `AuthApplicationService` and repositories directly; `LoginHandler` and ports arrive in Phase 1.
 ````
 
-**Verify:** `./scripts/verify-docs.sh -Ddocumentation.module=identity,operations` reports no missing Identity/security entry or diagram.
+**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports all 25 Task 9 items (20 HTTP, 1 scheduler, 4 events) present without future-only symbols in a current-flow block.
 
 **Commit:** `docs: map identity and security operation flows`
 
@@ -365,14 +498,14 @@ sequenceDiagram
 - Create: `docs/requirements/payment.md`
 - Modify: `docs/requirements/use-cases.yaml`
 
-- [ ] Document `PAY-001` payment callback authentication, ledger idempotency, Marketplace state application, and stable acknowledgment.
-- [ ] Document administrator operations `PAY-101` through `PAY-118`: callback log query, direct replay, enqueue, manual consume, task query/summary/audit/health/diagnosis/performance check, automatic handling, idempotency list/detail/delete/delete-before/cleanup, requeue, and dead-task requeue.
+- [ ] Document exactly 20 Payment HTTP flows: `PAY-001` payment callback authentication/ledger/application/acknowledgment, `PAY-002` `/api/mall/orders/pay`, and `PAY-101..PAY-118` for the 18 administrator routes in the Task 8 source order.
 - [ ] Document schedulers `PAY-S001` nonce cleanup, `PAY-S002` replay task consumption, and `PAY-S003` auto-handle idempotency cleanup.
 - [ ] Document events `PAY-E001` callback verified, `PAY-E002` payment applied, `PAY-E003` payment rejected, and `PAY-E004` replay dead-lettered.
 - [ ] Every requirement flow must show signature version, canonical signed fields, timestamp window, nonce reservation, event/request-digest conflict, order state conflict, and retry/dead-letter branches when relevant.
-- [ ] Every development flow must route real-time callbacks and replay through the same `PaymentEventProcessor`; diagrams must make external transaction boundaries and stable ack storage explicit.
+- [ ] Every item gets a current development flow using only Phase 0 `currentSymbols`. Because Phase 0 does not yet contain `PaymentEventProcessor`, show the actual callback/replay service paths honestly; add a separate target architecture flow and gap list showing their future convergence through `PaymentEventProcessor`, external transaction boundaries, and stable ack storage in Phase 2.
+- [ ] Use `implementedTests` only for existing exact methods; record future payment tests under `plannedTests` with `targetPhase: 2` and label them planned in prose.
 
-**Verify:** `./scripts/verify-docs.sh -Ddocumentation.module=payment` passes and the catalog count equals all payment routes plus three schedulers and four events.
+**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports all 27 Payment items (20 HTTP, 3 schedulers, 4 events) with no current-flow reference to `PaymentEventProcessor`.
 
 **Commit:** `docs: map payment callback and replay flows`
 
@@ -384,12 +517,13 @@ sequenceDiagram
 - Modify: `docs/requirements/use-cases.yaml`
 
 - [ ] Document public flows `REC-001` create recycle order and `REC-002` logistics status.
-- [ ] Document administrator flows `REC-101` order search, `REC-102` review/quality transition, and `REC-103` publish approved recycle order into Marketplace.
-- [ ] Document cross-module events `REC-E001` order submitted, `REC-E002` audit completed, `REC-E003` valuation fixed, `REC-E004` points posted, and `REC-E005` listing requested.
+- [ ] Document administrator flows `REC-101` order search and `REC-102` review/quality transition. Do not allocate `REC-103`: the publish HTTP route is Marketplace-owned `MKT-100`.
+- [ ] Document cross-module events `REC-E001` order submitted, `REC-E002` audit completed, `REC-E003` valuation fixed, `REC-E004` points posted, and `REC-E005` listing requested. `REC-E005` represents only Recycle's event side of `MKT-100`, not a duplicate HTTP entry.
 - [ ] Show image audit, SN parsing, and logistics calls outside database transactions; include provider timeout, retry, and type-safe failure paths.
 - [ ] Show server-derived recycle counts and points, valuation rule priority/version, ledger idempotency, atomic points updates, and the one-listing-per-recycle-order constraint.
+- [ ] Every one of the 9 Recycle items (4 HTTP and 5 events) gets a requirement flow and a current development flow using Phase 0 `currentSymbols`; where the current chain violates the target, add a target architecture flow, explicit gap list, and `targetPhase: 4`. Distinguish strict `implementedTests` from plainly labeled `plannedTests`.
 
-**Verify:** `./scripts/verify-docs.sh -Ddocumentation.module=recycle` passes and every current recycle/admin-recycle route owned by this module is covered exactly once.
+**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports 4 Recycle-owned HTTP flows and 5 events exactly once, with no `REC-103` catalog or heading.
 
 **Commit:** `docs: map recycle valuation and points flows`
 
@@ -400,15 +534,16 @@ sequenceDiagram
 - Create: `docs/requirements/marketplace.md`
 - Modify: `docs/requirements/use-cases.yaml`
 
-- [ ] Document page/listing flows `MKT-001` through `MKT-008`: product page, listing creation, active listing query, sold-out query, stock reduction, favorite, unfavorite, and favorite list.
-- [ ] Document Mall flows `MKT-020` through `MKT-037`: listing query, order query/dictionary/summary/create/pay/cancel/confirm/track, favorite add/remove/list, review create/append/reply/list/vote/report.
-- [ ] Document administrator order/review flows `MKT-101` through `MKT-112`: deliver, refund, manual auto-confirm, report list/detail/process/batch process.
+- [ ] Document page/listing flows `MKT-001..MKT-008`: product page plus the seven `/api/resale/listings` routes in source order.
+- [ ] Document Mall flows `MKT-020`, `MKT-021..MKT-024`, and `MKT-026..MKT-037` exactly as assigned in Task 8. `MKT-025` stays unused because pay is Payment-owned `PAY-002`.
+- [ ] Document `MKT-100` for administrator publish, `MKT-101..MKT-103` for deliver/refund/manual auto-confirm, and `MKT-110..MKT-113` for report list/detail/process/batch.
 - [ ] Document schedulers `MKT-S001` unpaid-order close and `MKT-S002` delivered-order confirmation.
 - [ ] Document events `MKT-E001` stock reserved, `MKT-E002` order created, `MKT-E003` payment accepted, `MKT-E004` stock released, `MKT-E005` fulfillment completed, and `MKT-E006` review reported.
-- [ ] Make actor identity come from `CurrentActor` in all target flows; explicitly show resource-ownership rejection for cancel/query/review/favorite operations and administrator-only merchant replies.
+- [ ] Every one of the 41 Marketplace items (33 HTTP, 2 schedulers, 6 events) gets a requirement flow and a current development flow using Phase 0 `currentSymbols`. Do not show `CurrentActor` in the current flow because it is not implemented at Phase 0; show it only in a separately labeled target architecture flow with an explicit Phase 3 gap list. Target flows must show resource-ownership rejection for cancel/query/review/favorite operations and administrator-only merchant replies.
 - [ ] Show the order state machine and all no-regression rules, single stock release, late-payment rejection, refund idempotency, review eligibility, and database uniqueness branches.
+- [ ] Use strict `implementedTests` for exact existing methods and plainly labeled `plannedTests` with `targetPhase: 3` for future coverage.
 
-**Verify:** `./scripts/verify-docs.sh -Ddocumentation.module=marketplace` passes and every current `/api/mall`, `/api/resale/listings`, product page, and Marketplace-owned admin route is covered exactly once.
+**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports 33 Marketplace-owned HTTP flows, 2 schedulers, and 6 events exactly once, with `MKT-025` absent and `CurrentActor` absent from current-flow blocks.
 
 **Commit:** `docs: map marketplace order and review flows`
 
@@ -425,13 +560,17 @@ sequenceDiagram
 - Create: `docs/architecture/decisions/0003-flyway-schema-authority.md`
 - Create: `docs/architecture/decisions/0004-database-outbox-and-jobs.md`
 - Modify: `docs/requirements/use-cases.yaml`
+- Create: `suno-bootstrap/src/test/java/com/suno/mall/documentation/DocumentationFlowCoverageTest.java`
+- Modify: `scripts/verify-docs.sh`
 
-- [ ] Document Operations flows `OPS-020` through `OPS-049`: audit log list/page/export, review-risk reports, review strategy read/update, error and degrade dictionaries, alert-noise read/update, configuration bundle/module/modules/diff.
+- [ ] Document exactly 16 remaining Operations HTTP flows: `OPS-020..OPS-022` audit list/page/export, `OPS-030..OPS-032` review-risk summary/timeline/top, and `OPS-040..OPS-049` strategy read/update, global errors, degrade dictionary, alert-noise read/update, and four configuration-center routes.
 - [ ] Document operations events `OPS-E001` audit requested, `OPS-E002` security incident recorded, `OPS-E003` export completed, and `OPS-E004` configuration published.
+- [ ] Give each Operations item a requirement flow and Phase 0 current development flow using real `currentSymbols`; when the approved target differs, add a target architecture flow and explicit Phase 5 gap list. Use strict `implementedTests` and plainly labeled `plannedTests` with `targetPhase: 5`.
 - [ ] Write `workflow.md` as the required development lifecycle: use-case ID allocation, failing test, domain design, migration, implementation, review, verify, release, rollback, and documentation update.
 - [ ] Write `testing.md` with unit/application/web/persistence/concurrency/provider/E2E/architecture layers, naming rules, fixture ownership, and exact local/CI commands.
 - [ ] Write `migrations.md` with version ownership, forward-only repair procedure, data backfill batching, lock/timeout review, checksum policy, rollback by compensating migration, and production verification queries.
 - [ ] Write module diagrams and ADRs matching the approved design. Include allowed dependency arrows, public `api` boundary, composition root, outbox ownership, and the staged legacy migration rule.
+- [ ] Add `DocumentationFlowCoverageTest` only now, after every requirement file exists. It validates requirement/current-development anchors, non-empty Mermaid blocks, resolution of every catalog `currentSymbols` entry, target architecture flow plus explicit gaps whenever `implementationStatus` is not `implemented`, strict `implementedTests`, and format/phase-only `plannedTests`. Extend `scripts/verify-docs.sh` to run both documentation tests and the unfinished-content scan.
 
 The development lifecycle must be visually explicit:
 
@@ -447,7 +586,7 @@ flowchart LR
   Docs --> Release["Release with rollback evidence"]
 ```
 
-**Verify:** `./scripts/verify-docs.sh` passes for the full catalog, including its unfinished-content scan over `docs/requirements`, `docs/development`, and `docs/architecture`.
+**Verify:** `./scripts/verify-docs.sh` passes both `DocumentationCatalogCoverageTest` and `DocumentationFlowCoverageTest` for the full catalog, including the unfinished-content scan over `docs/requirements`, `docs/development`, and `docs/architecture`.
 
 **Commit:** `docs: establish architecture and development handbook`
 
@@ -459,12 +598,21 @@ flowchart LR
 - Modify: `README.md`
 - Create: `docs/development/configuration.md`
 - Create: `.env.example`
+- Modify: `suno-bootstrap/pom.xml`
+- Modify: `suno-bootstrap/src/main/resources/application.yml`
+- Modify: `suno-bootstrap/src/main/java/com/suno/mall/config/SecurityConfig.java`
+- Create: `suno-bootstrap/src/main/java/com/suno/mall/config/FlywayReadinessHealthIndicator.java`
+- Create: `suno-bootstrap/src/test/java/com/suno/mall/actuator/HealthEndpointIT.java`
 
 - [ ] Add a GitHub Actions workflow for pull requests and `main` pushes using Java 25, Maven cache, Docker-backed MySQL tests, and only `./mvnw --batch-mode verify` as the build command.
 - [ ] Replace README's nonexistent script references with working wrapper/script commands and explain module ownership, profiles, local H2 startup, MySQL startup, docs index, and security-safe configuration.
 - [ ] Move all secrets to environment variables. `.env.example` contains names and non-secret descriptions, never usable credentials.
 - [ ] Correct Redis configuration to Spring Boot 3.5's `spring.data.redis` namespace and document that Redis is optional for non-critical caching in Phase 0.
 - [ ] Add troubleshooting for missing Docker, migration checksum mismatch, invalid production secrets, and Java/Maven version mismatch.
+- [ ] Add unversioned `spring-boot-starter-actuator` to `suno-bootstrap`, retaining Spring Boot 3.5.16 dependency management as version authority. Expose health probes and the operator endpoints named in configuration; enable liveness/readiness probes and use `show-details: when_authorized`.
+- [ ] Configure the readiness group to include application readiness state, database health, and `FlywayReadinessHealthIndicator`. The Flyway indicator reports `UP` only after Flyway can validate the applied schema against the configured migrations; database connectivity and migration validation must therefore both contribute to readiness.
+- [ ] Add an explicit Actuator authorization order in `SecurityConfig`: only `/actuator/health/liveness` and `/actuator/health/readiness` are `permitAll`; every other `/actuator/**` endpoint requires an authenticated administrator. Do not make the aggregate health, info, metrics, Flyway, env, or configuration endpoints public.
+- [ ] Add `HealthEndpointIT` against the minimal H2 profile. Assert anonymous liveness/readiness access, anonymous rejection for aggregate/other Actuator endpoints, administrator access where exposed, readiness status `UP`, `db` and Flyway-readiness components present and `UP`, and a non-empty applied Flyway migration set.
 
 CI core:
 
@@ -473,7 +621,7 @@ CI core:
   run: ./mvnw --batch-mode --no-transfer-progress verify
 ```
 
-**Verify:** Parse `.github/workflows/verify.yml`, run every README command locally that does not require external credentials, and run `./scripts/verify-repository.sh`.
+**Verify:** `./mvnw -pl suno-bootstrap -am -Dtest=HealthEndpointIT test` passes; parse `.github/workflows/verify.yml`, run every README command locally that does not require external credentials, and run `./scripts/verify-repository.sh`.
 
 **Commit:** `ci: add reproducible verification workflow`
 
@@ -488,7 +636,7 @@ CI core:
 - [ ] Run `./scripts/verify-docs.sh`.
 - [ ] Run `./mvnw -DskipITs verify` and record unit, architecture, documentation, and coverage results.
 - [ ] Run `./mvnw verify` with Docker and record MySQL migration/invariant results. If Docker is unavailable, preserve the exact environmental failure and do not claim integration success.
-- [ ] Start the application with the dev profile against a new H2 database, request the health endpoint, and stop it cleanly.
+- [ ] Start the application with the dev profile against a new H2 database, request `/actuator/health/liveness` and `/actuator/health/readiness`, confirm readiness reports database and Flyway migration health, and stop it cleanly.
 - [ ] Review `git diff --check`, `git status --short`, dependency convergence, tracked binary scan, secret scan, and Flyway validation.
 - [ ] Update the baseline document with before/after evidence, remaining Phase 1 security risks, and exact next-plan links. Do not state that domain defects are fixed by Phase 0.
 - [ ] Request an independent code review focused on build reproducibility, schema correctness, documentation coverage, and accidental behavior changes; address every verified high-priority finding.
