@@ -362,15 +362,18 @@ flowchart LR
 
 ### 12.3 机器校验与持续同步
 
-`docs/requirements/use-cases.yaml` 为用例目录的权威索引。每项至少记录 `id`、`kind`、`owner`、`actor`、`trigger`、`permission`、`invariants`、`errors`、`requirementDoc`、`requirementAnchor`、`developmentAnchor`、`implementationStatus`、`currentSymbols` 和 `targetPhase`，并以 `implementedTests` 与 `plannedTests` 取代含混的 `tests` 字段。HTTP 项额外记录 `method` 和 `path`，调度器项额外记录 `scheduledMethod` 和 `scheduleProperty`。
+`docs/requirements/use-cases.yaml` 为用例目录的权威索引。每项至少记录 `id`、`kind`、`owner`、`actor`、`trigger`、`permission`、`invariants`、`errors`、`requirementDoc`、`requirementAnchor`、`developmentAnchor`、`implementationStatus`、`currentSymbols`、`targetPhase` 和必填整数 `documentationTask`；`documentationTask` 只允许 9、10、11、12、13，且每个 catalog ID 恰好归属一个文档 Task。目录以 `implementedTests` 与 `plannedTests` 取代含混的 `tests` 字段。HTTP 项额外记录 `method` 和 `path`，调度器项额外记录 `scheduledMethod` 和 `scheduleProperty`。
 
 `implementedTests` 中每个 `Class#method` 必须解析到当前存在的测试类和方法并严格执行校验。`plannedTests` 中每项必须记录精确的未来 `Class#method` 与其 `targetPhase`；校验器只检查格式、阶段和值域，不声称它当前可执行。每个用例至少包含一个非空的 `implementedTests` 或 `plannedTests` 列表，需求文档必须把计划映射直白标为计划项。
 
-`docs/requirements/public-events.yaml` 是公开及计划公开事件的权威、版本化注册源，每项记录 `id`、`eventType`、`version` 和 `owner`。用例目录中的 `EVENT` 项必须与该注册源精确一一对应。未来实际事件类型统一实现 `DocumentedDomainEvent` 或标注 `@UseCaseId`；ArchUnit/反射测试扫描代码事件类型并与注册源比对，使新增、删除或改名事件不能只改文档而绕过登记。
+`docs/requirements/public-events.yaml` 是公开及计划公开事件的权威、版本化注册源，每项记录 `id`、`eventType`、`version` 和 `owner`。用例目录中的 `EVENT` 项必须与该注册源精确一一对应。代码发现集合独立定义为“所有 `DomainEvent` 的具体 subtype”与“所有 `..api.event..` 包中的具体类型”的并集；并集中的每个类型都必须实现 `DocumentedDomainEvent`、带 `@UseCaseId`，并精确匹配注册源和 catalog。反向校验注册源中 `implementationStatus: implemented` 的事件必有具体代码类型。
+
+`EventOutbox` 和所有公开事件发布端口只接受 `DomainEvent`，不得以 `Object`、泛型任意 POJO 或模块私有 DTO 绕过发现边界。跨模块事件具体类型只能位于所属模块的 `api.event` 包。ArchUnit 执行包与发布端口规则，反射测试执行独立并集发现和双向注册匹配。
 
 阶段 0 建立 `scripts/verify-docs.sh`，在 CI 中验证：
 
 - 每个 Controller mapping、Scheduler，以及 `public-events.yaml` 中每个公开/计划公开事件都存在且仅存在一个用例目录项；未来实际 `DocumentedDomainEvent`/`@UseCaseId` 类型还必须与注册源一致。
+- `scripts/verify-requirement-flows.sh --task N` 从完整 catalog 选出全部 `documentationTask: N` 项；任何 ID 缺少章节、anchors、非空流程图、真实 `currentSymbols` 或必要的 target/gaps 都使该 Task 失败，Task 13 再运行全量 Java gate。
 - 每个目录项指向存在的 Markdown 章节；`implementedTests` 指向存在的方法，`plannedTests` 只按格式和目标阶段校验。
 - 每个用例章节包含需求流程图和使用 `currentSymbols` 的当前开发流程；当前实现与目标不同时还包含目标架构流程和差距清单。
 - README 中的接口和测试命令指向真实文件与可执行命令。

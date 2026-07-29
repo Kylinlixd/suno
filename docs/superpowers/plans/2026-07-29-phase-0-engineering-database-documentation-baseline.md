@@ -258,12 +258,19 @@ public interface MySqlContainerSupport {
 - Modify: `pom.xml`
 - Create: `suno-bootstrap/src/test/java/com/suno/mall/architecture/ModuleBoundaryTest.java`
 - Create: `suno-bootstrap/src/test/java/com/suno/mall/architecture/LayerBoundaryTest.java`
+- Create: `suno-bootstrap/src/test/java/com/suno/mall/architecture/PublicEventBoundaryTest.java`
+- Create: `suno-core/src/main/java/com/suno/mall/core/event/DomainEvent.java`
+- Create: `suno-core/src/main/java/com/suno/mall/core/event/DocumentedDomainEvent.java`
+- Create: `suno-core/src/main/java/com/suno/mall/core/event/UseCaseId.java`
+- Create: `suno-core/src/main/java/com/suno/mall/core/event/EventOutbox.java`
 - Modify: `scripts/verify-repository.sh`
 - Create: `.gitignore`
 
 - [ ] Add failing ArchUnit tests for the approved Maven/package dependency graph and for domain isolation from Spring, JPA, Jackson, and Servlet APIs.
 - [ ] Add a transitional rule: legacy `com.suno.mall` code may remain in bootstrap, but no feature module may import a bootstrap class.
 - [ ] Add Controller-to-Repository and cross-module-internal dependency rules that will apply as packages migrate.
+- [ ] Add `PublicEventBoundaryTest`. Its independent discovery set is the union of every concrete `DomainEvent` subtype and every concrete type under a feature module's `..api.event..` package. Every discovered type must implement `DocumentedDomainEvent` and carry `@UseCaseId`; every cross-module event type must reside in its owning module's `api.event` package.
+- [ ] Make `DocumentedDomainEvent` extend `DomainEvent`. `EventOutbox` and every public event publication port may accept only `DomainEvent` (never `Object`, an unconstrained generic, or an arbitrary POJO/DTO), and add an ArchUnit signature rule that prevents bypassing this boundary.
 - [ ] Enable compiler `-Xlint` checks, Checkstyle, JaCoCo report generation, and repository hygiene during `verify`.
 - [ ] Set the initial coverage gate only for new `com.suno.mall.*.domain` and `application` packages; raise it to the approved 80% line/70% branch gate as code migrates. Do not fabricate coverage by counting generated DTOs.
 - [ ] Run the repository script again and remove every violation found in Task 1.
@@ -295,13 +302,13 @@ noClasses()
 - Create: `scripts/test/verify-requirement-flows-test.sh`
 - Create: `scripts/test/fixtures/requirement-flows/**`
 
-- [ ] Define the catalog schema first. Required fields are `id`, `kind`, `owner`, `actor`, `trigger`, `permission`, `invariants`, `errors`, `requirementDoc`, `requirementAnchor`, `developmentAnchor`, `implementationStatus`, `currentSymbols`, and `targetPhase`. `implementationStatus` is one of `implemented`, `partial`, or `absent`; `currentSymbols` is a non-empty list of Java symbols that actually exist at the end of Phase 0. HTTP entries additionally require `method` and `path`; scheduler entries require `scheduledMethod` and `scheduleProperty`.
+- [ ] Define the catalog schema first. Required fields are `id`, `kind`, `owner`, `actor`, `trigger`, `permission`, `invariants`, `errors`, `requirementDoc`, `requirementAnchor`, `developmentAnchor`, `implementationStatus`, `currentSymbols`, `targetPhase`, and integer `documentationTask`. `documentationTask` accepts only `9`, `10`, `11`, `12`, or `13`, and each catalog ID has exactly one value. `implementationStatus` is one of `implemented`, `partial`, or `absent`; `currentSymbols` is a non-empty list of Java symbols that actually exist at the end of Phase 0. HTTP entries additionally require `method` and `path`; scheduler entries require `scheduledMethod` and `scheduleProperty`.
 - [ ] Replace ambiguous `tests` with optional `implementedTests` and `plannedTests`, requiring at least one non-empty list per use case. Each `implementedTests` value is exact `Class#method` and must resolve to an existing test method. Each `plannedTests` item contains exact `test: Class#method` plus integer `targetPhase`; validate its format and phase without claiming it is executable.
-- [ ] Add a complete catalog before enabling its gate. `DocumentationCatalogCoverageTest` must pass in this task and validate unique IDs, all schema-required fields, the exact application HTTP route set from Spring's `RequestMappingHandlerMapping` (excluding framework and Actuator operator endpoints), the exact `@Scheduled` method set, unique route/scheduler ownership, real `currentSymbols`, strict `implementedTests`, and format/phase-only `plannedTests`. It also compares the complete `EVENT` item set exactly against `public-events.yaml` by `id`, `eventType`, `version`, and `owner`. It does not inspect requirement-document anchors or Mermaid flows yet.
-- [ ] Reserve the code-to-registry contract in the schema and test: when a real event type appears, it must implement `DocumentedDomainEvent` or carry `@UseCaseId`; reflection/ArchUnit coverage discovers those types and requires an exact registered ID/type/version/owner match. Planned events may remain registry-only until their target phase, but an implemented event can never be unregistered.
+- [ ] Add a complete catalog before enabling its gate. `DocumentationCatalogCoverageTest` must pass in this task and validate unique IDs, all schema-required fields, the exact application HTTP route set from Spring's `RequestMappingHandlerMapping` (excluding framework and Actuator operator endpoints), the exact `@Scheduled` method set, unique route/scheduler ownership, real `currentSymbols`, strict `implementedTests`, and format/phase-only `plannedTests`. It also compares the complete `EVENT` item set exactly against `public-events.yaml` by `id`, `eventType`, `version`, and `owner`, and proves all 122 catalog IDs have exactly one valid `documentationTask`: Task 9 = 25, Task 10 = 27, Task 11 = 9, Task 12 = 41, Task 13 = 20.
+- [ ] Enforce code-to-registry matching with the independent discovery union from `PublicEventBoundaryTest`, not marker discovery alone. Every discovered concrete type must both implement `DocumentedDomainEvent` and carry `@UseCaseId`, then match exact registry/catalog ID, type, version, and owner. Conversely, each registry event whose catalog `implementationStatus` is `implemented` must resolve to exactly one concrete type. Planned events may remain registry-only until their target phase.
 - [ ] Add `scripts/verify-docs.sh` as the portable entry point. In Task 8 it invokes the passing catalog coverage test; Task 13 extends it with flow coverage and unfinished-content scans only after all requirement and handbook files exist.
-- [ ] Add executable `scripts/verify-requirement-flows.sh <owner...>` for Tasks 9–12. For catalog items of the requested owner(s) that are present in the phase's requirement document, it verifies catalog membership, requirement/current-development anchors, non-empty Mermaid blocks, resolvable Phase 0 `currentSymbols`, and, whenever `implementationStatus` is not `implemented`, a target architecture flow plus explicit gaps; it rejects undocumented headings and future-only symbols in current-flow blocks. Owner completeness across the full catalog remains the Task 13 Java gate.
-- [ ] Test the static checker itself with `scripts/test/verify-requirement-flows-test.sh` and committed valid/invalid fixtures covering a missing anchor, empty Mermaid, unresolved current symbol, missing target flow, and missing gaps. The fixture test must fail each invalid case for the expected diagnostic and pass the valid case before requirement documents are authored.
+- [ ] Add executable `scripts/verify-requirement-flows.sh --task N`. It reads the complete `use-cases.yaml`, selects every and only entry with `documentationTask: N`, and for every selected ID requires the referenced Markdown section, requirement and current-development anchors, non-empty Mermaid blocks, resolvable Phase 0 `currentSymbols`, and, whenever `implementationStatus` is not `implemented`, a target architecture flow plus explicit gaps. A selected ID missing entirely from its document is an immediate failure; there is no deferred owner-completeness exception.
+- [ ] Test the static checker itself with `scripts/test/verify-requirement-flows-test.sh` and committed valid/invalid fixtures covering an entirely missing selected ID/section, missing anchor, empty Mermaid, unresolved current symbol, missing target flow, and missing gaps. The fixture test must fail each invalid case for the expected diagnostic and pass the valid case before requirement documents are authored.
 - [ ] Document actors, shared states, error semantics, pagination, compatibility policy, and the rule for adding a new route/task/event in `docs/requirements/README.md`.
 
 The catalog must use this exact HTTP route ownership table; every row is unique and source ordered within its assigned decision group, and there are no inferred contiguous ranges:
@@ -462,12 +469,13 @@ Catalog entry shape:
   implementationStatus: partial
   currentSymbols: [AuthController#login, AuthApplicationService#login]
   targetPhase: 1
+  documentationTask: 9
   plannedTests:
     - test: AuthControllerWebTest#loginIssuesSessionForActiveAccount
       targetPhase: 1
 ```
 
-**Verify:** `./scripts/test/verify-requirement-flows-test.sh && ./scripts/verify-docs.sh` passes; `DocumentationCatalogCoverageTest` proves exact coverage of 93 HTTP routes, 6 scheduled methods, and 23 registered events.
+**Verify:** `./scripts/test/verify-requirement-flows-test.sh && ./scripts/verify-docs.sh` passes; `DocumentationCatalogCoverageTest` proves exact coverage of 93 HTTP routes, 6 scheduled methods, 23 registered events, and the complete 25/27/9/41/20 documentation-task partition of all 122 IDs.
 
 **Commit:** `test: define executable use case documentation contract`
 
@@ -524,7 +532,7 @@ sequenceDiagram
 - Phase 0 still uses `AuthApplicationService` and repositories directly; `LoginHandler` and ports arrive in Phase 1.
 ````
 
-**Verify:** `./scripts/verify-requirement-flows.sh identity operations && ./scripts/verify-docs.sh` exits zero and checks the Task 9 Identity/security-Operations sections without future-only symbols in current-flow blocks.
+**Verify:** `./scripts/verify-requirement-flows.sh --task 9 && ./scripts/verify-docs.sh` exits zero only after all 25 catalog items assigned to `documentationTask: 9` have complete, valid flows without future-only symbols in current-flow blocks.
 
 **Commit:** `docs: map identity and security operation flows`
 
@@ -542,7 +550,7 @@ sequenceDiagram
 - [ ] Every item gets a current development flow using only Phase 0 `currentSymbols`. Because Phase 0 does not yet contain `PaymentEventProcessor`, show the actual callback/replay service paths honestly; add a separate target architecture flow and gap list showing their future convergence through `PaymentEventProcessor`, external transaction boundaries, and stable ack storage in Phase 2.
 - [ ] Use `implementedTests` only for existing exact methods; record future payment tests under `plannedTests` with `targetPhase: 2` and label them planned in prose.
 
-**Verify:** `./scripts/verify-requirement-flows.sh payment && ./scripts/verify-docs.sh` exits zero for all 27 Payment items (20 HTTP, 3 schedulers, 4 events), with no current-flow reference to `PaymentEventProcessor`.
+**Verify:** `./scripts/verify-requirement-flows.sh --task 10 && ./scripts/verify-docs.sh` exits zero for all 27 catalog items assigned to `documentationTask: 10`, with no current-flow reference to `PaymentEventProcessor`.
 
 **Commit:** `docs: map payment callback and replay flows`
 
@@ -560,7 +568,7 @@ sequenceDiagram
 - [ ] Show server-derived recycle counts and points, valuation rule priority/version, ledger idempotency, atomic points updates, and the one-listing-per-recycle-order constraint.
 - [ ] Every one of the 9 Recycle items (4 HTTP and 5 events) gets a requirement flow and a current development flow using Phase 0 `currentSymbols`; where the current chain violates the target, add a target architecture flow, explicit gap list, and `targetPhase: 4`. Distinguish strict `implementedTests` from plainly labeled `plannedTests`.
 
-**Verify:** `./scripts/verify-requirement-flows.sh recycle && ./scripts/verify-docs.sh` exits zero for 4 Recycle-owned HTTP flows and 5 events exactly once, with no `REC-103` catalog or heading.
+**Verify:** `./scripts/verify-requirement-flows.sh --task 11 && ./scripts/verify-docs.sh` exits zero for all 9 catalog items assigned to `documentationTask: 11`, with no `REC-103` catalog or heading.
 
 **Commit:** `docs: map recycle valuation and points flows`
 
@@ -580,7 +588,7 @@ sequenceDiagram
 - [ ] Show the order state machine and all no-regression rules, single stock release, late-payment rejection, refund idempotency, review eligibility, and database uniqueness branches.
 - [ ] Use strict `implementedTests` for exact existing methods and plainly labeled `plannedTests` with `targetPhase: 3` for future coverage.
 
-**Verify:** `./scripts/verify-requirement-flows.sh marketplace && ./scripts/verify-docs.sh` exits zero for 33 Marketplace-owned HTTP flows, 2 schedulers, and 6 events exactly once, with `MKT-025` absent and `CurrentActor` absent from current-flow blocks.
+**Verify:** `./scripts/verify-requirement-flows.sh --task 12 && ./scripts/verify-docs.sh` exits zero for all 41 catalog items assigned to `documentationTask: 12`, with `MKT-025` absent and `CurrentActor` absent from current-flow blocks.
 
 **Commit:** `docs: map marketplace order and review flows`
 
@@ -607,7 +615,7 @@ sequenceDiagram
 - [ ] Write `testing.md` with unit/application/web/persistence/concurrency/provider/E2E/architecture layers, naming rules, fixture ownership, and exact local/CI commands.
 - [ ] Write `migrations.md` with version ownership, forward-only repair procedure, data backfill batching, lock/timeout review, checksum policy, rollback by compensating migration, and production verification queries.
 - [ ] Write module diagrams and ADRs matching the approved design. Include allowed dependency arrows, public `api` boundary, composition root, outbox ownership, and the staged legacy migration rule.
-- [ ] Add `DocumentationFlowCoverageTest` only now, after every requirement file exists. It validates requirement/current-development anchors, non-empty Mermaid blocks, resolution of every catalog `currentSymbols` entry, target architecture flow plus explicit gaps whenever `implementationStatus` is not `implemented`, strict `implementedTests`, and format/phase-only `plannedTests`. It also scans every concrete `DocumentedDomainEvent`/`@UseCaseId` event type and matches it to `public-events.yaml`. Extend `scripts/verify-docs.sh` to run both documentation tests and the unfinished-content scan.
+- [ ] Add `DocumentationFlowCoverageTest` only now, after every requirement file exists. It validates requirement/current-development anchors, non-empty Mermaid blocks, resolution of every catalog `currentSymbols` entry, target architecture flow plus explicit gaps whenever `implementationStatus` is not `implemented`, strict `implementedTests`, and format/phase-only `plannedTests`. It reuses the independent union of all concrete `DomainEvent` subtypes and all concrete `..api.event..` types, requires both marker and annotation on each, matches each to `public-events.yaml`/catalog, and performs the reverse check for every implemented registry event. Extend `scripts/verify-docs.sh` to run both documentation tests and the unfinished-content scan.
 
 The development lifecycle must be visually explicit:
 
@@ -623,7 +631,7 @@ flowchart LR
   Docs --> Release["Release with rollback evidence"]
 ```
 
-**Verify:** `./scripts/verify-docs.sh` passes both `DocumentationCatalogCoverageTest` and `DocumentationFlowCoverageTest` for the full catalog, including the unfinished-content scan over `docs/requirements`, `docs/development`, and `docs/architecture`.
+**Verify:** `./scripts/verify-requirement-flows.sh --task 13 && ./scripts/verify-docs.sh` first proves all 20 `documentationTask: 13` items complete, then passes `DocumentationCatalogCoverageTest` and the full-catalog `DocumentationFlowCoverageTest`, including event discovery and unfinished-content scans.
 
 **Commit:** `docs: establish architecture and development handbook`
 
