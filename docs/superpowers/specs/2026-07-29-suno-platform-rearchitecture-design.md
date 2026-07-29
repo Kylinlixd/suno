@@ -2,7 +2,7 @@
 
 **日期：** 2026-07-29
 
-**状态：** 待用户审阅
+**状态：** 已批准（含逐功能需求与开发流程文档要求）
 
 **目标分支：** `codex/professional-rearchitecture`
 
@@ -292,7 +292,102 @@ MySQL 是生产与集成测试的权威数据库。H2 仅用于本地快速启�
 
 GitHub Actions 在 pull request 和 `main` push 上运行相同的 `./mvnw verify`，不维护与本地不同的隐藏测试入口。
 
-## 12. 实施拆分
+## 12. 需求与开发文档体系
+
+文档与代码同等受版本控制。每个公开 HTTP 用例、后台任务和跨模块事件都必须有唯一用例 ID、需求说明、业务流程图、开发调用链和测试映射，禁止只在 README 中维护无法验证的接口列表。
+
+### 12.1 文档结构
+
+```text
+docs/
+├── requirements/
+│   ├── README.md                 # 用例索引、角色与状态词典
+│   ├── use-cases.yaml            # 可机器校验的用例目录
+│   ├── identity.md               # 身份、会话、安全事件
+│   ├── recycle.md                # 回收、估值、积分、物流
+│   ├── marketplace.md            # 上架、库存、订单、收藏、评价
+│   ├── payment.md                # 回调、账本、重放与自动处置
+│   └── operations.md             # 审计、配置、导出与调度
+├── development/
+│   ├── workflow.md               # 统一开发、评审、发布与回滚流程
+│   ├── testing.md                # 测试层次、命名和并发测试规范
+│   └── migrations.md             # Flyway 版本、兼容迁移和回滚规则
+└── architecture/
+    ├── modules.md                # 模块边界和依赖图
+    └── decisions/                # 关键架构决策记录
+```
+
+### 12.2 每个功能的必备内容
+
+每个用例章节必须包含：
+
+1. 用例 ID、名称、参与角色和业务目标。
+2. HTTP 方法与路径，或调度器/事件入口。
+3. 前置条件、输入约束、权限与资源归属规则。
+4. 主成功路径、幂等语义和稳定返回。
+5. 所有可预期异常分支及对应错误码。
+6. 聚合状态变化、数据库不变量、锁或条件更新方式。
+7. 发布和消费的领域事件、审计要求及敏感字段处理。
+8. Mermaid 需求流程图。
+9. 从 API 到应用、领域、持久化、事件和测试的开发调用链图。
+10. 对应测试类与验收场景。
+
+需求流程图使用统一语义：圆角节点表示入口/结束，菱形表示业务判断，矩形表示业务动作，数据库形状表示持久化，虚线表示异步事件。开发调用链图必须显示事务起止位置和跨模块公开端口。
+
+示例结构如下：
+
+```mermaid
+flowchart TD
+  Start(["请求进入"]) --> Validate["校验输入与身份"]
+  Validate --> Allowed{"权限与前置状态满足?"}
+  Allowed -- 否 --> Reject(["返回稳定业务错误"])
+  Allowed -- 是 --> Command["执行应用命令"]
+  Command --> Persist[("保存聚合与 outbox")]
+  Persist --> Success(["返回成功结果"])
+```
+
+```mermaid
+flowchart LR
+  Web["API Adapter"] --> App["Application Handler\n事务边界"]
+  App --> Domain["Domain Aggregate"]
+  App --> Repo["Persistence Port"]
+  Repo --> DB[("MySQL")]
+  App -. after commit .-> Event["Outbox/Event Consumer"]
+  Test["Unit/Web/Integration Tests"] -. verifies .-> App
+```
+
+### 12.3 机器校验与持续同步
+
+`docs/requirements/use-cases.yaml` 为用例目录的权威索引，每项记录 `id`、`module`、`entrypoint`、`method`、`path`、`document`、`anchor` 和 `tests`。阶段 0 建立 `scripts/verify-docs.sh`，在 CI 中验证：
+
+- 每个 Controller mapping、Scheduler 和公开事件都存在用例目录项。
+- 每个目录项指向存在的 Markdown 章节和测试文件。
+- 每个用例章节同时包含需求流程图和开发调用链图。
+- README 中的接口和测试命令指向真实文件与可执行命令。
+- 删除或重命名功能时，同一提交同步更新目录、流程图、OpenAPI 和测试。
+
+功能代码、迁移或权限语义发生变化时，文档更新属于同一任务的完成条件，不允许作为后续补充工作。
+
+### 12.4 统一开发流程
+
+所有功能遵循以下开发流程，并在 `docs/development/workflow.md` 中维护：
+
+```mermaid
+flowchart TD
+  Requirement(["确认用例与不变量"]) --> UpdateDocs["更新用例目录与流程图"]
+  UpdateDocs --> Red["编写测试并验证预期失败"]
+  Red --> Implement["实现最小领域与应用变更"]
+  Implement --> Green{"目标测试通过?"}
+  Green -- 否 --> Implement
+  Green -- 是 --> Refactor["在绿色状态下整理结构"]
+  Refactor --> Verify["运行模块与全仓 verify"]
+  Verify --> Review{"架构、迁移、安全审查通过?"}
+  Review -- 否 --> UpdateDocs
+  Review -- 是 --> Commit["提交代码、测试、迁移与文档"]
+  Commit --> Release(["阶段验收与发布说明"])
+```
+
+## 13. 实施拆分
 
 本设计拆成六个可独立验收的子项目，每个子项目拥有自己的实施计划和提交序列。
 
@@ -302,6 +397,7 @@ GitHub Actions 在 pull request 和 `main` push 上运行相同的 `./mvnw verif
 - 修复现有编译错误并迁移可用测试。
 - 建立 Flyway 基线、规范表名和最小启动测试。
 - 移除源码 `.class`、失效脚本说明和重复事务包装器。
+- 建立需求文档目录、完整用例索引、统一开发流程和文档校验脚本；为当前所有公开入口绘制基线流程图。
 
 验收：空库与旧开发库均可迁移；`./mvnw verify` 通过；应用使用 dev profile 可启动并完成健康检查。
 
@@ -337,10 +433,11 @@ GitHub Actions 在 pull request 和 `main` push 上运行相同的 `./mvnw verif
 
 - 重构审计、配置中心、导出任务、查询投影、缓存和可观测性。
 - 补齐端到端测试、运行手册、OpenAPI、迁移说明和真实测试命令。
+- 校验所有功能的需求流程、开发调用链、测试映射和实现保持一致。
 
 验收：全链路冒烟、后台任务、缓存一致性、指标、文档命令和生产配置启动校验通过。
 
-## 13. 提交与交付策略
+## 14. 提交与交付策略
 
 - 所有工作保留在 `codex/professional-rearchitecture` 本地分支，未经用户明确要求不推送、不创建 PR。
 - 每个提交只包含一个可独立审查的行为或结构变化，并带对应测试。
@@ -348,7 +445,7 @@ GitHub Actions 在 pull request 和 `main` push 上运行相同的 `./mvnw verif
 - 每阶段结束提供：变更摘要、风险关闭清单、迁移说明、验证命令与完整输出、剩余风险。
 - 若某阶段发现必须改变公开 API，先提供兼容适配或版本化路径；只有无法安全兼容时才单独记录并请求决策。
 
-## 14. 完成标准
+## 15. 完成标准
 
 只有同时满足以下条件，整体重构才算完成：
 
@@ -360,3 +457,4 @@ GitHub Actions 在 pull request 和 `main` push 上运行相同的 `./mvnw verif
 6. 非 dev profile 不含演示账户、默认密钥、明文数据库密码或 Mock Provider。
 7. README、开发文档、OpenAPI 和运维说明中的命令均在 CI 验证存在且可执行。
 8. Git 工作树仅包含预期源码、迁移、测试和文档，不包含构建产物。
+9. 用例目录覆盖全部公开 API、调度器和事件；每个功能均有需求流程图、开发调用链和可执行测试映射，文档校验在 CI 中通过。
