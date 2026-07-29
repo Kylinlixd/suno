@@ -69,18 +69,9 @@ public class ConstantsTest {
     }
 
     @Test
-    public void testConstantsClass() {
+    public void testConstantsClass() throws NoSuchMethodException {
         // 测试常量类不可实例化
-        try {
-            java.lang.reflect.Constructor<Constants> constructor = Constants.class.getDeclaredConstructor();
-            constructor.setAccessible(true);
-            constructor.newInstance();
-            fail("应该抛出异常");
-        } catch (java.lang.reflect.InaccessibleObjectException e) {
-            // 构造函数不可访问，测试通过
-            assertTrue(e instanceof java.lang.reflect.InaccessibleObjectException);
-        } catch (Exception e) {
-            fail("预期抛出 InaccessibleObjectException，但抛出了 " + e.getClass().getName());
-        }
+        assertTrue(java.lang.reflect.Modifier.isPrivate(
+                Constants.class.getDeclaredConstructor().getModifiers()));
     }
 }

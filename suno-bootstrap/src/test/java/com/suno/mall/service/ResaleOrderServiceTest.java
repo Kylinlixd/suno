@@ -49,12 +49,17 @@ public class ResaleOrderServiceTest {
     @Mock
     private PaymentIdempotencyRepository paymentIdempotencyRepository;
 
+    @Mock
+    private AuditLogService auditLogService;
+
+    @Mock
+    private ResaleListingService resaleListingService;
+
     @InjectMocks
     private ResaleOrderService resaleOrderService;
 
     private UserAccountEntity testUser;
     private ResaleListingEntity testListing;
-    private ResaleOrderEntity testOrder;
 
     @BeforeEach
     public void setUp() {
@@ -68,42 +73,27 @@ public class ResaleOrderServiceTest {
         testUser.setId(1L);
         testUser.setUsername("testuser");
 
-        ProductEntity product = new ProductEntity();
-        product.setId(1L);
-        product.setName("测试商品");
-
         testListing = new ResaleListingEntity();
         testListing.setId(1L);
-        testListing.setSeller(testUser);
-        testListing.setProduct(product);
-        testListing.setPrice(new BigDecimal("99.99"));
+        testListing.setSalePrice(new BigDecimal("99.99"));
         testListing.setStatus(Constants.LISTING_STATUS_ON_SHELF);
         testListing.setStock(10);
-
-        testOrder = new ResaleOrderEntity();
-        testOrder.setId(1L);
-        testOrder.setBuyer(testUser);
-        testOrder.setListing(testListing);
-        testOrder.setQuantity(1);
-        testOrder.setTotalAmount(new BigDecimal("99.99"));
-        testOrder.setStatus("PENDING");
     }
 
     @Test
     public void testCreateResaleOrder() {
         // 测试创建转售订单
-        when(resaleListingRepository.findById(1L)).thenReturn(Optional.of(testListing));
+        when(resaleListingRepository.findWithDetailsById(1L)).thenReturn(Optional.of(testListing));
         when(userAccountRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(resaleOrderRepository.save(any())).thenReturn(testOrder);
 
-        ResaleOrderEntity createdOrder = resaleOrderService.createResaleOrder(1L, 1L, 1);
+        java.util.Map<String, Object> createdOrder = resaleOrderService.createResaleOrder(1L, 1L);
 
         assertNotNull(createdOrder);
-        assertEquals(testUser, createdOrder.getBuyer());
-        assertEquals(testListing, createdOrder.getListing());
-        assertEquals(1, createdOrder.getQuantity());
-        assertEquals(new BigDecimal("99.99"), createdOrder.getTotalAmount());
-        assertEquals("PENDING", createdOrder.getStatus());
+        assertEquals(testListing.getId(), createdOrder.get("listingId"));
+        assertEquals(new BigDecimal("99.99"), createdOrder.get("amount"));
+        assertEquals("UNPAID", createdOrder.get("payStatus"));
+        assertEquals("WAIT_PAY", createdOrder.get("fulfillStatus"));
+        verify(resaleOrderRepository).save(any(ResaleOrderEntity.class));
 
         // 验证库存减少
         assertEquals(9, testListing.getStock());
@@ -112,10 +102,11 @@ public class ResaleOrderServiceTest {
     @Test
     public void testCreateResaleOrderListingNotFound() {
         // 测试创建转售订单时商品不存在的情况
-        when(resaleListingRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userAccountRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(resaleListingRepository.findWithDetailsById(1L)).thenReturn(Optional.empty());
 
         try {
-            resaleOrderService.createResaleOrder(1L, 1L, 1);
+            resaleOrderService.createResaleOrder(1L, 1L);
             fail("应该抛出异常");
         } catch (Exception e) {
             assertTrue(e.getMessage().contains("商品不存在"));

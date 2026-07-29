@@ -54,7 +54,7 @@ public final class DatabaseOptimizationHelper {
             }
 
             if (result.isEmpty()) {
-                result = batchResult;
+                result = new java.util.ArrayList<>(batchResult);
             } else {
                 result.addAll(batchResult);
             }

@@ -34,6 +34,12 @@ public class ConfigCenterServiceTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private ResaleReviewService resaleReviewService;
+
+    @Mock
+    private AuditLogService auditLogService;
+
     @InjectMocks
     private ConfigCenterService configCenterService;
 
@@ -55,11 +61,11 @@ public class ConfigCenterServiceTest {
     @Test
     public void testGetGlobalErrorCodeDict() {
         // 测试获取全局错误码字典
-        Map<String, Object> dict = configCenterService.getGlobalErrorCodeDict();
+        Map<String, Object> dict = configCenterService.adminGlobalErrorCodeDictionary();
 
         assertNotNull(dict);
         assertEquals("1.0.0", dict.get("version"));
-        assertTrue(dict.containsKey("errorCodes"));
+        assertTrue(dict.containsKey("items"));
     }
 
     @Test
@@ -69,29 +75,34 @@ public class ConfigCenterServiceTest {
 
         assertNotNull(rules);
         assertEquals("1.0.0", rules.get("version"));
-        assertTrue(rules.containsKey("allowlistKeys"));
-        assertTrue(rules.containsKey("denylistKeys"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> values = (Map<String, Object>) rules.get("rules");
+        assertTrue(values.containsKey("allowlistKeys"));
+        assertTrue(values.containsKey("denylistKeys"));
     }
 
     @Test
-    public void testGetConfigCenterBundle() {
+    public void testGetConfigCenterBundle() throws JsonProcessingException {
         // 测试获取配置中心包
-        Map<String, Object> bundle = configCenterService.getConfigCenterBundle();
+        when(resaleReviewService.adminGetReviewStrategyConfig()).thenReturn(Map.of(
+                "version", "1.0.0", "updatedAt", LocalDateTime.of(2026, 4, 29, 10, 0)
+        ));
+        when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+        Map<String, Object> bundle = configCenterService.adminConfigCenterBundle();
 
         assertNotNull(bundle);
         assertEquals("1.0.0", bundle.get("version"));
-        assertTrue(bundle.containsKey("globalErrorCodeDict"));
-        assertTrue(bundle.containsKey("alertNoiseRules"));
+        assertTrue(bundle.containsKey("modules"));
     }
 
     @Test
     public void testGetDegradeActionDict() {
         // 测试获取降级行动字典
-        Map<String, Object> dict = configCenterService.getDegradeActionDict();
+        Map<String, Object> dict = configCenterService.adminDegradeActionTypeDictionary();
 
         assertNotNull(dict);
         assertEquals("1.0.0", dict.get("version"));
-        assertTrue(dict.containsKey("actions"));
+        assertTrue(dict.containsKey("items"));
     }
 
     @Test

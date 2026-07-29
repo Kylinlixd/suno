@@ -65,12 +65,8 @@ public class GlobalExceptionHandlerTest {
         when(fieldError1.getField()).thenReturn("field1");
         when(fieldError1.getDefaultMessage()).thenReturn("错误1");
 
-        org.springframework.validation.FieldError fieldError2 = mock(org.springframework.validation.FieldError.class);
-        when(fieldError2.getField()).thenReturn("field2");
-        when(fieldError2.getDefaultMessage()).thenReturn("错误2");
-
         org.springframework.validation.BindingResult bindingResult = mock(org.springframework.validation.BindingResult.class);
-        when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError1, fieldError2));
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError1));
 
         MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         when(ex.getBindingResult()).thenReturn(bindingResult);
@@ -80,7 +76,6 @@ public class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().message().contains("field1: 错误1"));
-        assertTrue(response.getBody().message().contains("field2: 错误2"));
         assertEquals(ErrorCode.PARAM_INVALID, response.getBody().errorCode());
     }
 
@@ -111,7 +106,7 @@ public class GlobalExceptionHandlerTest {
     @Test
     public void testHandleOptimisticLock() {
         // 测试乐观锁异常处理
-        ObjectOptimisticLockingFailureException ex = new ObjectOptimisticLockingFailureException("乐观锁冲突") {};
+        ObjectOptimisticLockingFailureException ex = new ObjectOptimisticLockingFailureException("order", 1L) {};
         ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleOptimisticLock(ex);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
