@@ -169,6 +169,7 @@ wrapperUrl=https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-w
 - Create: `suno-marketplace/src/main/resources/db/migration/V3000__marketplace_baseline.sql`
 - Create: `suno-payment/src/main/resources/db/migration/V4000__payment_baseline.sql`
 - Create: `suno-operations/src/main/resources/db/migration/V5000__operations_baseline.sql`
+- Create: `suno-bootstrap/src/main/java/db/migration/V5900__Reconcile_canonical_schema.java`
 - Create: `suno-bootstrap/src/main/resources/db/dev/R__dev_seed.sql`
 - Modify: `suno-bootstrap/src/main/resources/application.yml`
 - Create: `suno-bootstrap/src/main/resources/application-dev.yml`
@@ -186,7 +187,8 @@ wrapperUrl=https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-w
 - [ ] Write `FlywayH2MigrationTest` first. Start an empty H2 database in MySQL mode, run `classpath:db/migration`, assert no failed migration, and assert every JPA `@Table` name exists.
 - [ ] Implement `V0001__Normalize_legacy_table_names.java` as the platform migration. It inspects `DatabaseMetaData`, detects H2 versus MySQL, and processes only this fixed old-to-canonical allowlist: `user_account`, `auth_refresh_token`, `auth_token_blacklist`, `auth_export_task`, `product`, `valuation_rule`, `recycle_order`, `logistics_track`, `points_ledger`, `resale_listing`, `resale_favorite`, `resale_order`, `resale_review`, `resale_review_vote`, `resale_review_report`, `operation_audit_log`, `payment_idempotency`, `payment_replay_auto_handle_idempotency`, `payment_nonce`, `payment_callback_log`, and `payment_replay_task`, each renamed to the same name prefixed with `suno_`.
 - [ ] For each allowlisted pair, if only the legacy table exists, rename it in place with dialect-correct quoted H2/MySQL SQL. If both names exist and the legacy table contains rows, abort with an actionable message naming both tables and requiring operator resolution; never merge, copy, truncate, drop, or overwrite silently. If neither exists, only the canonical table exists, or both exist with an empty legacy table, leave data unchanged and let feature migrations create/complete canonical schema as applicable.
-- [ ] Convert the current schema to canonical `suno_*` names and split it by the approved version ranges. `V1000`, `V2000`, `V3000`, `V4000`, and `V5000` create missing canonical tables and add the required indexes and constraints, using idempotent metadata-aware statements where needed so a table renamed by `V0001` is accepted and completed rather than recreated. Include every currently mapped entity, not only tables present in the old `schema.sql`.
+- [ ] Convert the current schema to canonical `suno_*` names and split it by the approved version ranges. SQL migrations `V1000`, `V2000`, `V3000`, `V4000`, and `V5000` use `CREATE TABLE IF NOT EXISTS` to create missing canonical tables; they do not attempt non-portable conditional `ALTER` statements. Include every currently mapped entity, not only tables present in the old `schema.sql`.
+- [ ] Implement bootstrap-owned `V5900__Reconcile_canonical_schema.java` after the five feature baselines. It owns a fixed schema manifest for every canonical table, column definition, index, unique constraint, and foreign key, inspects `DatabaseMetaData`, detects H2/MySQL, and emits dialect-correct DDL only for missing objects. Before making an existing legacy column non-null, run that column's explicit manifest backfill expression, assert the remaining null count is zero, and only then add the constraint; if no approved backfill exists, abort with the table/column and operator action. Existing same-name objects are validated, never recreated blindly.
 - [ ] Preserve and rename useful indexes. Add the already-approved one-to-one listing constraint and existing favorite/review/vote/report uniqueness constraints without yet redesigning application behavior.
 - [ ] Add `LegacySchemaCompatibilityIT` and the test-only `db/legacy/legacy-schema.sql` fixture. The H2 and Testcontainers MySQL cases start from a populated unprefixed schema, run the full migrations, and assert row counts, representative primary/foreign keys and business fields, canonical table names, and absence of old names. A separate collision case creates populated old and canonical names and asserts the actionable migration failure. The MySQL case may skip only when Docker is unavailable; it is mandatory in Docker-backed `verify`.
 - [ ] Put `{noop}` demo users and sample records only in the idempotent `db/dev/R__dev_seed.sql`; use existence guards/upserts that are safe on repeated dev starts.
@@ -211,7 +213,7 @@ spring:
 
 `application-dev.yml` is the sole overlay that sets `spring.flyway.locations: classpath:db/migration,classpath:db/dev`.
 
-**Verify:** `./mvnw -pl suno-bootstrap -am -Dtest=FlywayH2MigrationTest,FlywayLocationProfileTest,RecycleMallApplicationSmokeTest,LegacySchemaCompatibilityIT test` passes from empty and populated H2 databases; with Docker available the same command also passes its MySQL compatibility cases.
+**Verify:** `./mvnw -pl suno-bootstrap -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=FlywayH2MigrationTest,FlywayLocationProfileTest,RecycleMallApplicationSmokeTest,LegacySchemaCompatibilityIT test` passes from empty and populated H2 databases; with Docker available the same command also passes its MySQL compatibility cases.
 
 **Commit:** `db: establish canonical Flyway schema baseline`
 
@@ -229,7 +231,7 @@ spring:
 - [ ] Configure Failsafe to execute `*IT` classes during `integration-test` and `verify`.
 - [ ] Add `FlywayMySqlIT` to migrate a clean database, validate Hibernate mappings, and prove a second migration run is idempotent.
 - [ ] Run the MySQL branches of `LegacySchemaCompatibilityIT` from Task 5 under Failsafe so populated legacy migration, key-field preservation, and collision rejection are authoritative Docker-backed checks rather than optional local evidence.
-- [ ] Add `SchemaInvariantIT` that queries `information_schema` for the expected unique keys, foreign keys, version columns, and indexes.
+- [ ] Parameterize `SchemaInvariantIT` over a clean database and the populated legacy fixture. For each path, migrate through `V5900`, query `information_schema` for every manifest column, unique key, foreign key, version column, and index, and assert both paths converge to the same canonical schema signature. Run the same convergence assertion on H2 metadata and authoritative MySQL.
 - [ ] Make container reuse opt-in locally and disabled in CI so tests never depend on prior state.
 
 Reusable support contract:
@@ -286,13 +288,20 @@ noClasses()
 - Create: `docs/requirements/README.md`
 - Create: `docs/requirements/use-cases.yaml`
 - Create: `docs/requirements/use-case.schema.json`
+- Create: `docs/requirements/public-events.yaml`
 - Create: `suno-bootstrap/src/test/java/com/suno/mall/documentation/DocumentationCatalogCoverageTest.java`
 - Create: `scripts/verify-docs.sh`
+- Create: `scripts/verify-requirement-flows.sh`
+- Create: `scripts/test/verify-requirement-flows-test.sh`
+- Create: `scripts/test/fixtures/requirement-flows/**`
 
 - [ ] Define the catalog schema first. Required fields are `id`, `kind`, `owner`, `actor`, `trigger`, `permission`, `invariants`, `errors`, `requirementDoc`, `requirementAnchor`, `developmentAnchor`, `implementationStatus`, `currentSymbols`, and `targetPhase`. `implementationStatus` is one of `implemented`, `partial`, or `absent`; `currentSymbols` is a non-empty list of Java symbols that actually exist at the end of Phase 0. HTTP entries additionally require `method` and `path`; scheduler entries require `scheduledMethod` and `scheduleProperty`.
 - [ ] Replace ambiguous `tests` with optional `implementedTests` and `plannedTests`, requiring at least one non-empty list per use case. Each `implementedTests` value is exact `Class#method` and must resolve to an existing test method. Each `plannedTests` item contains exact `test: Class#method` plus integer `targetPhase`; validate its format and phase without claiming it is executable.
-- [ ] Add a complete catalog before enabling its gate. `DocumentationCatalogCoverageTest` must pass in this task and validate unique IDs, all schema-required fields, the exact application HTTP route set from Spring's `RequestMappingHandlerMapping` (excluding framework and Actuator operator endpoints), the exact `@Scheduled` method set, unique route/scheduler ownership, real `currentSymbols`, strict `implementedTests`, and format/phase-only `plannedTests`. It does not inspect requirement-document anchors or Mermaid flows yet.
+- [ ] Add a complete catalog before enabling its gate. `DocumentationCatalogCoverageTest` must pass in this task and validate unique IDs, all schema-required fields, the exact application HTTP route set from Spring's `RequestMappingHandlerMapping` (excluding framework and Actuator operator endpoints), the exact `@Scheduled` method set, unique route/scheduler ownership, real `currentSymbols`, strict `implementedTests`, and format/phase-only `plannedTests`. It also compares the complete `EVENT` item set exactly against `public-events.yaml` by `id`, `eventType`, `version`, and `owner`. It does not inspect requirement-document anchors or Mermaid flows yet.
+- [ ] Reserve the code-to-registry contract in the schema and test: when a real event type appears, it must implement `DocumentedDomainEvent` or carry `@UseCaseId`; reflection/ArchUnit coverage discovers those types and requires an exact registered ID/type/version/owner match. Planned events may remain registry-only until their target phase, but an implemented event can never be unregistered.
 - [ ] Add `scripts/verify-docs.sh` as the portable entry point. In Task 8 it invokes the passing catalog coverage test; Task 13 extends it with flow coverage and unfinished-content scans only after all requirement and handbook files exist.
+- [ ] Add executable `scripts/verify-requirement-flows.sh <owner...>` for Tasks 9–12. For catalog items of the requested owner(s) that are present in the phase's requirement document, it verifies catalog membership, requirement/current-development anchors, non-empty Mermaid blocks, resolvable Phase 0 `currentSymbols`, and, whenever `implementationStatus` is not `implemented`, a target architecture flow plus explicit gaps; it rejects undocumented headings and future-only symbols in current-flow blocks. Owner completeness across the full catalog remains the Task 13 Java gate.
+- [ ] Test the static checker itself with `scripts/test/verify-requirement-flows-test.sh` and committed valid/invalid fixtures covering a missing anchor, empty Mermaid, unresolved current symbol, missing target flow, and missing gaps. The fixture test must fail each invalid case for the expected diagnostic and pass the valid case before requirement documents are authored.
 - [ ] Document actors, shared states, error semantics, pagination, compatibility policy, and the rule for adding a new route/task/event in `docs/requirements/README.md`.
 
 The catalog must use this exact HTTP route ownership table; every row is unique and source ordered within its assigned decision group, and there are no inferred contiguous ranges:
@@ -404,6 +413,34 @@ The scheduler ownership table is also exact:
 | `MKT-S002` | `ResaleOrderScheduler#autoConfirmDeliveredOrders` | `mall.order.auto-confirm-receipt-fixed-delay-ms` | Marketplace |
 | `OPS-S001` | `SecurityEventService#scheduledCleanupSecurityExportTasks` | `security.auth.export-task.cleanup-fixed-delay-ms` | Operations |
 
+`docs/requirements/public-events.yaml` must contain exactly this initial registry; every entry uses schema version `1`:
+
+| ID | eventType | version | Owner |
+|---|---|---:|---|
+| `IDN-E001` | `UserAuthenticated` | 1 | Identity |
+| `IDN-E002` | `RefreshSessionRotated` | 1 | Identity |
+| `IDN-E003` | `SessionRevoked` | 1 | Identity |
+| `IDN-E004` | `SecurityIncidentRaised` | 1 | Identity |
+| `PAY-E001` | `PaymentCallbackVerified` | 1 | Payment |
+| `PAY-E002` | `PaymentApplied` | 1 | Payment |
+| `PAY-E003` | `PaymentRejected` | 1 | Payment |
+| `PAY-E004` | `PaymentReplayDeadLettered` | 1 | Payment |
+| `REC-E001` | `RecycleOrderSubmitted` | 1 | Recycle |
+| `REC-E002` | `RecycleAuditCompleted` | 1 | Recycle |
+| `REC-E003` | `RecycleValuationFixed` | 1 | Recycle |
+| `REC-E004` | `RecyclePointsPosted` | 1 | Recycle |
+| `REC-E005` | `ResaleListingRequested` | 1 | Recycle |
+| `MKT-E001` | `MarketplaceStockReserved` | 1 | Marketplace |
+| `MKT-E002` | `MarketplaceOrderCreated` | 1 | Marketplace |
+| `MKT-E003` | `MarketplacePaymentAccepted` | 1 | Marketplace |
+| `MKT-E004` | `MarketplaceStockReleased` | 1 | Marketplace |
+| `MKT-E005` | `MarketplaceFulfillmentCompleted` | 1 | Marketplace |
+| `MKT-E006` | `MarketplaceReviewReported` | 1 | Marketplace |
+| `OPS-E001` | `AuditRequested` | 1 | Operations |
+| `OPS-E002` | `SecurityIncidentRecorded` | 1 | Operations |
+| `OPS-E003` | `ExportCompleted` | 1 | Operations |
+| `OPS-E004` | `ConfigurationPublished` | 1 | Operations |
+
 Cross-module events use `-E` IDs and never duplicate an HTTP row. In particular, `POST /api/admin/recycle/listings/publish` is owned only by Marketplace as `MKT-100`; Recycle documents its side only as `REC-E005` (`listing requested`). `MKT-025` is intentionally unallocated because `/api/mall/orders/pay` is `PAY-002`.
 
 Catalog entry shape:
@@ -430,7 +467,7 @@ Catalog entry shape:
       targetPhase: 1
 ```
 
-**Verify:** `./scripts/verify-docs.sh` passes with the complete catalog and `DocumentationCatalogCoverageTest` proves exact coverage of 93 HTTP routes and 6 scheduled methods.
+**Verify:** `./scripts/test/verify-requirement-flows-test.sh && ./scripts/verify-docs.sh` passes; `DocumentationCatalogCoverageTest` proves exact coverage of 93 HTTP routes, 6 scheduled methods, and 23 registered events.
 
 **Commit:** `test: define executable use case documentation contract`
 
@@ -487,7 +524,7 @@ sequenceDiagram
 - Phase 0 still uses `AuthApplicationService` and repositories directly; `LoginHandler` and ports arrive in Phase 1.
 ````
 
-**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports all 25 Task 9 items (20 HTTP, 1 scheduler, 4 events) present without future-only symbols in a current-flow block.
+**Verify:** `./scripts/verify-requirement-flows.sh identity operations && ./scripts/verify-docs.sh` exits zero and checks the Task 9 Identity/security-Operations sections without future-only symbols in current-flow blocks.
 
 **Commit:** `docs: map identity and security operation flows`
 
@@ -505,7 +542,7 @@ sequenceDiagram
 - [ ] Every item gets a current development flow using only Phase 0 `currentSymbols`. Because Phase 0 does not yet contain `PaymentEventProcessor`, show the actual callback/replay service paths honestly; add a separate target architecture flow and gap list showing their future convergence through `PaymentEventProcessor`, external transaction boundaries, and stable ack storage in Phase 2.
 - [ ] Use `implementedTests` only for existing exact methods; record future payment tests under `plannedTests` with `targetPhase: 2` and label them planned in prose.
 
-**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports all 27 Payment items (20 HTTP, 3 schedulers, 4 events) with no current-flow reference to `PaymentEventProcessor`.
+**Verify:** `./scripts/verify-requirement-flows.sh payment && ./scripts/verify-docs.sh` exits zero for all 27 Payment items (20 HTTP, 3 schedulers, 4 events), with no current-flow reference to `PaymentEventProcessor`.
 
 **Commit:** `docs: map payment callback and replay flows`
 
@@ -523,7 +560,7 @@ sequenceDiagram
 - [ ] Show server-derived recycle counts and points, valuation rule priority/version, ledger idempotency, atomic points updates, and the one-listing-per-recycle-order constraint.
 - [ ] Every one of the 9 Recycle items (4 HTTP and 5 events) gets a requirement flow and a current development flow using Phase 0 `currentSymbols`; where the current chain violates the target, add a target architecture flow, explicit gap list, and `targetPhase: 4`. Distinguish strict `implementedTests` from plainly labeled `plannedTests`.
 
-**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports 4 Recycle-owned HTTP flows and 5 events exactly once, with no `REC-103` catalog or heading.
+**Verify:** `./scripts/verify-requirement-flows.sh recycle && ./scripts/verify-docs.sh` exits zero for 4 Recycle-owned HTTP flows and 5 events exactly once, with no `REC-103` catalog or heading.
 
 **Commit:** `docs: map recycle valuation and points flows`
 
@@ -543,7 +580,7 @@ sequenceDiagram
 - [ ] Show the order state machine and all no-regression rules, single stock release, late-payment rejection, refund idempotency, review eligibility, and database uniqueness branches.
 - [ ] Use strict `implementedTests` for exact existing methods and plainly labeled `plannedTests` with `targetPhase: 3` for future coverage.
 
-**Verify:** `./scripts/verify-docs.sh` remains green, and a scoped anchor/Mermaid check reports 33 Marketplace-owned HTTP flows, 2 schedulers, and 6 events exactly once, with `MKT-025` absent and `CurrentActor` absent from current-flow blocks.
+**Verify:** `./scripts/verify-requirement-flows.sh marketplace && ./scripts/verify-docs.sh` exits zero for 33 Marketplace-owned HTTP flows, 2 schedulers, and 6 events exactly once, with `MKT-025` absent and `CurrentActor` absent from current-flow blocks.
 
 **Commit:** `docs: map marketplace order and review flows`
 
@@ -570,7 +607,7 @@ sequenceDiagram
 - [ ] Write `testing.md` with unit/application/web/persistence/concurrency/provider/E2E/architecture layers, naming rules, fixture ownership, and exact local/CI commands.
 - [ ] Write `migrations.md` with version ownership, forward-only repair procedure, data backfill batching, lock/timeout review, checksum policy, rollback by compensating migration, and production verification queries.
 - [ ] Write module diagrams and ADRs matching the approved design. Include allowed dependency arrows, public `api` boundary, composition root, outbox ownership, and the staged legacy migration rule.
-- [ ] Add `DocumentationFlowCoverageTest` only now, after every requirement file exists. It validates requirement/current-development anchors, non-empty Mermaid blocks, resolution of every catalog `currentSymbols` entry, target architecture flow plus explicit gaps whenever `implementationStatus` is not `implemented`, strict `implementedTests`, and format/phase-only `plannedTests`. Extend `scripts/verify-docs.sh` to run both documentation tests and the unfinished-content scan.
+- [ ] Add `DocumentationFlowCoverageTest` only now, after every requirement file exists. It validates requirement/current-development anchors, non-empty Mermaid blocks, resolution of every catalog `currentSymbols` entry, target architecture flow plus explicit gaps whenever `implementationStatus` is not `implemented`, strict `implementedTests`, and format/phase-only `plannedTests`. It also scans every concrete `DocumentedDomainEvent`/`@UseCaseId` event type and matches it to `public-events.yaml`. Extend `scripts/verify-docs.sh` to run both documentation tests and the unfinished-content scan.
 
 The development lifecycle must be visually explicit:
 
@@ -621,7 +658,7 @@ CI core:
   run: ./mvnw --batch-mode --no-transfer-progress verify
 ```
 
-**Verify:** `./mvnw -pl suno-bootstrap -am -Dtest=HealthEndpointIT test` passes; parse `.github/workflows/verify.yml`, run every README command locally that does not require external credentials, and run `./scripts/verify-repository.sh`.
+**Verify:** `./mvnw -pl suno-bootstrap -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=HealthEndpointIT test` passes; parse `.github/workflows/verify.yml`, run every README command locally that does not require external credentials, and run `./scripts/verify-repository.sh`.
 
 **Commit:** `ci: add reproducible verification workflow`
 
@@ -650,6 +687,7 @@ Flyway H2: clean migration + validate
 Flyway MySQL: clean migration + validate (Docker-backed)
 Documented routes: 100% of application RequestMapping entries
 Documented schedulers: 100% of @Scheduled methods
+Registered events: 100% agreement between 23 public-events entries and EVENT catalog items
 Tracked build artifacts and known default secrets: 0
 ```
 
@@ -664,6 +702,6 @@ Tracked build artifacts and known default secrets: 0
 - [ ] The legacy implementation is isolated in bootstrap and compiles without the unused broken wrappers or tracked binary.
 - [ ] A clean H2 and a clean MySQL database are created exclusively by Flyway and validated against all entity mappings.
 - [ ] Local and CI verification use the same `./mvnw verify` entry point.
-- [ ] Every current application HTTP route and scheduled method has one catalog entry and two rendered Mermaid flows.
+- [ ] Every HTTP route, scheduled method, and registered event has exactly one catalog entry, a requirement flow, and a current development flow; each item whose `implementationStatus` is not `implemented` additionally has a target architecture flow and explicit gaps.
 - [ ] Requirement, architecture, testing, migration, configuration, release, and rollback guidance is complete and machine-checked.
 - [ ] The baseline report distinguishes completed engineering foundations from the security and domain work intentionally scheduled for Phases 1–5.

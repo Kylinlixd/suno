@@ -220,9 +220,12 @@ Flyway 是唯一 schema 权威来源。删除运行时 `schema.sql`、`data.sql`
 - `V2000–V2999`：Recycle。
 - `V3000–V3999`：Marketplace。
 - `V4000–V4999`：Payment。
-- `V5000–V5999`：Operations 与 outbox/job。
+- `V5000–V5899`：Operations 与 outbox/job 功能基线。
+- `V5900–V5999`：平台拥有的规范 schema reconciliation；`V5900__Reconcile_canonical_schema.java` 依据固定 schema manifest 和 `DatabaseMetaData`，按 H2/MySQL 方言仅补齐缺失列、索引、唯一约束和外键。
 
 每个业务模块在自己的 resources 目录拥有对应版本段，`suno-bootstrap` 按固定顺序配置 Flyway locations。
+
+五个功能基线先以 `CREATE TABLE IF NOT EXISTS` 建立缺失表，随后 `V5900` 让空库和由 `V0001` 重命名得到的旧库收敛到同一 manifest。对需要改为非空的旧列，reconciliation 必须先执行 manifest 中逐列声明的确定性回填表达式，验证不存在剩余 `NULL`，再添加非空约束；没有已批准回填规则时迁移以可操作错误中止，不猜测业务值。禁止依赖跨数据库不一致的 SQL 条件 DDL。
 
 ### 7.3 强制不变量
 
@@ -363,9 +366,11 @@ flowchart LR
 
 `implementedTests` 中每个 `Class#method` 必须解析到当前存在的测试类和方法并严格执行校验。`plannedTests` 中每项必须记录精确的未来 `Class#method` 与其 `targetPhase`；校验器只检查格式、阶段和值域，不声称它当前可执行。每个用例至少包含一个非空的 `implementedTests` 或 `plannedTests` 列表，需求文档必须把计划映射直白标为计划项。
 
+`docs/requirements/public-events.yaml` 是公开及计划公开事件的权威、版本化注册源，每项记录 `id`、`eventType`、`version` 和 `owner`。用例目录中的 `EVENT` 项必须与该注册源精确一一对应。未来实际事件类型统一实现 `DocumentedDomainEvent` 或标注 `@UseCaseId`；ArchUnit/反射测试扫描代码事件类型并与注册源比对，使新增、删除或改名事件不能只改文档而绕过登记。
+
 阶段 0 建立 `scripts/verify-docs.sh`，在 CI 中验证：
 
-- 每个 Controller mapping、Scheduler 和公开事件都存在用例目录项。
+- 每个 Controller mapping、Scheduler，以及 `public-events.yaml` 中每个公开/计划公开事件都存在且仅存在一个用例目录项；未来实际 `DocumentedDomainEvent`/`@UseCaseId` 类型还必须与注册源一致。
 - 每个目录项指向存在的 Markdown 章节；`implementedTests` 指向存在的方法，`plannedTests` 只按格式和目标阶段校验。
 - 每个用例章节包含需求流程图和使用 `currentSymbols` 的当前开发流程；当前实现与目标不同时还包含目标架构流程和差距清单。
 - README 中的接口和测试命令指向真实文件与可执行命令。
@@ -462,4 +467,4 @@ flowchart TD
 6. 非 dev profile 不含演示账户、默认密钥、明文数据库密码或 Mock Provider。
 7. README、开发文档、OpenAPI 和运维说明中的命令均在 CI 验证存在且可执行。
 8. Git 工作树仅包含预期源码、迁移、测试和文档，不包含构建产物。
-9. 用例目录覆盖全部公开 API、调度器和事件；每个功能均有需求流程图、真实当前开发调用链，并在需要时提供目标架构流程与差距清单；已实现和计划测试映射被明确区分，文档校验在 CI 中通过。
+9. 用例目录覆盖全部公开 API、调度器和事件；每个 HTTP、scheduler 和 event 至少有 requirement flow 与真实 current development flow，且 `implementationStatus` 不是 `implemented` 时还必须有 target architecture flow 与 explicit gaps；已实现和计划测试映射被明确区分，文档校验在 CI 中通过。
