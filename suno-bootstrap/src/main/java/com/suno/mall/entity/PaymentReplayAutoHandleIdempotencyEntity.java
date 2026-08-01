@@ -22,7 +22,7 @@ public class PaymentReplayAutoHandleIdempotencyEntity {
     private String traceId;
 
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String responseJson;
 
     @Column(nullable = false)
