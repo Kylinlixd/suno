@@ -1,0 +1,20 @@
+- id: IDN-001
+  kind: HTTP
+  owner: Identity
+  actor: anonymous
+  method: POST
+  path: /api/auth/login
+  trigger: login
+  permission: public-explicit
+  invariants: [account-enabled]
+  errors: [AUTH_BAD_CREDENTIALS]
+  requirementDoc: docs/requirements/identity.md
+  requirementAnchor: idn-001-login
+  developmentAnchor: idn-001-login-dev
+  implementationStatus: implemented
+  currentSymbols: [AuthController#login]
+  targetPhase: 1
+  documentationTask: 9
+  plannedTests:
+    - test: AuthControllerWebTest#loginIssuesSessionForActiveAccount
+      targetPhase: 1

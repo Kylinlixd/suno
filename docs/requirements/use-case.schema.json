@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Suno use-case catalog",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "kind", "owner", "actor", "trigger", "permission", "invariants", "errors", "requirementDoc", "requirementAnchor", "developmentAnchor", "implementationStatus", "currentSymbols", "targetPhase", "documentationTask"],
+    "properties": {
+      "id": {"type": "string", "pattern": "^[A-Z]+(?:-S|-E)?-[0-9]{3}$"},
+      "kind": {"enum": ["HTTP", "SCHEDULER", "EVENT"]},
+      "owner": {"enum": ["Identity", "Payment", "Recycle", "Marketplace", "Operations"]},
+      "actor": {"type": "string", "minLength": 1},
+      "trigger": {"type": "string", "minLength": 1},
+      "permission": {"type": "string", "minLength": 1},
+      "invariants": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+      "errors": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+      "requirementDoc": {"type": "string", "pattern": "^docs/requirements/.+\\.md$"},
+      "requirementAnchor": {"type": "string", "minLength": 1},
+      "developmentAnchor": {"type": "string", "minLength": 1},
+      "implementationStatus": {"enum": ["implemented", "partial", "absent"]},
+      "currentSymbols": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*#[A-Za-z_$][A-Za-z0-9_$]*$"}},
+      "targetPhase": {"type": "integer", "minimum": 1},
+      "documentationTask": {"enum": [9, 10, 11, 12, 13]},
+      "method": {"enum": ["GET", "POST", "PATCH", "PUT", "DELETE"]},
+      "path": {"type": "string", "pattern": "^/"},
+      "scheduledMethod": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*#[A-Za-z_$][A-Za-z0-9_$]*$"},
+      "scheduleProperty": {"type": "string", "minLength": 1},
+      "eventType": {"type": "string", "minLength": 1},
+      "version": {"type": "integer", "minimum": 1},
+      "implementedTests": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*#[A-Za-z_$][A-Za-z0-9_$]*$"}},
+      "plannedTests": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["test", "targetPhase"], "properties": {"test": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*#[A-Za-z_$][A-Za-z0-9_$]*$"}, "targetPhase": {"type": "integer", "minimum": 1}}, "additionalProperties": false}}
+    },
+    "allOf": [
+      {"if": {"properties": {"kind": {"const": "HTTP"}}}, "then": {"required": ["method", "path"]}},
+      {"if": {"properties": {"kind": {"const": "SCHEDULER"}}}, "then": {"required": ["scheduledMethod", "scheduleProperty"]}},
+      {"if": {"properties": {"kind": {"const": "EVENT"}}}, "then": {"required": ["eventType", "version"]}},
+      {"anyOf": [{"required": ["implementedTests"]}, {"required": ["plannedTests"]}]}
+    ]
+  }
+}
