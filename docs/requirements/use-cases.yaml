@@ -259,11 +259,12 @@
   requirementAnchor: rec-001
   developmentAnchor: rec-001-dev
   implementationStatus: partial
-  currentSymbols: [RecycleController#createOrder]
+  currentSymbols: [RecycleController#createOrder, RecycleApplicationService#createRecycleOrder, RecycleOrderService#createRecycleOrder, AiAuditService#passImageAudit, SnParseService#parse, ValuationService#evaluate, LogisticsService#createTrackingNo, PointsService#calculateRecyclePoints]
   targetPhase: 4
   documentationTask: 11
+  implementedTests: []
   plannedTests:
-    - test: RecycleUseCaseWebTest#documentsRecycleUseCase
+    - test: RecycleUseCaseWebTest#createsRecycleOrderWithServerDerivedValuationAndPoints
       targetPhase: 4
 - <<: *recycle_http
   id: REC-002
@@ -271,18 +272,30 @@
   path: /api/recycle/logistics/status
   requirementAnchor: rec-002
   developmentAnchor: rec-002-dev
+  currentSymbols: [RecycleController#queryLogisticsStatus, RecycleApplicationService#queryLogisticsStatus, RecycleOrderService#queryLogisticsStatus, LogisticsService#queryStatus]
+  plannedTests:
+    - test: RecycleUseCaseWebTest#getsLogisticsStatusWithProviderFailureContract
+      targetPhase: 4
 - <<: *recycle_http
   id: REC-101
   method: GET
   path: /api/admin/recycle/orders
   requirementAnchor: rec-101
   developmentAnchor: rec-101-dev
+  currentSymbols: [AdminRecycleController#listOrders, RecycleApplicationService#listRecycleOrders, RecycleOrderService#listRecycleOrders]
+  plannedTests:
+    - test: RecycleUseCaseWebTest#listsRecycleOrdersForAdministrator
+      targetPhase: 4
 - <<: *recycle_http
   id: REC-102
   method: PATCH
   path: /api/admin/recycle/orders/review
   requirementAnchor: rec-102
   developmentAnchor: rec-102-dev
+  currentSymbols: [AdminRecycleController#reviewOrder, RecycleApplicationService#transitionOrder, RecycleOrderService#transitionOrder]
+  plannedTests:
+    - test: RecycleUseCaseWebTest#transitionsRecycleOrderQualityAndListingState
+      targetPhase: 4
 - &marketplace_http
   id: MKT-001
   kind: HTTP
@@ -849,34 +862,51 @@
   requirementAnchor: rec-e001
   developmentAnchor: rec-e001-dev
   implementationStatus: absent
-  currentSymbols: [ConfigurationPublished#catalogVersion]
+  currentSymbols: [RecycleOrderService#createRecycleOrder]
   targetPhase: 4
   documentationTask: 11
   eventType: RecycleOrderSubmitted
   version: 1
+  implementedTests: []
   plannedTests:
-    - test: RecycleEventContractTest#documentsRecycleEvent
+    - test: RecycleEventContractTest#publishesRecycleOrderSubmittedV1
       targetPhase: 4
 - <<: *recycle_event
   id: REC-E002
   eventType: RecycleAuditCompleted
   requirementAnchor: rec-e002
   developmentAnchor: rec-e002-dev
+  currentSymbols: [RecycleOrderService#transitionOrder]
+  plannedTests:
+    - test: RecycleEventContractTest#publishesRecycleAuditCompletedV1
+      targetPhase: 4
 - <<: *recycle_event
   id: REC-E003
   eventType: RecycleValuationFixed
   requirementAnchor: rec-e003
   developmentAnchor: rec-e003-dev
+  currentSymbols: [RecycleOrderService#createRecycleOrder, ValuationService#evaluate]
+  plannedTests:
+    - test: RecycleEventContractTest#publishesRecycleValuationFixedV1
+      targetPhase: 4
 - <<: *recycle_event
   id: REC-E004
   eventType: RecyclePointsPosted
   requirementAnchor: rec-e004
   developmentAnchor: rec-e004-dev
+  currentSymbols: [RecycleOrderService#createRecycleOrder, PointsService#calculateRecyclePoints]
+  plannedTests:
+    - test: RecycleEventContractTest#publishesRecyclePointsPostedV1Idempotently
+      targetPhase: 4
 - <<: *recycle_event
   id: REC-E005
   eventType: ResaleListingRequested
   requirementAnchor: rec-e005
   developmentAnchor: rec-e005-dev
+  currentSymbols: [RecycleOrderService#transitionOrder]
+  plannedTests:
+    - test: RecycleEventContractTest#publishesResaleListingRequestedV1ForMarketplace
+      targetPhase: 4
 - &marketplace_event
   id: MKT-E001
   kind: EVENT
