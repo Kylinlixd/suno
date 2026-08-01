@@ -338,7 +338,7 @@ flowchart LR
 
     A --> D[GET /modules<br/>获取模块摘要]
     D --> E[POST /module-diff<br/>比对本地与服务端差异]
-    E -->|有差异| F[GET /module/{name}<br/>按需拉取变化模块]
+    E -->|有差异| F["GET /module/{name}<br/>按需拉取变化模块"]
     E -->|无差异| G[✅ 使用本地缓存]
 
     subgraph 热更新
