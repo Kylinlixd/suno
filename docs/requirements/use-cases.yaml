@@ -311,9 +311,11 @@
   requirementAnchor: mkt-001
   developmentAnchor: mkt-001-dev
   implementationStatus: partial
-  currentSymbols: [ResaleMallController#listListings]
+  currentSymbols: [PageController#productDetail]
   targetPhase: 3
   documentationTask: 12
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   plannedTests:
     - test: MarketplaceUseCaseWebTest#documentsMarketplaceUseCase
       targetPhase: 3
@@ -323,161 +325,192 @@
   path: /api/resale/listings
   requirementAnchor: mkt-002
   developmentAnchor: mkt-002-dev
+  currentSymbols: [ResaleListingController#publishListing, ResaleListingService#publishResaleListing]
 - <<: *marketplace_http
   id: MKT-003
   path: /api/resale/listings
   requirementAnchor: mkt-003
   developmentAnchor: mkt-003-dev
+  currentSymbols: [ResaleListingController#listListings, ResaleListingService#listResaleListings]
 - <<: *marketplace_http
   id: MKT-004
   path: /api/resale/listings/sold-out
   requirementAnchor: mkt-004
   developmentAnchor: mkt-004-dev
+  currentSymbols: [ResaleListingController#listSoldOutListings, ResaleListingService#listSoldOutListings]
 - <<: *marketplace_http
   id: MKT-005
   method: POST
   path: /api/resale/listings/{listingId}/reduce-stock
   requirementAnchor: mkt-005
   developmentAnchor: mkt-005-dev
+  currentSymbols: [ResaleListingController#reduceStock, ResaleListingService#reduceListingStock]
 - <<: *marketplace_http
   id: MKT-006
   method: POST
   path: /api/resale/listings/{listingId}/favorite
   requirementAnchor: mkt-006
   developmentAnchor: mkt-006-dev
+  currentSymbols: [ResaleListingController#addFavorite, ResaleListingService#addFavoriteListing]
 - <<: *marketplace_http
   id: MKT-007
   method: DELETE
   path: /api/resale/listings/{listingId}/favorite
   requirementAnchor: mkt-007
   developmentAnchor: mkt-007-dev
+  currentSymbols: [ResaleListingController#removeFavorite, ResaleListingService#removeFavoriteListing]
 - <<: *marketplace_http
   id: MKT-008
   path: /api/resale/listings/favorites
   requirementAnchor: mkt-008
   developmentAnchor: mkt-008-dev
+  currentSymbols: [ResaleListingController#listFavorites, ResaleListingService#listFavoriteListings]
 - <<: *marketplace_http
   id: MKT-020
   path: /api/mall/listings
   requirementAnchor: mkt-020
   developmentAnchor: mkt-020-dev
+  currentSymbols: [ResaleMallController#listListings, RecycleApplicationService#listResaleListings, ResaleListingService#listResaleListings]
 - <<: *marketplace_http
   id: MKT-021
   path: /api/mall/orders
   requirementAnchor: mkt-021
   developmentAnchor: mkt-021-dev
+  currentSymbols: [ResaleMallController#listBuyerOrders, RecycleApplicationService#listBuyerResaleOrders, ResaleOrderService#listBuyerResaleOrders]
 - <<: *marketplace_http
   id: MKT-022
   path: /api/mall/orders/status-dictionary
   requirementAnchor: mkt-022
   developmentAnchor: mkt-022-dev
+  currentSymbols: [ResaleMallController#getOrderStatusDictionary, RecycleApplicationService#getResaleOrderStatusDictionary, ResaleOrderService#getResaleOrderStatusDictionary]
 - <<: *marketplace_http
   id: MKT-023
   path: /api/mall/orders/summary
   requirementAnchor: mkt-023
   developmentAnchor: mkt-023-dev
+  currentSymbols: [ResaleMallController#summarizeBuyerOrders, RecycleApplicationService#summarizeBuyerResaleOrders, ResaleOrderService#summarizeBuyerResaleOrders]
 - <<: *marketplace_http
   id: MKT-024
   method: POST
   path: /api/mall/orders
   requirementAnchor: mkt-024
   developmentAnchor: mkt-024-dev
+  currentSymbols: [ResaleMallController#createOrder, RecycleApplicationService#createResaleOrder, ResaleOrderService#createResaleOrder]
+  implementedTests:
+    - ResaleOrderServiceTest#testCreateResaleOrder
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
 - <<: *marketplace_http
   id: MKT-026
   method: POST
   path: /api/mall/orders/cancel
   requirementAnchor: mkt-026
   developmentAnchor: mkt-026-dev
+  currentSymbols: [ResaleMallController#cancelOrder, RecycleApplicationService#cancelUnpaidResaleOrder, ResaleOrderService#cancelUnpaidResaleOrder]
 - <<: *marketplace_http
   id: MKT-027
   method: POST
   path: /api/mall/orders/confirm-receipt
   requirementAnchor: mkt-027
   developmentAnchor: mkt-027-dev
+  currentSymbols: [ResaleMallController#confirmReceipt, RecycleApplicationService#confirmResaleOrderReceipt, ResaleOrderService#confirmResaleOrderReceipt]
 - <<: *marketplace_http
   id: MKT-028
   method: GET
   path: /api/mall/orders/{orderNo}/track
   requirementAnchor: mkt-028
   developmentAnchor: mkt-028-dev
+  currentSymbols: [ResaleMallController#queryOrderTrack, RecycleApplicationService#queryResaleOrderTrack, ResaleOrderService#queryResaleOrderTrack]
 - <<: *marketplace_http
   id: MKT-029
   method: POST
   path: /api/mall/favorites/add
   requirementAnchor: mkt-029
   developmentAnchor: mkt-029-dev
+  currentSymbols: [ResaleMallController#addFavorite, RecycleApplicationService#addFavoriteListing, ResaleListingService#addFavoriteListing]
 - <<: *marketplace_http
   id: MKT-030
   method: POST
   path: /api/mall/favorites/remove
   requirementAnchor: mkt-030
   developmentAnchor: mkt-030-dev
+  currentSymbols: [ResaleMallController#removeFavorite, RecycleApplicationService#removeFavoriteListing, ResaleListingService#removeFavoriteListing]
 - <<: *marketplace_http
   id: MKT-031
   method: GET
   path: /api/mall/favorites
   requirementAnchor: mkt-031
   developmentAnchor: mkt-031-dev
+  currentSymbols: [ResaleMallController#listFavorites, RecycleApplicationService#listFavoriteListings, ResaleListingService#listFavoriteListings]
 - <<: *marketplace_http
   id: MKT-032
   method: POST
   path: /api/mall/reviews/create
   requirementAnchor: mkt-032
   developmentAnchor: mkt-032-dev
+  currentSymbols: [ResaleMallController#createReview, RecycleApplicationService#createResaleReview, ResaleReviewService#createResaleReview]
 - <<: *marketplace_http
   id: MKT-033
   method: POST
   path: /api/mall/reviews/append
   requirementAnchor: mkt-033
   developmentAnchor: mkt-033-dev
+  currentSymbols: [ResaleMallController#appendReview, RecycleApplicationService#appendResaleReview, ResaleReviewService#appendResaleReview]
 - <<: *marketplace_http
   id: MKT-034
   method: POST
   path: /api/mall/reviews/reply
   requirementAnchor: mkt-034
   developmentAnchor: mkt-034-dev
+  currentSymbols: [ResaleMallController#replyReview, RecycleApplicationService#replyResaleReview, ResaleReviewService#replyResaleReview]
 - <<: *marketplace_http
   id: MKT-035
   method: GET
   path: /api/mall/reviews
   requirementAnchor: mkt-035
   developmentAnchor: mkt-035-dev
+  currentSymbols: [ResaleMallController#listReviews, RecycleApplicationService#listResaleReviews, ResaleReviewService#listResaleReviews]
 - <<: *marketplace_http
   id: MKT-036
   method: POST
   path: /api/mall/reviews/vote-useful
   requirementAnchor: mkt-036
   developmentAnchor: mkt-036-dev
+  currentSymbols: [ResaleMallController#voteReviewUseful, RecycleApplicationService#voteResaleReviewUseful, ResaleReviewService#voteResaleReviewUseful]
 - <<: *marketplace_http
   id: MKT-037
   method: POST
   path: /api/mall/reviews/report
   requirementAnchor: mkt-037
   developmentAnchor: mkt-037-dev
+  currentSymbols: [ResaleMallController#reportReview, RecycleApplicationService#reportResaleReview, ResaleReviewService#reportResaleReview]
 - <<: *marketplace_http
   id: MKT-100
   method: POST
   path: /api/admin/recycle/listings/publish
   requirementAnchor: mkt-100
   developmentAnchor: mkt-100-dev
+  currentSymbols: [AdminRecycleController#publishListing, RecycleApplicationService#publishResaleListing, ResaleListingService#publishResaleListing]
 - <<: *marketplace_http
   id: MKT-101
   method: POST
   path: /api/admin/recycle/resale-orders/deliver
   requirementAnchor: mkt-101
   developmentAnchor: mkt-101-dev
+  currentSymbols: [AdminRecycleController#deliverResaleOrder, RecycleApplicationService#deliverResaleOrder, ResaleOrderService#deliverResaleOrder]
 - <<: *marketplace_http
   id: MKT-102
   method: POST
   path: /api/admin/recycle/resale-orders/refund
   requirementAnchor: mkt-102
   developmentAnchor: mkt-102-dev
+  currentSymbols: [AdminRecycleController#refundResaleOrder, RecycleApplicationService#refundPaidResaleOrder, ResaleOrderService#refundPaidResaleOrder]
 - <<: *marketplace_http
   id: MKT-103
   method: POST
   path: /api/admin/recycle/resale-orders/auto-confirm-receipt
   requirementAnchor: mkt-103
   developmentAnchor: mkt-103-dev
+  currentSymbols: [AdminRecycleController#autoConfirmResaleOrderReceipt, RecycleApplicationService#autoConfirmDeliveredOrders, ResaleOrderService#autoConfirmDeliveredOrders]
 - <<: *marketplace_http
   id: MKT-110
   method: GET
@@ -731,11 +764,13 @@
   requirementAnchor: mkt-s001
   developmentAnchor: mkt-s001-dev
   implementationStatus: partial
-  currentSymbols: [ResaleOrderScheduler#autoCloseExpiredUnpaidOrders]
+  currentSymbols: [ResaleOrderScheduler#autoCloseExpiredUnpaidOrders, RecycleApplicationService#autoCloseExpiredUnpaidOrders, ResaleOrderService#autoCloseExpiredUnpaidOrders]
   targetPhase: 3
   documentationTask: 12
   scheduledMethod: ResaleOrderScheduler#autoCloseExpiredUnpaidOrders
   scheduleProperty: mall.order.auto-close-fixed-delay-ms
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   plannedTests:
     - test: MarketplaceSchedulerTest#documentsMarketplaceScheduler
       targetPhase: 3
@@ -743,7 +778,7 @@
   id: MKT-S002
   requirementAnchor: mkt-s002
   developmentAnchor: mkt-s002-dev
-  currentSymbols: [ResaleOrderScheduler#autoConfirmDeliveredOrders]
+  currentSymbols: [ResaleOrderScheduler#autoConfirmDeliveredOrders, RecycleApplicationService#autoConfirmDeliveredOrders, ResaleOrderService#autoConfirmDeliveredOrders]
   scheduledMethod: ResaleOrderScheduler#autoConfirmDeliveredOrders
   scheduleProperty: mall.order.auto-confirm-receipt-fixed-delay-ms
 - &operations_scheduler
@@ -920,11 +955,13 @@
   requirementAnchor: mkt-e001
   developmentAnchor: mkt-e001-dev
   implementationStatus: absent
-  currentSymbols: [ConfigurationPublished#catalogVersion]
+  currentSymbols: [ResaleOrderService#createResaleOrder]
   targetPhase: 3
   documentationTask: 12
   eventType: MarketplaceStockReserved
   version: 1
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   plannedTests:
     - test: MarketplaceEventContractTest#documentsMarketplaceEvent
       targetPhase: 3
@@ -933,26 +970,31 @@
   eventType: MarketplaceOrderCreated
   requirementAnchor: mkt-e002
   developmentAnchor: mkt-e002-dev
+  currentSymbols: [ResaleOrderService#createResaleOrder]
 - <<: *marketplace_event
   id: MKT-E003
   eventType: MarketplacePaymentAccepted
   requirementAnchor: mkt-e003
   developmentAnchor: mkt-e003-dev
+  currentSymbols: [ResaleOrderService#markResaleOrderPaidWithIdempotency]
 - <<: *marketplace_event
   id: MKT-E004
   eventType: MarketplaceStockReleased
   requirementAnchor: mkt-e004
   developmentAnchor: mkt-e004-dev
+  currentSymbols: [ResaleOrderService#cancelUnpaidResaleOrder]
 - <<: *marketplace_event
   id: MKT-E005
   eventType: MarketplaceFulfillmentCompleted
   requirementAnchor: mkt-e005
   developmentAnchor: mkt-e005-dev
+  currentSymbols: [ResaleOrderService#confirmResaleOrderReceipt]
 - <<: *marketplace_event
   id: MKT-E006
   eventType: MarketplaceReviewReported
   requirementAnchor: mkt-e006
   developmentAnchor: mkt-e006-dev
+  currentSymbols: [ResaleReviewService#reportResaleReview]
 - &operations_event
   id: OPS-E001
   kind: EVENT
