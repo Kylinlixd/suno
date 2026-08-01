@@ -1,25 +1,3 @@
-DROP TABLE IF EXISTS payment_replay_task;
-DROP TABLE IF EXISTS payment_callback_log;
-DROP TABLE IF EXISTS payment_nonce;
-DROP TABLE IF EXISTS auth_export_task;
-DROP TABLE IF EXISTS auth_token_blacklist;
-DROP TABLE IF EXISTS auth_refresh_token;
-DROP TABLE IF EXISTS payment_replay_auto_handle_idempotency;
-DROP TABLE IF EXISTS payment_idempotency;
-DROP TABLE IF EXISTS operation_audit_log;
-DROP TABLE IF EXISTS resale_review_report;
-DROP TABLE IF EXISTS resale_review_vote;
-DROP TABLE IF EXISTS resale_review;
-DROP TABLE IF EXISTS resale_favorite;
-DROP TABLE IF EXISTS resale_order;
-DROP TABLE IF EXISTS resale_listing;
-DROP TABLE IF EXISTS points_ledger;
-DROP TABLE IF EXISTS logistics_track;
-DROP TABLE IF EXISTS recycle_order;
-DROP TABLE IF EXISTS product;
-DROP TABLE IF EXISTS valuation_rule;
-DROP TABLE IF EXISTS user_account;
-
 CREATE TABLE user_account (
     id BIGINT PRIMARY KEY,
     username VARCHAR(64) NOT NULL UNIQUE,
@@ -61,7 +39,7 @@ CREATE TABLE auth_export_task (
     retry_count INT NOT NULL DEFAULT 0,
     max_retry INT NOT NULL DEFAULT 2,
     file_name VARCHAR(128),
-    content_text CLOB,
+    content_text TEXT,
     error_code VARCHAR(64),
     error_message VARCHAR(512),
     created_at TIMESTAMP NOT NULL,
@@ -226,7 +204,7 @@ CREATE TABLE payment_idempotency (
 CREATE TABLE payment_replay_auto_handle_idempotency (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     trace_id VARCHAR(128) NOT NULL UNIQUE,
-    response_json CLOB NOT NULL,
+    response_json TEXT NOT NULL,
     expire_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL
 );
@@ -266,79 +244,61 @@ CREATE TABLE payment_replay_task (
     updated_at TIMESTAMP
 );
 
-CREATE INDEX idx_payment_replay_task_callback_status
-    ON payment_replay_task(callback_log_id, status);
+CREATE INDEX idx_recycle_order_status_created_at ON recycle_order(status, created_at);
+CREATE INDEX idx_resale_listing_status_created_at ON resale_listing(status, created_at);
 
-CREATE INDEX idx_payment_replay_task_status_next_retry
-    ON payment_replay_task(status, next_retry_at);
-
-CREATE INDEX idx_replay_auto_handle_idempotency_expire_at
-    ON payment_replay_auto_handle_idempotency(expire_at);
-
--- ==================== 补充业务索引 ====================
-
--- 回收订单
-CREATE INDEX idx_recycle_order_user_id ON recycle_order(user_id);
-CREATE INDEX idx_recycle_order_status ON recycle_order(status);
-CREATE INDEX idx_recycle_order_created_at ON recycle_order(created_at);
-
--- 商品
-CREATE INDEX idx_product_brand_model ON product(brand, model);
-CREATE INDEX idx_product_recycle_grade ON product(recycle_grade);
-
--- 估值规则
-CREATE INDEX idx_valuation_rule_brand_model ON valuation_rule(brand, model);
-
--- 物流跟踪
-CREATE INDEX idx_logistics_track_order_id ON logistics_track(order_id);
-
--- 积分流水
-CREATE INDEX idx_points_ledger_user_id ON points_ledger(user_id);
-CREATE INDEX idx_points_ledger_created_at ON points_ledger(created_at);
-
--- 二销上架
-CREATE INDEX idx_resale_listing_recycle_order_id ON resale_listing(recycle_order_id);
-CREATE INDEX idx_resale_listing_product_id ON resale_listing(product_id);
-CREATE INDEX idx_resale_listing_status ON resale_listing(status);
-
--- 二销收藏
-CREATE INDEX idx_resale_favorite_user_id ON resale_favorite(user_id);
-CREATE INDEX idx_resale_favorite_listing_id ON resale_favorite(listing_id);
-
--- 二销订单
-CREATE INDEX idx_resale_order_buyer_user_id ON resale_order(buyer_user_id);
-CREATE INDEX idx_resale_order_listing_id ON resale_order(listing_id);
-CREATE INDEX idx_resale_order_pay_fulfill ON resale_order(pay_status, fulfill_status);
-CREATE INDEX idx_resale_order_created_at ON resale_order(created_at);
-
--- 评价
-CREATE INDEX idx_resale_review_listing_id ON resale_review(listing_id);
-CREATE INDEX idx_resale_review_user_id ON resale_review(user_id);
-CREATE INDEX idx_resale_review_order_id ON resale_review(order_id);
-CREATE INDEX idx_resale_review_moderation_status ON resale_review(moderation_status);
-
--- 评价投票
-CREATE INDEX idx_resale_review_vote_review_id ON resale_review_vote(review_id);
-CREATE INDEX idx_resale_review_vote_user_id ON resale_review_vote(user_id);
-
--- 评价举报
-CREATE INDEX idx_resale_review_report_review_id ON resale_review_report(review_id);
-CREATE INDEX idx_resale_review_report_status ON resale_review_report(status);
-
--- 审计日志
-CREATE INDEX idx_audit_log_action_type ON operation_audit_log(action_type);
-CREATE INDEX idx_audit_log_target_type ON operation_audit_log(target_type);
-CREATE INDEX idx_audit_log_created_at ON operation_audit_log(created_at);
-
--- 认证
-CREATE INDEX idx_auth_refresh_token_user_id ON auth_refresh_token(user_id);
-CREATE INDEX idx_auth_refresh_token_expire_at ON auth_refresh_token(expire_at);
-CREATE INDEX idx_auth_token_blacklist_expire_at ON auth_token_blacklist(expire_at);
-CREATE INDEX idx_auth_export_task_status ON auth_export_task(status);
-CREATE INDEX idx_auth_export_task_idempotency_key ON auth_export_task(idempotency_key);
-
--- 支付
-CREATE INDEX idx_payment_idempotency_order_no ON payment_idempotency(order_no);
-CREATE INDEX idx_payment_callback_log_order_no ON payment_callback_log(order_no);
-CREATE INDEX idx_payment_callback_log_created_at ON payment_callback_log(created_at);
-CREATE INDEX idx_payment_nonce_expire_at ON payment_nonce(expire_at);
+INSERT INTO user_account VALUES
+    (1001, 'legacy-user', '{noop}legacy', 'USER', 'ACTIVE', 'NORMAL', 321);
+INSERT INTO auth_refresh_token
+    (id, user_id, username, device_id, token, expire_at, revoked, created_at, revoked_at)
+    VALUES (1, 1001, 'legacy-user', 'legacy-device', 'legacy-refresh', '2030-01-01 00:00:00', 0,
+            '2025-01-01 00:00:00', NULL);
+INSERT INTO auth_token_blacklist VALUES
+    (1, 'legacy-jti', 'legacy-user', '2030-01-01 00:00:00', '2025-01-01 00:00:00');
+INSERT INTO auth_export_task
+    (id, task_id, idempotency_key, export_type, export_format, status, retry_count, max_retry,
+     file_name, content_text, error_code, error_message, created_at, finished_at)
+    VALUES (1, 'legacy-export', 'legacy-export-key', 'AUDIT', 'CSV', 'DONE', 0, 2,
+            'legacy.csv', 'legacy-content', NULL, NULL, '2025-01-01 00:00:00', '2025-01-01 00:01:00');
+INSERT INTO product VALUES
+    (1, 'LEGACY-SN', 'LegacyBrand', 'LegacyModel', '2024-01-01', '/legacy.jpg', 88, 'GOOD', 1234.56);
+INSERT INTO valuation_rule VALUES
+    (1, 'LegacyBrand', 'LegacyModel', 0, 12, 80, 100, 'GOOD', 1234.56);
+INSERT INTO recycle_order VALUES
+    (1, 'LEGACY-RC-1', 1001, 1, 1234.56, 'GOOD', 'COMPLETED', '2025-01-01 10:00:00');
+INSERT INTO logistics_track VALUES
+    (1, 'LEGACY-TRACK', 1, 'DELIVERED', '2025-01-02 10:00:00');
+INSERT INTO points_ledger VALUES
+    (1, 1001, 123, 'LEGACY_REWARD', '2025-01-01 10:00:00');
+INSERT INTO resale_listing VALUES
+    (1, 1, 1, 1500.00, 1, 'ON_SALE', '2025-01-03 10:00:00', 0);
+INSERT INTO resale_favorite VALUES
+    (1, 1001, 1, '2025-01-03 11:00:00');
+INSERT INTO resale_order VALUES
+    (1, 'LEGACY-RS-1', 1001, 1, 1500.00, 'PAID', 'FULFILLED', '2025-01-04 10:00:00');
+INSERT INTO resale_review
+    (id, order_id, listing_id, user_id, rating, content, image_urls, append_content, merchant_reply,
+     sensitive_hit, moderation_status, moderated_at, created_at, appended_at, replied_at)
+    VALUES (1, 1, 1, 1001, 5, 'legacy-review', NULL, NULL, NULL, 0, 'NORMAL', NULL,
+            '2025-01-05 10:00:00', NULL, NULL);
+INSERT INTO resale_review_vote VALUES
+    (1, 1, 1001, '2025-01-05 11:00:00');
+INSERT INTO resale_review_report
+    (id, review_id, reporter_user_id, reason, status, process_note, processed_by, created_at, processed_at)
+    VALUES (1, 1, 1001, 'legacy-reason', 'PENDING', NULL, NULL, '2025-01-05 12:00:00', NULL);
+INSERT INTO operation_audit_log VALUES
+    (1, 'CREATE', 'RECYCLE_ORDER', '1', 'legacy-detail', '2025-01-01 10:00:00');
+INSERT INTO payment_idempotency VALUES
+    (1, 'legacy-payment-key', 'LEGACY-RS-1', 'PAID', '2025-01-04 10:00:00');
+INSERT INTO payment_replay_auto_handle_idempotency VALUES
+    (1, 'legacy-trace', '{\"legacy\":true}', '2030-01-01 00:00:00', '2025-01-04 10:00:00');
+INSERT INTO payment_nonce VALUES
+    (1, 'legacy-nonce', '2030-01-01 00:00:00', '2025-01-04 10:00:00');
+INSERT INTO payment_callback_log
+    (id, order_no, idempotency_key, pay_status, nonce, timestamp, signature, callback_status,
+     error_message, response_body, source, replay_count, created_at, last_replay_at)
+    VALUES (1, 'LEGACY-RS-1', 'legacy-callback', 'PAID', 'legacy-nonce', 1735960000,
+            'legacy-signature', 'SUCCESS', NULL, 'success', 'LEGACY', 0, '2025-01-04 10:00:00', NULL);
+INSERT INTO payment_replay_task
+    (id, callback_log_id, status, retry_count, last_error, next_retry_at, created_at, updated_at)
+    VALUES (1, 1, 'PENDING', 0, NULL, '2025-01-04 10:05:00', '2025-01-04 10:00:00', NULL);
