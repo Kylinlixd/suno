@@ -21,9 +21,9 @@ class OperationsArchitectureBaselineTest {
     void operationsLayersExposeConcreteDomainApplicationAndEventContracts() throws Exception {
         Class<?> priorityType = Class.forName("com.suno.mall.operations.domain.OperationsCasePriority");
         Class<?> useCaseType = Class.forName("com.suno.mall.operations.application.OperationsCaseEscalationUseCase");
-        Class<?> eventType = Class.forName("com.suno.mall.operations.api.event.OperationsCaseEscalated");
+        Class<?> eventType = Class.forName("com.suno.mall.operations.api.event.SecurityIncidentRecorded");
         Class<?> publisherType = Class.forName("com.suno.mall.operations.api.event.OperationsEventPublisher");
-        Class<?> adapterType = Class.forName("com.suno.mall.operations.api.event.OperationsEventOutboxPublisher");
+        Class<?> adapterType = Class.forName("com.suno.mall.operations.infrastructure.event.OperationsEventOutboxPublisher");
 
         Method requiresImmediateHandling = priorityType.getMethod("requiresImmediateHandling");
         Method valueOf = priorityType.getMethod("valueOf", String.class);

@@ -34,14 +34,21 @@ def require(condition, message):
     if not condition:
         sys.exit(message)
 
-def has_anchor(document, anchor):
-    return (f'id="{anchor}"' in document or f"id='{anchor}'" in document
-            or f"{{#{anchor}}}" in document)
+def has_anchor(section, anchor):
+    return (f'id="{anchor}"' in section or f"id='{anchor}'" in section
+            or f"{{#{anchor}}}" in section)
 
-def mermaid_after(document, anchor):
-    positions = [document.find(f'id="{anchor}"'), document.find(f"id='{anchor}'"), document.find(f"{{#{anchor}}}")]
+def section_for(document, entry_id):
+    match = re.search(r"(?m)^##\s+" + re.escape(entry_id) + r"(?:\s|$).*?$", document)
+    if match is None:
+        return None
+    next_heading = re.search(r"(?m)^##\s+", document[match.end():])
+    return document[match.start():match.end() + next_heading.start()] if next_heading else document[match.start():]
+
+def mermaid_after(section, anchor):
+    positions = [section.find(f'id="{anchor}"'), section.find(f"id='{anchor}'"), section.find(f"{{#{anchor}}}")]
     position = min(position for position in positions if position >= 0)
-    remainder = document[position:]
+    remainder = section[position:]
     opening = remainder.find("```mermaid")
     if opening < 0:
         return False
@@ -64,18 +71,19 @@ for entry in selected:
     document_path = root / entry.get("requirementDoc", "")
     require(document_path.is_file(), f"missing selected ID {entry_id}: requirement document {document_path} is absent")
     document = document_path.read_text(encoding="utf-8")
-    require(re.search(r"(?m)^##+\s+" + re.escape(entry_id) + r"(?:\s|$)", document) is not None,
+    section = section_for(document, entry_id)
+    require(section is not None,
             f"missing selected ID {entry_id} section")
     requirement_anchor = entry.get("requirementAnchor", "")
     development_anchor = entry.get("developmentAnchor", "")
-    require(has_anchor(document, requirement_anchor), f"{entry_id}: missing requirement anchor {requirement_anchor}")
-    require(has_anchor(document, development_anchor), f"{entry_id}: missing development anchor {development_anchor}")
-    require(mermaid_after(document, requirement_anchor), f"{entry_id}: empty Mermaid block for requirement flow")
-    require(mermaid_after(document, development_anchor), f"{entry_id}: empty Mermaid block for current development flow")
+    require(has_anchor(section, requirement_anchor), f"{entry_id}: missing requirement anchor {requirement_anchor}")
+    require(has_anchor(section, development_anchor), f"{entry_id}: missing development anchor {development_anchor}")
+    require(mermaid_after(section, requirement_anchor), f"{entry_id}: empty Mermaid block for requirement flow")
+    require(mermaid_after(section, development_anchor), f"{entry_id}: empty Mermaid block for current development flow")
     for symbol in entry["currentSymbols"]:
         require(symbol_exists(symbol), f"{entry_id}: unresolved current symbol {symbol}")
     if entry.get("implementationStatus") != "implemented":
-        tail = document[document.find(f'id="{development_anchor}"'):]
+        tail = section[section.find(f'id="{development_anchor}"'):]
         require(re.search(r"(?im)^#{2,6}\s+target architecture flow\s*$", tail) is not None,
                 f"{entry_id}: missing target architecture flow")
         require(re.search(r"(?im)^#{2,6}\s+gaps\s*$", tail) is not None,

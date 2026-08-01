@@ -26,5 +26,6 @@ run_case empty-mermaid "empty Mermaid block"
 run_case unresolved-symbol "unresolved current symbol AuthController#login"
 run_case missing-target-flow "missing target architecture flow"
 run_case missing-gaps "missing explicit gaps"
+run_case section-borrow "empty Mermaid block"
 
 echo "requirement flow checker fixtures passed"

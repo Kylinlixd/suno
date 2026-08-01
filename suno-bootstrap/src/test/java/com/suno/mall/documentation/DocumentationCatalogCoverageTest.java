@@ -2,11 +2,14 @@ package com.suno.mall.documentation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.suno.mall.RecycleMallApplication;
 import com.suno.mall.core.event.DocumentedDomainEvent;
 import com.suno.mall.core.event.DomainEvent;
+import com.suno.mall.core.event.EventVersion;
 import com.suno.mall.core.event.UseCaseId;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -17,11 +20,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -48,11 +54,13 @@ class DocumentationCatalogCoverageTest {
         assertEquals(122, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
+        catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
+                () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
         assertEquals(93, http.size());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
-                .filter(entry -> entry.getValue().getBeanType().getPackageName().startsWith("com.suno.mall.controller"))
+                .filter(entry -> isDocumentedApplicationEndpoint(entry.getValue().getBeanType()))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream().flatMap(path -> entry.getKey().getMethodsCondition()
                         .getMethods().stream().map(method -> method.name() + " " + path)))
                 .collect(Collectors.toSet());
@@ -68,6 +76,7 @@ class DocumentationCatalogCoverageTest {
                 .map(method -> type.getSimpleName() + "#" + method.getName())).collect(Collectors.toSet());
         Set<String> catalogSchedulers = schedulers.stream().map(entry -> string(entry, "scheduledMethod")).collect(Collectors.toSet());
         assertEquals(catalogSchedulers, actualSchedulers);
+        schedulers.forEach(entry -> assertEquals(string(entry, "scheduleProperty"), scheduledProperty(string(entry, "scheduledMethod"))));
 
         List<Map<String, Object>> events = ofKind(catalog, "EVENT");
         List<Map<String, Object>> registry = yaml(EVENTS);
@@ -93,7 +102,7 @@ class DocumentationCatalogCoverageTest {
         assertTrue(entry.containsKey("implementedTests") || entry.containsKey("plannedTests"));
         list(entry, "currentSymbols").forEach(symbol -> assertTrue(symbolExists(String.valueOf(symbol)),
                 () -> string(entry, "id") + " unresolved current symbol " + symbol));
-        list(entry, "implementedTests").forEach(test -> assertTrue(testExists(String.valueOf(test))));
+        assertImplementedTests(entry);
         for (Object planned : list(entry, "plannedTests")) {
             Map<?, ?> item = (Map<?, ?>) planned;
             assertTrue(String.valueOf(item.get("test")).matches("[A-Za-z_$][A-Za-z0-9_$.]*#[A-Za-z_$][A-Za-z0-9_$]*"));
@@ -102,19 +111,91 @@ class DocumentationCatalogCoverageTest {
     }
 
     private void assertEventBoundary(List<Map<String, Object>> events, List<Map<String, Object>> registry) {
-        Set<String> registryIds = registry.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet());
-        concreteClasses().stream().filter(type -> DomainEvent.class.isAssignableFrom(type)).forEach(type -> {
+        Map<String, Map<String, Object>> catalogById = events.stream().collect(Collectors.toMap(entry -> string(entry, "id"), Function.identity()));
+        Map<String, Map<String, Object>> registryById = registry.stream().collect(Collectors.toMap(entry -> string(entry, "id"), Function.identity()));
+        concreteClasses().stream().filter(DocumentationCatalogCoverageTest::isDiscoveredPublicEvent).forEach(type -> {
             assertTrue(DocumentedDomainEvent.class.isAssignableFrom(type));
             assertTrue(type.isAnnotationPresent(UseCaseId.class));
+            assertTrue(type.isAnnotationPresent(EventVersion.class));
             String id = type.getAnnotation(UseCaseId.class).value();
-            if (registryIds.contains(id)) {
-                Map<String, Object> registered = registry.stream().filter(entry -> id.equals(string(entry, "id"))).findFirst().orElseThrow();
-                assertEquals(string(registered, "eventType"), type.getSimpleName());
-            }
+            Map<String, Object> registered = registryById.get(id);
+            Map<String, Object> catalogEntry = catalogById.get(id);
+            assertNotNull(registered, () -> type.getName() + " is not registered");
+            assertNotNull(catalogEntry, () -> type.getName() + " is not catalogued");
+            assertEquals(string(registered, "eventType"), type.getSimpleName());
+            assertEquals(integer(registered, "version"), type.getAnnotation(EventVersion.class).value());
+            assertEquals(ownerFor(type), string(registered, "owner"));
+            assertEquals(eventKeys(List.of(registered)), eventKeys(List.of(catalogEntry)));
         });
         events.stream().filter(entry -> "implemented".equals(string(entry, "implementationStatus"))).forEach(entry -> assertEquals(1,
                 concreteClasses().stream().filter(type -> type.isAnnotationPresent(UseCaseId.class)
                         && string(entry, "id").equals(type.getAnnotation(UseCaseId.class).value())).count()));
+    }
+
+    @Test
+    void invalidImplementedTestTargetIsRejected() {
+        Map<String, Object> invalid = Map.of("implementedTests", List.of("DocumentationCatalogCoverageTest#missingMethod"));
+        assertThrows(AssertionError.class, () -> assertImplementedTests(invalid));
+        assertImplementedTests(Map.of("implementedTests", List.of(
+                "DocumentationCatalogCoverageTest#invalidImplementedTestTargetIsRejected")));
+    }
+
+    private static void assertImplementedTests(Map<String, Object> entry) {
+        list(entry, "implementedTests").forEach(test -> assertTrue(testExists(String.valueOf(test)),
+                () -> "unresolved implemented test " + test));
+    }
+
+    private static boolean isDocumentedApplicationEndpoint(Class<?> type) {
+        String packageName = type.getPackageName();
+        return !packageName.startsWith("org.springframework") && !packageName.startsWith("org.springframework.boot.actuate")
+                && (type.isAnnotationPresent(RestController.class) || type.isAnnotationPresent(Controller.class));
+    }
+
+    private static String scheduledProperty(String symbol) {
+        String[] parts = symbol.split("#", 2);
+        Method method = concreteClasses().stream().filter(type -> type.getSimpleName().equals(parts[0]))
+                .flatMap(type -> List.of(type.getDeclaredMethods()).stream()).filter(candidate -> candidate.getName().equals(parts[1]))
+                .findFirst().orElseThrow();
+        Scheduled annotation = method.getAnnotation(Scheduled.class);
+        assertNotNull(annotation, () -> symbol + " must carry @Scheduled");
+        String expression = annotation.fixedDelayString();
+        java.util.regex.Matcher match = java.util.regex.Pattern.compile("\\$\\{([^}:]+)(?::[^}]*)?}").matcher(expression);
+        assertTrue(match.matches(), () -> symbol + " must use a property-backed fixed delay");
+        return match.group(1);
+    }
+
+    private static boolean isDiscoveredPublicEvent(Class<?> type) {
+        return DomainEvent.class.isAssignableFrom(type) || type.getPackageName().matches(
+                "com\\.suno\\.mall\\.(identity|recycle|marketplace|payment|operations)\\.api\\.event(\\..*)?");
+    }
+
+    private static String ownerFor(Class<?> type) {
+        String[] parts = type.getPackageName().split("\\.");
+        for (String part : parts) {
+            if (Set.of("identity", "recycle", "marketplace", "payment", "operations").contains(part)) {
+                return Character.toUpperCase(part.charAt(0)) + part.substring(1);
+            }
+        }
+        throw new AssertionError("public event has no owning feature module: " + type.getName());
+    }
+
+    private static String ownerForId(String id) {
+        if (id.startsWith("IDN-")) {
+            return "Identity";
+        }
+        if (id.startsWith("PAY-")) {
+            return "Payment";
+        }
+        if (id.startsWith("REC-")) {
+            return "Recycle";
+        }
+        if (id.startsWith("MKT-")) {
+            return "Marketplace";
+        }
+        if (id.startsWith("OPS-")) {
+            return "Operations";
+        }
+        throw new AssertionError("unknown mandated ID group: " + id);
     }
 
     private static Set<String> eventKeys(List<Map<String, Object>> entries) {
@@ -134,13 +215,19 @@ class DocumentationCatalogCoverageTest {
 
     private static boolean testExists(String reference) {
         String[] parts = reference.split("#", 2);
-        return parts.length == 2 && concreteClasses().stream().filter(type -> type.getSimpleName().equals(parts[0]))
+        return parts.length == 2 && testClasses().stream().filter(type -> type.getSimpleName().equals(parts[0]))
                 .anyMatch(type -> List.of(type.getDeclaredMethods()).stream().anyMatch(method -> method.getName().equals(parts[1])));
     }
 
     private static List<Class<?>> concreteClasses() {
         return new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests()).importPackages("com.suno.mall")
                 .stream().filter(candidate -> !candidate.isInterface() && !candidate.isAnnotation() && !candidate.isEnum())
+                .<Class<?>>map(candidate -> candidate.reflect()).collect(Collectors.toList());
+    }
+
+    private static List<Class<?>> testClasses() {
+        return new ClassFileImporter().importPackages("com.suno.mall").stream()
+                .filter(candidate -> !candidate.isInterface() && !candidate.isAnnotation() && !candidate.isEnum())
                 .<Class<?>>map(candidate -> candidate.reflect()).collect(Collectors.toList());
     }
 

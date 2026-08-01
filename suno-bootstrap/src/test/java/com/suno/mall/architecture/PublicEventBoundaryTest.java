@@ -29,7 +29,7 @@ class PublicEventBoundaryTest {
     private static final String DOCUMENTED_DOMAIN_EVENT = "com.suno.mall.core.event.DocumentedDomainEvent";
     private static final String USE_CASE_ID = "com.suno.mall.core.event.UseCaseId";
     private static final String EVENT_OUTBOX = "com.suno.mall.core.event.EventOutbox";
-    private static final String EVENT_CATALOG_PUBLISHED = "com.suno.mall.core.event.EventCatalogPublished";
+    private static final String EVENT_CATALOG_PUBLISHED = "com.suno.mall.operations.api.event.ConfigurationPublished";
 
     @ArchTest
     static final ArchRule eventOutboxAcceptsOnlyDomainEvents = methods()

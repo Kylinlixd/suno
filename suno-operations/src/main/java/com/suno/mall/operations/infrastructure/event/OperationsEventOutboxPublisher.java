@@ -1,11 +1,10 @@
-package com.suno.mall.operations.api.event;
+package com.suno.mall.operations.infrastructure.event;
 
 import com.suno.mall.core.event.DomainEvent;
 import com.suno.mall.core.event.EventOutbox;
+import com.suno.mall.operations.api.event.OperationsEventPublisher;
 
-/**
- * Operations adapter that hands every public-event delivery verb to the shared outbox.
- */
+/** Infrastructure adapter that hands public-event delivery to the shared outbox. */
 public final class OperationsEventOutboxPublisher implements OperationsEventPublisher {
 
     private final EventOutbox eventOutbox;
