@@ -33,29 +33,21 @@ class FlywayLocationProfileTest {
     }
 
     @Test
-    void mysqlProfileKeepsTinyintOneColumnsAsTinyintForHibernateValidation() {
-        ApplicationContextRunner runner = new ApplicationContextRunner()
-                .withInitializer(new ConfigDataApplicationContextInitializer())
-                .withPropertyValues("spring.profiles.active=mysql");
+    void mysqlStagingAndProdProfilesPassTinyintOneAsNumericToConnectorJ() {
+        for (String profile : List.of("mysql", "staging", "prod")) {
+            ApplicationContextRunner runner = profileRunner(profile);
 
-        runner.run(context -> assertThat(context.getEnvironment().getProperty("spring.datasource.url"))
-                .contains("tinyInt1isBit=false"));
+            runner.run(context -> assertThat(context.getEnvironment().getProperty(
+                    "spring.datasource.hikari.data-source-properties.tinyInt1isBit"))
+                    .as("Connector/J tinyInt1isBit property for profile %s", profile)
+                    .isEqualTo("false"));
+        }
     }
 
     @Test
     void stagingAndProdProfilesRequireExternalMysqlAndRealProviders() {
         for (String profile : List.of("staging", "prod")) {
-            ApplicationContextRunner runner = new ApplicationContextRunner()
-                    .withInitializer(new ConfigDataApplicationContextInitializer())
-                    .withPropertyValues(
-                            "spring.profiles.active=" + profile,
-                            "SUNO_DB_URL=jdbc:mysql://database.example/suno",
-                            "SUNO_DB_USERNAME=suno",
-                            "SUNO_DB_PASSWORD=not-a-real-password",
-                            "BAIDU_IMAGE_AUDIT_ENDPOINT=https://image-audit.example",
-                            "BAIDU_IMAGE_AUDIT_ACCESS_TOKEN=not-a-real-token",
-                            "LOGISTICS_ENDPOINT=https://logistics.example",
-                            "LOGISTICS_API_KEY=not-a-real-key");
+            ApplicationContextRunner runner = profileRunner(profile);
             runner.run(context -> {
                 assertThat(context.getEnvironment().getProperty("spring.datasource.url"))
                         .as("datasource URL for profile %s", profile)
@@ -83,5 +75,19 @@ class FlywayLocationProfileTest {
             assertThat(locations).as("Flyway locations for profile %s", profile).containsExactlyElementsOf(expected);
             assertThat(locations.contains(DEV_SEED)).isEqualTo("dev".equals(profile));
         });
+    }
+
+    private static ApplicationContextRunner profileRunner(String profile) {
+        return new ApplicationContextRunner()
+                .withInitializer(new ConfigDataApplicationContextInitializer())
+                .withPropertyValues(
+                        "spring.profiles.active=" + profile,
+                        "SUNO_DB_URL=jdbc:mysql://database.example/suno",
+                        "SUNO_DB_USERNAME=suno",
+                        "SUNO_DB_PASSWORD=not-a-real-password",
+                        "BAIDU_IMAGE_AUDIT_ENDPOINT=https://image-audit.example",
+                        "BAIDU_IMAGE_AUDIT_ACCESS_TOKEN=not-a-real-token",
+                        "LOGISTICS_ENDPOINT=https://logistics.example",
+                        "LOGISTICS_API_KEY=not-a-real-key");
     }
 }
