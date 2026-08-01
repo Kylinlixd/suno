@@ -2,7 +2,7 @@
 
 ## Status
 
-Complete. The root project is now the `suno-parent` `pom` aggregator. It declares the eight requested modules in the requested order, centralizes the requested Java, encoding, plugin, test, and dependency versions, and retains Spring Boot `3.5.0`.
+Complete. The root project is now the `suno-parent` `pom` aggregator. It declares the eight requested modules in the requested order, centralizes the requested Java, encoding, plugin, test, and dependency versions, and retains Spring Boot `3.5.16`.
 
 ## TDD evidence
 
@@ -23,7 +23,7 @@ Complete. The root project is now the `suno-parent` `pom` aggregator. It declare
 | --- | ---: | --- |
 | `mvn -f suno-bootstrap/pom.xml -Dtest=ReactorStructureTest test` | 1 | Expected red test failure: root packaging was `jar`. |
 | `mvn -pl suno-bootstrap -am -Dtest=ReactorStructureTest -Dsurefire.failIfNoSpecifiedTests=false test` | 0 | Nine-project reactor built; target test passed 1/1. |
-| `mvn -N help:effective-pom` | 0 | Effective root POM resolved with Boot 3.5.0 and `suno-parent` packaging `pom`. |
+| `mvn -N help:effective-pom` | 0 | Effective root POM resolved with Boot 3.5.16 and `suno-parent` packaging `pom`. |
 | `mvn validate` | 0 | Listed all eight modules in the required reactor order. |
 | `find . -name pom.xml -not -path './target/*' -exec xmllint --noout {} +` | 0 | All POMs are well-formed XML. |
 | `git diff --check` | 0 | No whitespace errors. |
