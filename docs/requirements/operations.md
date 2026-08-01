@@ -517,7 +517,9 @@ flowchart LR
 ### Requirement flow {#ops-040}
 ```mermaid
 flowchart TD
-  A[ADMIN If-None-Match] --> Q[读取策略] --> E{ETag 匹配} -->|是| N[304] -->|否| R[策略]
+  A[ADMIN If-None-Match] --> Q[读取策略] --> E{ETag 匹配}
+  E -->|是| N[304 Not Modified]
+  E -->|否| R[策略响应]
 ```
 ### Current development flow {#ops-040-dev}
 ```mermaid
@@ -527,7 +529,8 @@ sequenceDiagram
   participant S as ConfigCenterService#adminGetReviewStrategyConfig
   C->>A: ADMIN route
   A->>S: read-only configuration
-  S-->>C: 遗留策略和 ETag
+  S-->>C: 遗留策略
+  C->>C: ETag 匹配则 304；不匹配则返回策略
 ```
 ### Target architecture flow
 ```mermaid
@@ -571,7 +574,9 @@ flowchart LR
 ### Requirement flow {#ops-042}
 ```mermaid
 flowchart TD
-  A[ADMIN] --> Q[读取错误码字典] --> E{ETag 匹配} -->|否| R[字典]
+  A[ADMIN] --> Q[读取错误码字典] --> E{ETag 匹配}
+  E -->|是| N[304 Not Modified]
+  E -->|否| R[字典响应]
 ```
 ### Current development flow {#ops-042-dev}
 ```mermaid
@@ -581,7 +586,8 @@ sequenceDiagram
   participant S as ConfigCenterService#adminGlobalErrorCodeDictionary
   C->>A: ADMIN route
   A->>S: in-memory dictionary
-  S-->>C: ETag response
+  S-->>C: 字典 payload
+  C->>C: ETag 匹配则 304；不匹配则返回字典
 ```
 ### Target architecture flow
 ```mermaid
@@ -625,7 +631,9 @@ flowchart LR
 ### Requirement flow {#ops-044}
 ```mermaid
 flowchart TD
-  A[ADMIN] --> Q[读取降噪规则] --> E{ETag 匹配} -->|否| R[规则]
+  A[ADMIN] --> Q[读取降噪规则] --> E{ETag 匹配}
+  E -->|是| N[304 Not Modified]
+  E -->|否| R[规则响应]
 ```
 ### Current development flow {#ops-044-dev}
 ```mermaid
@@ -635,7 +643,8 @@ sequenceDiagram
   participant S as ConfigCenterService#adminAlertNoiseRulesConfig
   C->>A: ADMIN route
   A->>S: read-only config
-  S-->>C: 内存规则
+  S-->>C: 内存规则 payload
+  C->>C: ETag 匹配则 304；不匹配则返回规则
 ```
 ### Target architecture flow
 ```mermaid
@@ -679,7 +688,9 @@ flowchart LR
 ### Requirement flow {#ops-046}
 ```mermaid
 flowchart TD
-  A[ADMIN clientVersion] --> B[汇集配置模块] --> C[计算兼容性] --> R[bundle]
+  A[ADMIN clientVersion/If-None-Match] --> B[汇集配置模块] --> C[计算兼容性] --> E{ETag 匹配}
+  E -->|是| N[304 Not Modified]
+  E -->|否| R[bundle 响应]
 ```
 ### Current development flow {#ops-046-dev}
 ```mermaid
@@ -690,6 +701,7 @@ sequenceDiagram
   C->>A: ADMIN route
   A->>S: bundle assembly
   S-->>C: in-memory bundle
+  C->>C: ETag 匹配则 304；不匹配则返回 bundle
 ```
 ### Target architecture flow
 ```mermaid
@@ -706,7 +718,11 @@ flowchart LR
 ### Requirement flow {#ops-047}
 ```mermaid
 flowchart TD
-  A[ADMIN 模块名] --> V{支持模块} -->|是| Q[读取模块] --> R[模块] -->|否| E[PARAM_INVALID]
+  A[ADMIN 模块名/clientVersion] --> V{支持模块}
+  V -->|否| X[PARAM_INVALID]
+  V -->|是| Q[读取模块] --> E{ETag 匹配}
+  E -->|是| N[304 Not Modified]
+  E -->|否| R[模块响应]
 ```
 ### Current development flow {#ops-047-dev}
 ```mermaid
@@ -717,6 +733,7 @@ sequenceDiagram
   C->>A: ADMIN route
   A->>S: switch moduleName
   S-->>C: 模块或参数错误
+  C->>C: 模块存在时 ETag 匹配则 304；不匹配则返回模块
 ```
 ### Target architecture flow
 ```mermaid
@@ -733,7 +750,9 @@ flowchart LR
 ### Requirement flow {#ops-048}
 ```mermaid
 flowchart TD
-  A[ADMIN] --> Q[读取模块索引] --> R[版本与 digest]
+  A[ADMIN If-None-Match] --> Q[读取模块索引] --> E{ETag 匹配}
+  E -->|是| N[304 Not Modified]
+  E -->|否| R[版本与 digest]
 ```
 ### Current development flow {#ops-048-dev}
 ```mermaid
@@ -744,6 +763,7 @@ sequenceDiagram
   C->>A: ADMIN route
   A->>S: 汇集内存模块
   S-->>C: 索引
+  C->>C: ETag 匹配则 304；不匹配则返回索引
 ```
 ### Target architecture flow
 ```mermaid
