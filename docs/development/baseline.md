@@ -81,18 +81,34 @@ README references missing local script: ./scripts/run-tests.sh
 | 项目 | Task 1 红色基线 | Phase 0 收口证据 |
 |---|---|---|
 | 构建结构 | 单模块，主源码编译失败，0 个测试执行 | 9 个 reactor 项目（parent + 8 个模块）；`./mvnw -DskipITs verify` 成功 |
-| 单元/架构/文档 | 未能开始测试 | 跳过 Docker IT 的 verify 执行 64 个测试，0 failure、0 error、0 skipped；Checkstyle、Enforcer dependency convergence、duplicate-class 与 JaCoCo 已配置门禁均通过 |
+| 单元/架构/文档 | 未能开始测试 | 最终 `-DskipITs verify` 执行 67 个测试，0 failure、0 error、0 skipped；Checkstyle、Enforcer dependency convergence、duplicate-class 与 JaCoCo 已配置门禁均通过 |
 | 文档覆盖 | 无可执行目录校验 | `./scripts/verify-docs.sh` 于 `2026-08-01T16:03:26+08:00` 成功；目录/流程覆盖测试 4 个，0 failure、0 error、0 skipped，未完成内容扫描通过 |
-| 数据库 | JPA `suno_*` 映射与旧 SQL 不一致，默认启动不可靠 | 空 H2 已验证并迁移 7 个版本化 migration 至 `v5900`；dev 启动还应用 repeatable dev seed，共 8 个已应用 migration |
+| 数据库 | JPA `suno_*` 映射与旧 SQL 不一致，默认启动不可靠 | 空 H2 已验证并迁移 7 个版本化 migration 至 `v5900`；dev 启动还应用 repeatable dev seed，共 8 个已应用 migration。隔离本地 MySQL 也已由 Flyway 建立并通过 JPA 校验（7 个版本化 migration、28 张 canonical 表） |
 | 仓库卫生 | 受跟踪 `.class`、已知 demo secret、README 缺失脚本 | `./scripts/verify-repository.sh` 成功；tracked artifact、已知默认 secret 与 README 可执行脚本扫描均无违规 |
 | 生产 profile | staging/prod 可继承 H2 与 mock provider 默认值 | 独立复审发现后已修复：staging/prod 必须提供 `SUNO_DB_URL`、数据库凭据及 real provider endpoint/credential；`FlywayLocationProfileTest` 4/4 通过 |
 
 ### Maven、Flyway 与 Docker 证据
 
-- `./mvnw -DskipITs verify`：退出码 `0`，64 个测试均通过；H2 Flyway 测试验证空库 7 个版本化 migration 和 dev seed replay；覆盖门禁通过。
+- `./mvnw -DskipITs verify`：于 `2026-08-01T17:07:05+08:00` 退出码 `0`，67 个测试均通过；Failsafe integration-test/verify 阶段按该显式本地 flag 跳过。H2 Flyway 测试验证空库 7 个版本化 migration 和 dev seed replay；覆盖门禁通过。
 - `./mvnw verify`：退出码 `0`，总计 `39.572 s`。它不是 MySQL 通过的证据：Failsafe 执行 12 个 integration tests，其中 5 个 skipped（`FlywayMySqlIT` 2、`SchemaInvariantIT` 1、`LegacySchemaCompatibilityIT` 2）。
 - Docker 客户端可用，但 daemon 不可用，原始环境证据为：`Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?` 因此本次没有 Docker-backed MySQL migration 或 schema-invariant 成功结论；Docker 恢复后必须重新执行 `./mvnw verify`。
 - root Enforcer 在本次每次 Maven reactor 执行中均报告 `DependencyConvergence passed`；`git diff --check`、`git status --short`、受跟踪 binary scan 与具体已知 secret scan 均已复核。Flyway H2 validation 在测试与真实 dev 进程中均成功。
+
+### 隔离本地 MySQL 启动证据
+
+于 `2026-08-01`，使用 `mysql` profile 在仅用于本次验证的隔离本地 MySQL
+数据库 `suno_phase0_verify` 上完成启动验证。该记录不包含 URL、用户名、密码或其他
+连接凭据。
+
+- 应用成功启动；Flyway 校验并应用 7 个版本化 migration，规范 schema 包含 28 张 canonical 表。
+- Hibernate/JPA `ddl-auto=validate` 通过；`TINYINT(1)` 布尔映射及
+  `suno_payment_replay_auto_handle_idempotency.response_json` 的 `TEXT` 映射均已随 MySQL 启动路径验证。
+- 匿名 `GET /actuator/health/liveness` 和 `GET /actuator/health/readiness` 均返回 `{"status":"UP"}`。
+- 进程正常完成 graceful shutdown。
+
+这是本地 MySQL 实例的运行时证据，不替代 Docker/Testcontainers 的
+`FlywayMySqlIT`、`SchemaInvariantIT` 或 `LegacySchemaCompatibilityIT`；它们在本机
+Docker daemon 不可用时仍为 skipped，Docker 恢复后仍须执行 `./mvnw verify`。
 
 ### 真实 dev/H2 启动证据
 
@@ -107,7 +123,7 @@ README references missing local script: ./scripts/run-tests.sh
 
 独立复审覆盖构建可重复性、Flyway/schema、文档覆盖与意外行为变化。其一个高优先级发现（staging/prod 继承 H2/mock 默认值）已由 profile 显式外部 MySQL 与 real-provider 设置、以及 4 个 profile 配置测试关闭。两个中优先级发现也已关闭：Docker MySQL 8.4 测试镜像固定为 OCI index digest `sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb`，而 callback-secret 子进程 smoke test 清除所有继承的 `SPRING_*` 输入。仍需在后续工作处理：
 
-- Docker daemon 不可用使本次 MySQL migration、legacy compatibility 和 schema invariant 路径尚未得到本机实证。
+- Docker daemon 不可用使 Docker-backed `FlywayMySqlIT`、legacy compatibility 与 schema-invariant 路径尚未得到本机实证；隔离本地 MySQL 启动已验证 Flyway、Hibernate 映射和健康探针，但不取代这些 Testcontainers 集成测试。
 - Phase 1 仍须解决身份与会话的业务安全缺陷，尤其 refresh replay 分支在回滚事务中撤销/审计不持久化、access token 立即失效语义，以及独立安全事件/outbox 边界；Phase 0 仅记录并守护当前行为。
 
 ### 后续计划入口

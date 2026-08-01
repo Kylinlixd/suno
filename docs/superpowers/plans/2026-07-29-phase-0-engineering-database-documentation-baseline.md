@@ -687,11 +687,15 @@ CI core:
 - [x] Request an independent code review focused on build reproducibility, schema correctness, documentation coverage, and accidental behavior changes; address every verified high-priority finding.
 
 > **Task 15 status (2026-08-01):** local H2, documentation, repository hygiene and
-> non-Docker verification have fresh passing evidence. `./mvnw verify` completed with
-> five Docker-dependent MySQL tests skipped because the local Docker daemon was
-> unavailable; this plan does not treat that as MySQL validation. The review-found
-> staging/prod H2/mock fallback has been remediated and profile-tested. See
-> `docs/development/baseline.md` for exact commands, outputs and remaining risks.
+> non-Docker verification have fresh passing evidence. A separately provisioned,
+> isolated local MySQL database (`suno_phase0_verify`) also started successfully with
+> the `mysql` profile: Flyway validated 7 versioned migrations, Hibernate validation
+> passed against 28 canonical tables, liveness/readiness were `UP`, and shutdown was
+> graceful. This is local runtime evidence, not Docker/Testcontainers evidence:
+> `./mvnw verify` still had five Docker-dependent MySQL tests skipped because the
+> local Docker daemon was unavailable. The review-found staging/prod H2/mock fallback
+> has been remediated and profile-tested. See `docs/development/baseline.md` for
+> exact commands, outputs and remaining risks.
 
 Expected Phase 0 outcome:
 
@@ -715,7 +719,7 @@ Tracked build artifacts and known default secrets: 0
 - [x] The root checkout builds only through committed Maven Wrapper files.
 - [x] All eight approved modules are present and their dependency graph is enforced.
 - [x] The legacy implementation is isolated in bootstrap and compiles without the unused broken wrappers or tracked binary.
-- [ ] A clean H2 and a clean MySQL database are created exclusively by Flyway and validated against all entity mappings. (H2 is fresh-validated; Docker/MySQL remains unverified in this environment.)
+- [x] A clean H2 and a clean isolated local MySQL database are created exclusively by Flyway and validated against all entity mappings. Docker/Testcontainers migration, legacy-compatibility and schema-invariant cases remain unverified while the local Docker daemon is unavailable.
 - [x] Local and CI verification use the same `./mvnw verify` entry point.
 - [x] Every HTTP route, scheduled method, and registered event has exactly one catalog entry, a requirement flow, and a current development flow; each item whose `implementationStatus` is not `implemented` additionally has a target architecture flow and explicit gaps.
 - [x] Requirement, architecture, testing, migration, configuration, release, and rollback guidance is complete and machine-checked.
