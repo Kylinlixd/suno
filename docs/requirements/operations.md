@@ -730,10 +730,15 @@ sequenceDiagram
   participant C as AdminRecycleController#configCenterModule
   participant A as RecycleApplicationService#adminConfigCenterModule
   participant S as ConfigCenterService#adminConfigCenterModule
-  C->>A: ADMIN route
+  C->>A: ADMIN moduleName、clientVersion
+  C->>C: 保留 If-None-Match
   A->>S: switch moduleName
-  S-->>C: 模块或参数错误
-  C->>C: 模块存在时 ETag 匹配则 304；不匹配则返回模块
+  alt 不支持的 moduleName
+    S-->>C: PARAM_INVALID
+  else 支持的 moduleName
+    S-->>C: 模块 payload
+    C->>C: ETag 匹配则 304；不匹配则返回模块
+  end
 ```
 ### Target architecture flow
 ```mermaid
