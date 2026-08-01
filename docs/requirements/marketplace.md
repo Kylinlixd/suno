@@ -674,7 +674,7 @@ flowchart TD
 
 ## MKT-034 商家回复评价
 
-商家回复必须仅由 ADMIN 执行，并记录操作人、审计和一次性/可编辑策略。当前 public mall 路由传入任意 operator，服务没有角色判断。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+商家回复必须仅由 ADMIN 执行，并记录操作人、审计和一次性/可编辑策略。当前该路由虽受 `/api/mall/**` 的通用已认证策略保护，却允许任意已认证主体传入 operator，服务没有角色判断；Phase 3 必须收紧为管理员专用。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-034}
 ```mermaid
