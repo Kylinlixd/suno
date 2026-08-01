@@ -37,11 +37,11 @@ provider:
     mode: mock
     baidu:
       endpoint: ""
-      access-token: ""
+      access-token: ${BAIDU_IMAGE_AUDIT_ACCESS_TOKEN:}
   logistics:
     mode: mock
     endpoint: ""
-    api-key: ""
+    api-key: ${LOGISTICS_API_KEY:}
 
 mall:
   order:
@@ -92,7 +92,7 @@ payment:
 security:
   auth:
     jwt:
-      secret: recycle-mall-demo-jwt-secret-key-please-change
+      secret: ${SUNO_JWT_SECRET}
       expire-minutes: 120
       refresh-expire-minutes: 10080
     export-task:
@@ -101,3 +101,17 @@ security:
       max-running: 3
       default-max-retry: 2
       running-timeout-minutes: 10
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,flyway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+      group:
+        readiness:
+          include: readinessState,db,flywayReadiness

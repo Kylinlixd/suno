@@ -26,3 +26,8 @@ spring:
 payment:
   callback:
     secret: test-payment-callback-secret
+
+security:
+  auth:
+    jwt:
+      secret: test-only-jwt-secret-that-is-not-for-production

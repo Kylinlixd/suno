@@ -27,7 +27,7 @@ Suno Mall 是一个完整的二手商品循环交易平台，覆盖从回收估�
 | 类别 | 技术 | 版本 |
 |------|------|------|
 | 语言 | Java | 25 |
-| 框架 | Spring Boot | 3.5.0 |
+| 框架 | Spring Boot | 3.5.16 |
 | 安全 | Spring Security + OAuth2 Resource Server + JWT | 随 Boot 版本管理 |
 | 模板 | Freemarker | 随 Boot 版本管理 |
 | 持久层 | Spring Data JPA | 随 Boot 版本管理 |
@@ -37,7 +37,8 @@ Suno Mall 是一个完整的二手商品循环交易平台，覆盖从回收估�
 ## 快速启动
 
 ```bash
-# 生成并导出本机开发密钥；不将其提交到仓库
+# 生成并导出本机开发密钥；不要提交这些值或已填充的 .env 文件
+export SUNO_JWT_SECRET="$(openssl rand -base64 48)"
 export PAYMENT_CALLBACK_SECRET="$(openssl rand -hex 32)"
 
 # 构建 bootstrap 模块及其依赖，生成可执行 JAR
@@ -46,21 +47,22 @@ export PAYMENT_CALLBACK_SECRET="$(openssl rand -hex 32)"
 # 默认 H2 内存库启动
 java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar
 
-# MySQL 环境启动
+# MySQL 环境启动（先为 SUNO_DB_USERNAME / SUNO_DB_PASSWORD 创建最小权限账号）
 java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar --spring.profiles.active=mysql
 ```
 
 启动后访问 `http://localhost:8080`。
 
-`PAYMENT_CALLBACK_SECRET` 是支付回调验签密钥，必须通过环境变量或外部配置提供。生产环境应由密钥管理服务注入；不要使用或提交示例值。
+`SUNO_JWT_SECRET` 和 `PAYMENT_CALLBACK_SECRET` 必须通过环境变量或外部配置提供。生产环境应由密钥管理服务注入；不要使用或提交示例值。完整变量表、Profile 说明、Actuator 探针和故障处理见 [配置与运维说明](docs/development/configuration.md)。
 
 ### 环境配置
 
 | 环境 | Profile | 数据库 | 说明 |
 |------|---------|--------|------|
-| 本地开发 | 默认 | H2 内存库 | Flyway 迁移；需要 `PAYMENT_CALLBACK_SECRET` |
-| 本地 MySQL | `mysql` | MySQL | Flyway 迁移；需要 `PAYMENT_CALLBACK_SECRET` |
-| 测试/生产 | `mysql` + 外置配置 | MySQL | 独立库与外部密钥；关闭 demo 凭据 |
+| 本地开发 | 默认 | H2 内存库 | Flyway 迁移；需要 `SUNO_JWT_SECRET` 和 `PAYMENT_CALLBACK_SECRET` |
+| 本地 MySQL | `mysql` | MySQL | Flyway 迁移；还需要 `SUNO_DB_USERNAME` / `SUNO_DB_PASSWORD` |
+| 可选缓存 | `redis` | Redis | 非关键查询缓存；不是 readiness 依赖 |
+| 测试/生产 | `mysql` + 外置配置 | MySQL | 独立库与外部密钥；无 demo 凭据 |
 
 ### 演示账号
 
@@ -72,7 +74,11 @@ java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar --spring.profi
 
 > ⚠️ 演示数据使用 `{noop}` 明文密码，生产环境请改为 `{bcrypt}` 加密。
 
-## 项目结构
+## 模块与文档
+
+根项目是一个八模块 Maven Reactor：`suno-core` 提供共享内核；`suno-identity`、`suno-recycle`、`suno-marketplace`、`suno-payment` 和 `suno-operations` 按业务边界拥有应用代码；`suno-test-support` 提供测试支撑；`suno-bootstrap` 组合 Spring Boot 运行时、迁移和 HTTP 适配器。架构、迁移、测试与开发流程的入口在 [docs/](docs/README.md)。
+
+## 传统 HTTP 适配器结构
 
 ```
 src/main/java/com/suno/mall/
@@ -838,11 +844,11 @@ provider:
 ## 关键配置项
 
 ```yaml
-# JWT
+# 所有可部署密钥来自环境变量；不要把实际值写进 YAML。
 security:
   auth:
     jwt:
-      secret: suno-mall-demo-jwt-secret-key-please-change  # 生产必须替换
+      secret: ${SUNO_JWT_SECRET}
       expire-minutes: 120
       refresh-expire-minutes: 10080
     export-task:
@@ -855,6 +861,7 @@ security:
 # 支付重放
 payment:
   callback:
+    secret: ${PAYMENT_CALLBACK_SECRET}
     replay-consume-fixed-delay-ms: 30000
     replay-consume-batch-size: 20
     replay-max-retry: 3
@@ -886,22 +893,20 @@ mall:
 ## 测试
 
 ```bash
-# 全量测试
-mvn test
+# 全量单元测试
+./mvnw --batch-mode test
 
-# 指定测试类
-mvn -Dtest=AuthSecurityIntegrationTest test
-mvn -Dtest=RecycleApplicationServiceQueryAuditActionsTest test
+# H2 readiness / Actuator 集成测试
+./mvnw -pl suno-bootstrap -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=HealthEndpointIT test
 
 # 项目验证入口
-./mvnw verify
+./mvnw --batch-mode --no-transfer-progress verify
 ./scripts/verify-repository.sh
 ```
 
 ## 生产部署建议
 
-- 🔑 替换 `security.auth.jwt.secret`，使用安全配置中心管理密钥
-- 🔑 通过部署环境注入必需的 `PAYMENT_CALLBACK_SECRET`
+- 🔑 通过部署环境注入 `SUNO_JWT_SECRET` 与 `PAYMENT_CALLBACK_SECRET`
 - 🗄️ 使用最小权限数据库账号
 - 📋 固化审计日志与导出任务保留策略
 - 🔒 密码存储改为 `{bcrypt}` 加密

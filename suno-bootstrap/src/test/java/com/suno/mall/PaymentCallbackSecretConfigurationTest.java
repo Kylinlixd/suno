@@ -35,8 +35,10 @@ class PaymentCallbackSecretConfigurationTest {
         String readme = Files.readString(Path.of("..", "README.md"));
 
         assertTrue(applicationConfiguration.contains("secret: ${PAYMENT_CALLBACK_SECRET}"));
+        assertTrue(applicationConfiguration.contains("secret: ${SUNO_JWT_SECRET}"));
         assertTrue(testApplication.contains("secret: test-payment-callback-secret"));
         assertTrue(readme.contains("PAYMENT_CALLBACK_SECRET"));
+        assertTrue(readme.contains("SUNO_JWT_SECRET"));
         assertTrue(readme.contains("./mvnw -pl suno-bootstrap -am package -DskipUnitTests=true"));
         assertTrue(readme.contains("java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar"));
 
@@ -54,6 +56,7 @@ class PaymentCallbackSecretConfigurationTest {
                 .directory(repositoryRoot.toFile())
                 .redirectErrorStream(true);
         applicationCommand.environment().put("PAYMENT_CALLBACK_SECRET", "command-smoke-test-secret");
+        applicationCommand.environment().put("SUNO_JWT_SECRET", "command-smoke-test-jwt-secret-that-is-not-for-production");
         Process application = applicationCommand.start();
         try {
             assertTrue(waitForStartup(application), "documented command did not start the application");

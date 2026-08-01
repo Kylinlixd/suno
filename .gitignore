@@ -42,6 +42,9 @@ logs/
 .env.*
 !.env.example
 
+# Local verification evidence
+.reports/
+
 # Virtual machine crash logs
 hs_err_pid*
 replay_pid*
