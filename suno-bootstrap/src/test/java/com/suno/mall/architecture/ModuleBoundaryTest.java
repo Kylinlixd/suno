@@ -53,4 +53,16 @@ class ModuleBoundaryTest {
             .that().resideInAPackage("com.suno.mall.payment..")
             .should().onlyDependOnClassesThat().resideInAnyPackage(
                     "com.suno.mall.payment..", "com.suno.mall.marketplace.api..", "com.suno.mall.core..", "java..", "javax..", "jakarta..", "org..", "com.fasterxml..", "io..");
+
+    @ArchTest
+    static final ArchRule operationsMayUseOnlyApprovedFeatureApis = classes()
+            .that().resideInAPackage("com.suno.mall.operations..")
+            .should().onlyDependOnClassesThat().resideInAnyPackage(
+                    "com.suno.mall.operations..",
+                    "com.suno.mall.identity.api..",
+                    "com.suno.mall.recycle.api..",
+                    "com.suno.mall.marketplace.api..",
+                    "com.suno.mall.payment.api..",
+                    "com.suno.mall.core..",
+                    "java..", "javax..", "jakarta..", "org..", "com.fasterxml..", "io..");
 }

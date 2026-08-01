@@ -43,7 +43,6 @@ class PublicEventBoundaryTest {
                     "com.suno.mall.marketplace.api.event..",
                     "com.suno.mall.payment.api.event..",
                     "com.suno.mall.operations.api.event..")
-            .and().haveName("publish")
             .should().haveRawParameterTypes(DomainEvent.class)
             .allowEmptyShould(true);
 
@@ -97,7 +96,6 @@ class PublicEventBoundaryTest {
                 .filter(candidate -> candidate.getPackageName().matches(
                         "com\\.suno\\.mall\\.(identity|recycle|marketplace|payment|operations)\\.api\\.event(\\..*)?"))
                 .forEach(candidate -> Arrays.stream(candidate.reflect().getDeclaredMethods())
-                        .filter(method -> method.getName().equals("publish"))
                         .forEach(method -> assertEquals(
                                 Set.of(DOMAIN_EVENT),
                                 Arrays.stream(method.getParameterTypes())
