@@ -39,7 +39,7 @@ class FlywayLocationProfileTest {
                 .withPropertyValues("spring.profiles.active=mysql");
 
         runner.run(context -> assertThat(context.getEnvironment().getProperty("spring.datasource.url"))
-                .contains("tinyInt1IsBit=false"));
+                .contains("tinyInt1isBit=false"));
     }
 
     @Test

@@ -23,7 +23,7 @@ public interface MySqlContainerSupport {
             .withDatabaseName("suno")
             .withUsername("suno")
             .withPassword("suno-test")
-            .withUrlParam("tinyInt1IsBit", "false")
+            .withUrlParam("tinyInt1isBit", "false")
             .withCommand("--default-time-zone=+00:00", "--character-set-server=utf8mb4")
             .withReuse(reuseRequested());
 

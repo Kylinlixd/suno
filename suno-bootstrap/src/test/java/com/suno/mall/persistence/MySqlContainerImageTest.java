@@ -27,6 +27,6 @@ class MySqlContainerImageTest {
         Map<String, String> urlParameters =
                 (Map<String, String>) parametersField.get(MySqlContainerSupport.mysql());
 
-        assertThat(urlParameters).containsEntry("tinyInt1IsBit", "false");
+        assertThat(urlParameters).containsEntry("tinyInt1isBit", "false");
     }
 }

@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/suno_mall?useSSL=false&serverTimezone=UTC&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=utf8&tinyInt1IsBit=false
+    url: jdbc:mysql://localhost:3306/suno_mall?useSSL=false&serverTimezone=UTC&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=utf8&tinyInt1isBit=false
     # Required external credentials: unresolved placeholders fail startup for this non-dev profile.
     username: ${SUNO_DB_USERNAME}
     password: ${SUNO_DB_PASSWORD}
