@@ -32,6 +32,34 @@ class FlywayLocationProfileTest {
         }
     }
 
+    @Test
+    void stagingAndProdProfilesRequireExternalMysqlAndRealProviders() {
+        for (String profile : List.of("staging", "prod")) {
+            ApplicationContextRunner runner = new ApplicationContextRunner()
+                    .withInitializer(new ConfigDataApplicationContextInitializer())
+                    .withPropertyValues(
+                            "spring.profiles.active=" + profile,
+                            "SUNO_DB_URL=jdbc:mysql://database.example/suno",
+                            "SUNO_DB_USERNAME=suno",
+                            "SUNO_DB_PASSWORD=not-a-real-password",
+                            "BAIDU_IMAGE_AUDIT_ENDPOINT=https://image-audit.example",
+                            "BAIDU_IMAGE_AUDIT_ACCESS_TOKEN=not-a-real-token",
+                            "LOGISTICS_ENDPOINT=https://logistics.example",
+                            "LOGISTICS_API_KEY=not-a-real-key");
+            runner.run(context -> {
+                assertThat(context.getEnvironment().getProperty("spring.datasource.url"))
+                        .as("datasource URL for profile %s", profile)
+                        .isEqualTo("jdbc:mysql://database.example/suno");
+                assertThat(context.getEnvironment().getProperty("provider.image-audit.mode"))
+                        .as("image audit mode for profile %s", profile)
+                        .isEqualTo("real");
+                assertThat(context.getEnvironment().getProperty("provider.logistics.mode"))
+                        .as("logistics mode for profile %s", profile)
+                        .isEqualTo("real");
+            });
+        }
+    }
+
     private static void assertLocations(String profile, List<String> expected) {
         ApplicationContextRunner runner = new ApplicationContextRunner()
                 .withInitializer(new ConfigDataApplicationContextInitializer());

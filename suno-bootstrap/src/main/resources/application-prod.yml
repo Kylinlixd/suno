@@ -1,6 +1,22 @@
 spring:
+  datasource:
+    url: ${SUNO_DB_URL}
+    username: ${SUNO_DB_USERNAME}
+    password: ${SUNO_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 0
+
+provider:
+  image-audit:
+    mode: real
+    baidu:
+      endpoint: ${BAIDU_IMAGE_AUDIT_ENDPOINT}
+      access-token: ${BAIDU_IMAGE_AUDIT_ACCESS_TOKEN}
+  logistics:
+    mode: real
+    endpoint: ${LOGISTICS_ENDPOINT}
+    api-key: ${LOGISTICS_API_KEY}

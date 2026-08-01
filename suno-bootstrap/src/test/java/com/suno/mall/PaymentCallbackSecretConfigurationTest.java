@@ -2,6 +2,7 @@ package com.suno.mall;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
@@ -57,6 +58,15 @@ class PaymentCallbackSecretConfigurationTest {
                 .redirectErrorStream(true);
         applicationCommand.environment().put("PAYMENT_CALLBACK_SECRET", "command-smoke-test-secret");
         applicationCommand.environment().put("SUNO_JWT_SECRET", "command-smoke-test-jwt-secret-that-is-not-for-production");
+        applicationCommand.environment().put("SPRING_PROFILES_ACTIVE", "mysql");
+        applicationCommand.environment().put("SPRING_CONFIG_LOCATION", "file:/unexpected/");
+        applicationCommand.environment().put("SPRING_CONFIG_ADDITIONAL_LOCATION", "file:/unexpected/");
+        applicationCommand.environment().put("SPRING_APPLICATION_JSON", "{\"spring\":{\"profiles\":{\"active\":\"mysql\"}}}");
+        clearInheritedSpringConfiguration(applicationCommand);
+        assertFalse(applicationCommand.environment().containsKey("SPRING_PROFILES_ACTIVE"));
+        assertFalse(applicationCommand.environment().containsKey("SPRING_CONFIG_LOCATION"));
+        assertFalse(applicationCommand.environment().containsKey("SPRING_CONFIG_ADDITIONAL_LOCATION"));
+        assertFalse(applicationCommand.environment().containsKey("SPRING_APPLICATION_JSON"));
         Process application = applicationCommand.start();
         try {
             assertTrue(waitForStartup(application), "documented command did not start the application");
@@ -82,6 +92,10 @@ class PaymentCallbackSecretConfigurationTest {
         String output = new String(process.getInputStream().readAllBytes());
         assertEquals(0, process.exitValue(), output);
         return output;
+    }
+
+    private static void clearInheritedSpringConfiguration(ProcessBuilder applicationCommand) {
+        applicationCommand.environment().keySet().removeIf(key -> key.startsWith("SPRING_"));
     }
 
     private static boolean waitForStartup(Process process) throws IOException, InterruptedException {

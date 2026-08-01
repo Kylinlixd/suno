@@ -6,13 +6,13 @@ All deployable secrets are injected through environment variables. Copy `.env.ex
 |---|---|---|
 | `SUNO_JWT_SECRET` | every application startup | JWT HMAC signing and validation key |
 | `PAYMENT_CALLBACK_SECRET` | every application startup | payment callback signature validation |
-| `SUNO_DB_USERNAME`, `SUNO_DB_PASSWORD` | `mysql` profile | least-privilege MySQL account |
+| `SUNO_DB_URL`, `SUNO_DB_USERNAME`, `SUNO_DB_PASSWORD` | `mysql`、`staging`、`prod` profiles | least-privilege MySQL URL and account |
 | `SUNO_REDIS_HOST`, `SUNO_REDIS_PORT`, `SUNO_REDIS_PASSWORD`, `SUNO_REDIS_DATABASE` | `redis` profile | optional non-critical query cache |
-| `BAIDU_IMAGE_AUDIT_ACCESS_TOKEN`, `LOGISTICS_API_KEY` | real provider mode | external-provider credentials |
+| `BAIDU_IMAGE_AUDIT_ENDPOINT`, `BAIDU_IMAGE_AUDIT_ACCESS_TOKEN`, `LOGISTICS_ENDPOINT`, `LOGISTICS_API_KEY` | `staging`、`prod` and real provider mode | external-provider endpoints and credentials |
 
 ## Profiles
 
-The default profile starts against an in-memory H2 database and runs Flyway migrations. `dev` additionally loads development seed migrations. `mysql` points to a locally reachable MySQL instance and requires the database variables above. Add `redis` only when a Redis service is available; Phase 0 treats it as a cache, so readiness remains based on application state, database connectivity, and Flyway validation.
+The default profile starts against an in-memory H2 database and runs Flyway migrations. `dev` additionally loads development seed migrations. `mysql` points to a locally reachable MySQL instance and requires the database variables above. `staging` and `prod` also require an external MySQL URL and credentials, and force real image-audit and logistics providers; they cannot inherit the H2 or mock-provider defaults. Add `redis` only when a Redis service is available; Phase 0 treats it as a cache, so readiness remains based on application state, database connectivity, and Flyway validation.
 
 ```bash
 export SUNO_JWT_SECRET="$(openssl rand -base64 48)"
@@ -35,7 +35,7 @@ The public probe endpoints are `GET /actuator/health/liveness` and `GET /actuato
 
 ## Troubleshooting
 
-**Docker unavailable.** Docker-backed MySQL integration tests use Testcontainers. Start Docker Desktop or the Docker daemon, verify it with `docker version`, then rerun `./mvnw --batch-mode verify`. H2-only tests can still be targeted with the Maven Wrapper.
+**Docker unavailable.** Docker-backed MySQL integration tests use Testcontainers with the MySQL 8.4 OCI index digest `sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb` (resolved on 2026-08-01). Start Docker Desktop or the Docker daemon, verify it with `docker version`, then rerun `./mvnw --batch-mode verify`. H2-only tests can still be targeted with the Maven Wrapper.
 
 **Flyway checksum mismatch.** Do not edit an applied migration. Restore the committed migration contents, or create a new corrective migration after confirming the target schema. Run `./mvnw -pl suno-bootstrap -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=FlywayH2MigrationTest test` before retrying a deployment.
 

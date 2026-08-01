@@ -2,6 +2,7 @@ package com.suno.mall.testsupport;
 
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -13,7 +14,12 @@ import java.util.UUID;
 /** Shared MySQL 8.4 fixture for Docker-backed integration tests. */
 public interface MySqlContainerSupport {
 
-    MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
+    /** MySQL 8.4 OCI index digest reviewed on 2026-08-01. */
+    String MYSQL_IMAGE = "mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb";
+    DockerImageName MYSQL_IMAGE_NAME = DockerImageName.parse(MYSQL_IMAGE)
+            .asCompatibleSubstituteFor("mysql");
+
+    MySQLContainer<?> MYSQL = new MySQLContainer<>(MYSQL_IMAGE_NAME)
             .withDatabaseName("suno")
             .withUsername("suno")
             .withPassword("suno-test")

@@ -677,14 +677,21 @@ CI core:
 - Modify: `docs/development/baseline.md`
 - Modify: this plan, checking completed tasks
 
-- [ ] Run `./scripts/verify-repository.sh`.
-- [ ] Run `./scripts/verify-docs.sh`.
-- [ ] Run `./mvnw -DskipITs verify` and record unit, architecture, documentation, and coverage results.
-- [ ] Run `./mvnw verify` with Docker and record MySQL migration/invariant results. If Docker is unavailable, preserve the exact environmental failure and do not claim integration success.
-- [ ] Start the application with the dev profile against a new H2 database, request `/actuator/health/liveness` and `/actuator/health/readiness`, confirm readiness reports database and Flyway migration health, and stop it cleanly.
-- [ ] Review `git diff --check`, `git status --short`, dependency convergence, tracked binary scan, secret scan, and Flyway validation.
-- [ ] Update the baseline document with before/after evidence, remaining Phase 1 security risks, and exact next-plan links. Do not state that domain defects are fixed by Phase 0.
-- [ ] Request an independent code review focused on build reproducibility, schema correctness, documentation coverage, and accidental behavior changes; address every verified high-priority finding.
+- [x] Run `./scripts/verify-repository.sh`.
+- [x] Run `./scripts/verify-docs.sh`.
+- [x] Run `./mvnw -DskipITs verify` and record unit, architecture, documentation, and coverage results.
+- [x] Run `./mvnw verify` with Docker and record MySQL migration/invariant results. If Docker is unavailable, preserve the exact environmental failure and do not claim integration success.
+- [x] Start the application with the dev profile against a new H2 database, request `/actuator/health/liveness` and `/actuator/health/readiness`, confirm readiness reports database and Flyway migration health, and stop it cleanly.
+- [x] Review `git diff --check`, `git status --short`, dependency convergence, tracked binary scan, secret scan, and Flyway validation.
+- [x] Update the baseline document with before/after evidence, remaining Phase 1 security risks, and exact next-plan links. Do not state that domain defects are fixed by Phase 0.
+- [x] Request an independent code review focused on build reproducibility, schema correctness, documentation coverage, and accidental behavior changes; address every verified high-priority finding.
+
+> **Task 15 status (2026-08-01):** local H2, documentation, repository hygiene and
+> non-Docker verification have fresh passing evidence. `./mvnw verify` completed with
+> five Docker-dependent MySQL tests skipped because the local Docker daemon was
+> unavailable; this plan does not treat that as MySQL validation. The review-found
+> staging/prod H2/mock fallback has been remediated and profile-tested. See
+> `docs/development/baseline.md` for exact commands, outputs and remaining risks.
 
 Expected Phase 0 outcome:
 
@@ -705,11 +712,11 @@ Tracked build artifacts and known default secrets: 0
 
 ## Phase 0 Exit Criteria
 
-- [ ] The root checkout builds only through committed Maven Wrapper files.
-- [ ] All eight approved modules are present and their dependency graph is enforced.
-- [ ] The legacy implementation is isolated in bootstrap and compiles without the unused broken wrappers or tracked binary.
-- [ ] A clean H2 and a clean MySQL database are created exclusively by Flyway and validated against all entity mappings.
-- [ ] Local and CI verification use the same `./mvnw verify` entry point.
-- [ ] Every HTTP route, scheduled method, and registered event has exactly one catalog entry, a requirement flow, and a current development flow; each item whose `implementationStatus` is not `implemented` additionally has a target architecture flow and explicit gaps.
-- [ ] Requirement, architecture, testing, migration, configuration, release, and rollback guidance is complete and machine-checked.
-- [ ] The baseline report distinguishes completed engineering foundations from the security and domain work intentionally scheduled for Phases 1–5.
+- [x] The root checkout builds only through committed Maven Wrapper files.
+- [x] All eight approved modules are present and their dependency graph is enforced.
+- [x] The legacy implementation is isolated in bootstrap and compiles without the unused broken wrappers or tracked binary.
+- [ ] A clean H2 and a clean MySQL database are created exclusively by Flyway and validated against all entity mappings. (H2 is fresh-validated; Docker/MySQL remains unverified in this environment.)
+- [x] Local and CI verification use the same `./mvnw verify` entry point.
+- [x] Every HTTP route, scheduled method, and registered event has exactly one catalog entry, a requirement flow, and a current development flow; each item whose `implementationStatus` is not `implemented` additionally has a target architecture flow and explicit gaps.
+- [x] Requirement, architecture, testing, migration, configuration, release, and rollback guidance is complete and machine-checked.
+- [x] The baseline report distinguishes completed engineering foundations from the security and domain work intentionally scheduled for Phases 1–5.
