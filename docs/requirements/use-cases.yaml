@@ -684,7 +684,7 @@
   requirementAnchor: ops-020
   developmentAnchor: ops-020-dev
   implementationStatus: partial
-  currentSymbols: [AdminRecycleController#listAuditLogs]
+  currentSymbols: [AdminRecycleController#listAuditLogs, RecycleApplicationService#listAuditLogs, AuditLogService#listAuditLogs]
   targetPhase: 5
   documentationTask: 13
   plannedTests:
@@ -695,81 +695,96 @@
   path: /api/admin/recycle/audit-logs/page
   requirementAnchor: ops-021
   developmentAnchor: ops-021-dev
+  currentSymbols: [AdminRecycleController#pageAuditLogs, RecycleApplicationService#pageAuditLogs, AuditLogService#pageAuditLogs]
 - <<: *operations_http
   id: OPS-022
   path: /api/admin/recycle/audit-logs/export
   requirementAnchor: ops-022
   developmentAnchor: ops-022-dev
+  currentSymbols: [AdminRecycleController#exportAuditLogs, RecycleApplicationService#exportAuditLogsCsv, AuditLogService#exportAuditLogsCsv]
 - <<: *operations_http
   id: OPS-030
   path: /api/admin/recycle/review-risk/summary
   requirementAnchor: ops-030
   developmentAnchor: ops-030-dev
+  currentSymbols: [AdminRecycleController#reviewRiskSummary, RecycleApplicationService#adminReviewRiskSummary, ResaleReviewService#adminReviewRiskSummary]
 - <<: *operations_http
   id: OPS-031
   path: /api/admin/recycle/review-risk/timeline
   requirementAnchor: ops-031
   developmentAnchor: ops-031-dev
+  currentSymbols: [AdminRecycleController#reviewRiskTimeline, RecycleApplicationService#adminReviewRiskTimeline, ResaleReviewService#adminReviewRiskTimeline]
 - <<: *operations_http
   id: OPS-032
   path: /api/admin/recycle/review-risk/top-listings
   requirementAnchor: ops-032
   developmentAnchor: ops-032-dev
+  currentSymbols: [AdminRecycleController#reviewRiskTopListings, RecycleApplicationService#adminReviewRiskTopListings, ResaleReviewService#adminReviewRiskTopListings]
 - <<: *operations_http
   id: OPS-040
   path: /api/admin/recycle/review-strategy
   requirementAnchor: ops-040
   developmentAnchor: ops-040-dev
+  currentSymbols: [AdminRecycleController#getReviewStrategy, RecycleApplicationService#adminGetReviewStrategyConfig, ConfigCenterService#adminGetReviewStrategyConfig]
 - <<: *operations_http
   id: OPS-041
   method: POST
   path: /api/admin/recycle/review-strategy/update
   requirementAnchor: ops-041
   developmentAnchor: ops-041-dev
+  currentSymbols: [AdminRecycleController#updateReviewStrategy, RecycleApplicationService#adminUpdateReviewStrategyConfig, ConfigCenterService#adminUpdateReviewStrategyConfig]
 - <<: *operations_http
   id: OPS-042
   method: GET
   path: /api/admin/recycle/error-codes/global
   requirementAnchor: ops-042
   developmentAnchor: ops-042-dev
+  currentSymbols: [AdminRecycleController#globalErrorCodes, RecycleApplicationService#adminGlobalErrorCodeDictionary, ConfigCenterService#adminGlobalErrorCodeDictionary]
 - <<: *operations_http
   id: OPS-043
   path: /api/admin/recycle/degrade-actions/dictionary
   requirementAnchor: ops-043
   developmentAnchor: ops-043-dev
+  currentSymbols: [AdminRecycleController#degradeActionDictionary, RecycleApplicationService#adminDegradeActionTypeDictionary, ConfigCenterService#adminDegradeActionTypeDictionary]
 - <<: *operations_http
   id: OPS-044
   path: /api/admin/recycle/alert-noise-rules
   requirementAnchor: ops-044
   developmentAnchor: ops-044-dev
+  currentSymbols: [AdminRecycleController#alertNoiseRules, RecycleApplicationService#adminAlertNoiseRulesConfig, ConfigCenterService#adminAlertNoiseRulesConfig]
 - <<: *operations_http
   id: OPS-045
   method: POST
   path: /api/admin/recycle/alert-noise-rules/update
   requirementAnchor: ops-045
   developmentAnchor: ops-045-dev
+  currentSymbols: [AdminRecycleController#updateAlertNoiseRules, RecycleApplicationService#adminUpdateAlertNoiseRulesConfig, ConfigCenterService#adminUpdateAlertNoiseRulesConfig]
 - <<: *operations_http
   id: OPS-046
   method: GET
   path: /api/admin/recycle/config-center/bundle
   requirementAnchor: ops-046
   developmentAnchor: ops-046-dev
+  currentSymbols: [AdminRecycleController#configCenterBundle, RecycleApplicationService#adminConfigCenterBundle, ConfigCenterService#adminConfigCenterBundle]
 - <<: *operations_http
   id: OPS-047
   path: /api/admin/recycle/config-center/module/{moduleName}
   requirementAnchor: ops-047
   developmentAnchor: ops-047-dev
+  currentSymbols: [AdminRecycleController#configCenterModule, RecycleApplicationService#adminConfigCenterModule, ConfigCenterService#adminConfigCenterModule]
 - <<: *operations_http
   id: OPS-048
   path: /api/admin/recycle/config-center/modules
   requirementAnchor: ops-048
   developmentAnchor: ops-048-dev
+  currentSymbols: [AdminRecycleController#configCenterModules, RecycleApplicationService#adminConfigCenterModules, ConfigCenterService#adminConfigCenterModules]
 - <<: *operations_http
   id: OPS-049
   method: POST
   path: /api/admin/recycle/config-center/module-diff
   requirementAnchor: ops-049
   developmentAnchor: ops-049-dev
+  currentSymbols: [AdminRecycleController#configCenterModuleDiff, RecycleApplicationService#adminConfigCenterModuleDiff, ConfigCenterService#adminConfigCenterModuleDiff]
 - &payment_scheduler
   id: PAY-S001
   kind: SCHEDULER
@@ -1062,7 +1077,7 @@
   requirementAnchor: ops-e001
   developmentAnchor: ops-e001-dev
   implementationStatus: absent
-  currentSymbols: [ConfigurationPublished#catalogVersion]
+  currentSymbols: [AuditLogService#logAction]
   targetPhase: 5
   documentationTask: 13
   eventType: AuditRequested
@@ -1074,16 +1089,19 @@
   id: OPS-E002
   eventType: SecurityIncidentRecorded
   implementationStatus: implemented
+  currentSymbols: [SecurityIncidentRecorded#caseId]
   requirementAnchor: ops-e002
   developmentAnchor: ops-e002-dev
 - <<: *operations_event
   id: OPS-E003
   eventType: ExportCompleted
+  currentSymbols: [SecurityEventService#createSecurityExportTask]
   requirementAnchor: ops-e003
   developmentAnchor: ops-e003-dev
 - <<: *operations_event
   id: OPS-E004
   eventType: ConfigurationPublished
   implementationStatus: implemented
+  currentSymbols: [ConfigurationPublished#catalogVersion]
   requirementAnchor: ops-e004
   developmentAnchor: ops-e004-dev

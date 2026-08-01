@@ -68,7 +68,9 @@ def symbol_exists(symbol):
     class_name, method = symbol.split("#", 1)
     for source in root.glob("**/*.java"):
         content = source.read_text(encoding="utf-8")
-        if re.search(r"\b(class|interface|record)\s+" + re.escape(class_name) + r"\b", content) and re.search(r"\b" + re.escape(method) + r"\s*\(", content):
+        declared_method = re.search(r"\b" + re.escape(method) + r"\s*\(", content)
+        record_component = re.search(r"\brecord\s+" + re.escape(class_name) + r"\s*\([^)]*\b" + re.escape(method) + r"\b", content, re.DOTALL)
+        if re.search(r"\b(class|interface|record)\s+" + re.escape(class_name) + r"\b", content) and (declared_method or record_component):
             return True
     return False
 

@@ -46,6 +46,8 @@ class DocumentationCatalogCoverageTest {
             "invariants", "errors", "requirementDoc", "requirementAnchor", "developmentAnchor",
             "implementationStatus", "currentSymbols", "targetPhase", "documentationTask");
     private static final Set<Integer> TASKS = Set.of(9, 10, 11, 12, 13);
+    private static final List<Class<?>> CONCRETE_CLASSES = importedClasses(new ImportOption.DoNotIncludeTests());
+    private static final List<Class<?>> TEST_CLASSES = importedClasses();
     private static final Map<String, String> EXPECTED_HTTP = expected("""
 IDN-001|POST|/api/auth/login|Identity
 IDN-002|GET|/api/auth/me|Identity
@@ -347,13 +349,19 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
     }
 
     private static List<Class<?>> concreteClasses() {
-        return new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests()).importPackages("com.suno.mall")
-                .stream().filter(candidate -> !candidate.isInterface() && !candidate.isAnnotation() && !candidate.isEnum())
-                .<Class<?>>map(candidate -> candidate.reflect()).collect(Collectors.toList());
+        return CONCRETE_CLASSES;
     }
 
     private static List<Class<?>> testClasses() {
-        return new ClassFileImporter().importPackages("com.suno.mall").stream()
+        return TEST_CLASSES;
+    }
+
+    private static List<Class<?>> importedClasses(ImportOption... options) {
+        ClassFileImporter importer = new ClassFileImporter();
+        for (ImportOption option : options) {
+            importer = importer.withImportOption(option);
+        }
+        return importer.importPackages("com.suno.mall").stream()
                 .filter(candidate -> !candidate.isInterface() && !candidate.isAnnotation() && !candidate.isEnum())
                 .<Class<?>>map(candidate -> candidate.reflect()).collect(Collectors.toList());
     }
