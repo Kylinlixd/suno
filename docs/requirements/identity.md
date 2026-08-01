@@ -78,8 +78,11 @@ flowchart TD
 sequenceDiagram
   participant C as AuthController#sessions
   participant A as AuthApplicationService#listActiveSessions
-  C->>A: READ_COMMITTED 只读，以 JWT subject 查询
-  A-->>C: 活动 refresh 会话；不改令牌、不审计
+  participant S as AuthSessionService#listActiveSessions
+  C->>A: REQUIRED、READ_COMMITTED 只读，以 JWT subject 查询
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务
+  S-->>A: 活动 refresh 会话；不改令牌、不审计
+  A-->>C: 会话列表
 ```
 ### Target architecture flow
 ```mermaid
@@ -106,8 +109,11 @@ flowchart TD
 sequenceDiagram
   participant C as AuthController#revokeDevice
   participant A as AuthApplicationService#revokeDeviceSession
-  C->>A: @AuthTransactional 本人 subject、设备会话撤销、审计
-  A-->>C: revokedCount 或业务错误
+  participant S as AuthSessionService#revokeDeviceSession
+  C->>A: @AuthTransactional REQUIRES_NEW，本人 subject
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后撤销并审计
+  S-->>A: revokedCount 或业务错误
+  A-->>C: revokedCount
 ```
 ### Target architecture flow
 ```mermaid
@@ -135,7 +141,10 @@ flowchart TD
 sequenceDiagram
   participant C as AuthController#revokeAll
   participant A as AuthApplicationService#revokeAllSessions
-  C->>A: @AuthTransactional 本人 subject、全部会话撤销、审计
+  participant S as AuthSessionService#revokeAllSessions
+  C->>A: @AuthTransactional REQUIRES_NEW，本人 subject
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后全部撤销并审计
+  S-->>A: revokedCount
   A-->>C: revokedCount
 ```
 ### Target architecture flow
@@ -180,7 +189,7 @@ flowchart TD
 
 ## IDN-007 刷新令牌轮换
 
-匿名刷新请求必须提供 refreshToken；服务清理过期 token，校验 token 存在、未撤销、未过期且设备匹配，先撤销旧 token 再创建新令牌/同设备会话并审计。发现重放会撤销该用户全部活动 refresh token 并记录安全事件；错误包括 `PARAM_INVALID`、`AUTH_REFRESH_TOKEN_INVALID`、`AUTH_REFRESH_TOKEN_EXPIRED`、`AUTH_REFRESH_TOKEN_DEVICE_MISMATCH`、`AUTH_REFRESH_REPLAY_BLOCKED`。所有变更在 `@AuthTransactional` 内。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`IdentityUseCaseWebTest#documentsIdentityUseCase`。
+匿名刷新请求必须提供 refreshToken；服务清理过期 token，校验 token 存在、未撤销、未过期且设备匹配，先撤销旧 token 再创建新令牌/同设备会话并审计。发现重放时，代码会在抛出 `BizException` 前尝试撤销该用户全部活动 refresh token 并写重放审计；但 `@AuthTransactional(rollbackFor = Exception.class)` 随后回滚该事务，因此这些写入不会持久化。错误包括 `PARAM_INVALID`、`AUTH_REFRESH_TOKEN_INVALID`、`AUTH_REFRESH_TOKEN_EXPIRED`、`AUTH_REFRESH_TOKEN_DEVICE_MISMATCH`、`AUTH_REFRESH_REPLAY_BLOCKED`。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`IdentityUseCaseWebTest#documentsIdentityUseCase`。
 
 ### Requirement flow {#idn-007}
 ```mermaid
@@ -189,15 +198,15 @@ flowchart TD
   V --> R[原子撤销旧 token 并创建新会话]
   R --> A[记录刷新审计]
   A --> O[返回新令牌]
-  V -->|重放| X[撤销全部会话并记录安全事件]
+  V -->|重放| X[撤销全部会话并记录安全事实]
 ```
 ### Current development flow {#idn-007-dev}
 ```mermaid
 sequenceDiagram
   participant C as AuthController#refresh
   participant A as AuthApplicationService#refresh
-  C->>A: @AuthTransactional 校验、轮换 refresh、审计/重放阻断
-  A-->>C: 新 token 或明确错误码
+  C->>A: @AuthTransactional 校验、轮换 refresh、审计
+  A-->>C: 重放时先写撤销/审计，再抛 BizException；事务回滚
 ```
 ### Target architecture flow
 ```mermaid
@@ -207,11 +216,11 @@ flowchart TD
   P --> E[RefreshSessionRotated v1]
 ```
 ### Gaps
-- targetPhase: 1；当前轮换和重放审计已存在，但没有公开的刷新/安全事件边界。
+- targetPhase: 1；当前重放分支的撤销和审计会随 `BizException` 回滚，需用独立持久化边界/outbox 保证阻断事实和安全事件可持久化；同时没有公开刷新/安全事件边界。
 
 ## IDN-101 管理员查询用户会话
 
-管理员以 username 查询目标用户未撤销 refresh 会话；路由由 ADMIN 角色保护。当前查询会记录 `AUTH_ADMIN_SESSION_QUERY` 审计，使用 READ_COMMITTED 只读事务；不存在账户不会预先校验而是返回空会话集合。非管理员为 `AUTH_FORBIDDEN`。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`IdentityUseCaseWebTest#documentsIdentityUseCase`。
+管理员以 username 查询目标用户未撤销 refresh 会话；路由由 ADMIN 角色保护。当前查询调用 `AUTH_ADMIN_SESSION_QUERY` 审计写入逻辑，但该调用加入 READ_COMMITTED 只读事务，本文不将其表述为独立持久化边界；不存在账户不会预先校验而是返回空会话集合。非管理员为 `AUTH_FORBIDDEN`。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`IdentityUseCaseWebTest#documentsIdentityUseCase`。
 
 ### Requirement flow {#idn-101}
 ```mermaid
@@ -225,8 +234,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#listUserSessions
   participant A as AuthApplicationService#adminListUserSessions
-  C->>A: ADMIN 路由，READ_COMMITTED 只读，查询并审计
-  A-->>C: 目标用户会话列表
+  participant S as AuthSessionService#adminListUserSessions
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，查询并尝试审计
+  S-->>A: 目标用户会话列表
+  A-->>C: 会话列表
 ```
 ### Target architecture flow
 ```mermaid
@@ -253,7 +265,10 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#revokeUserDevice
   participant A as AuthApplicationService#adminRevokeUserDeviceSession
-  C->>A: ADMIN 路由，@AuthTransactional 撤销目标设备并审计
+  participant S as AuthSessionService#adminRevokeUserDeviceSession
+  C->>A: ADMIN 路由，@AuthTransactional REQUIRES_NEW
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后撤销并审计
+  S-->>A: revokedCount
   A-->>C: revokedCount
 ```
 ### Target architecture flow
@@ -282,7 +297,10 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#revokeUserAll
   participant A as AuthApplicationService#adminRevokeUserAllSessions
-  C->>A: ADMIN 路由，@AuthTransactional 全部撤销并审计
+  participant S as AuthSessionService#adminRevokeUserAllSessions
+  C->>A: ADMIN 路由，@AuthTransactional REQUIRES_NEW
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后全部撤销并审计
+  S-->>A: revokedCount
   A-->>C: revokedCount
 ```
 ### Target architecture flow

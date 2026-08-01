@@ -18,8 +18,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#securityEventsSummary
   participant A as AuthApplicationService#adminSecurityEventsSummary
-  C->>A: ADMIN 路由，READ_COMMITTED 只读汇总
-  A-->>C: 摘要；无 token/会话/审计写入
+  participant S as SecurityEventService#adminSecurityEventsSummary
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务汇总
+  S-->>A: 摘要；无 token/会话/审计写入
+  A-->>C: 摘要
 ```
 ### Target architecture flow
 ```mermaid
@@ -47,8 +50,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#securityEventsTimeline
   participant A as AuthApplicationService#adminSecurityEventsTimeline
-  C->>A: ADMIN 路由，READ_COMMITTED 只读时间线
-  A-->>C: points；无 token/会话/审计写入
+  participant S as SecurityEventService#adminSecurityEventsTimeline
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务生成时间线
+  S-->>A: points；无 token/会话/审计写入
+  A-->>C: 时间线
 ```
 ### Target architecture flow
 ```mermaid
@@ -75,8 +81,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#securityRiskUsersTop
   participant A as AuthApplicationService#adminSecurityRiskUsersTop
-  C->>A: ADMIN 路由，READ_COMMITTED 只读风险聚合
-  A-->>C: users；无 token/会话/审计写入
+  participant S as SecurityEventService#adminSecurityRiskUsersTop
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务聚合风险
+  S-->>A: users；无 token/会话/审计写入
+  A-->>C: 风险用户
 ```
 ### Target architecture flow
 ```mermaid
@@ -88,12 +97,12 @@ flowchart TD
 
 ## OPS-004 同步旧版安全导出
 
-管理员请求 type（summary/timeline/risk-users-top）、format（json/csv）及过滤参数，直接生成内容并用下载响应返回；不支持 type 为 `PARAM_INVALID`。当前摘要/时间线/风险聚合发生在只读调用中，渲染不声明事务；不创建导出任务、不改 token/会话，仅读取既有审计。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`OperationsSecurityWebTest#documentsSecurityOperation`。
+管理员请求 type（summary/timeline/risk-users-top）、format 及过滤参数，直接生成内容并用下载响应返回；不支持 type 为 `PARAM_INVALID`。当前代码只在生成 payload 时校验 type；format 没有独立校验，只有大小写不敏感的 `csv` 输出 CSV，其余任何 format 均按 JSON 响应。摘要/时间线/风险聚合发生在只读调用中，渲染不声明事务；不创建导出任务、不改 token/会话，仅读取既有审计。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`OperationsSecurityWebTest#documentsSecurityOperation`。
 
 ### Requirement flow {#ops-004}
 ```mermaid
 flowchart TD
-  A[ADMIN 导出参数] --> V[校验 type/format]
+  A[ADMIN 导出参数] --> V[校验 type]
   V --> Q[生成安全数据]
   Q --> F[渲染 JSON 或 CSV]
   F --> R[下载响应]
@@ -106,8 +115,14 @@ sequenceDiagram
   participant B as AuthApplicationService#buildSecurityExportPayload
   participant R as AuthApplicationService#renderSecurityExportContent
   C->>B: ADMIN 路由，读取导出 payload
-  B->>R: 渲染 json/csv
-  R-->>C: attachment；无任务/会话/审计写入
+  participant S as SecurityEventService#buildSecurityExportPayload
+  participant E as SecurityEventService#renderSecurityExportContent
+  C->>B: ADMIN 路由，REQUIRED、READ_COMMITTED 只读；仅校验 type
+  B->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务并生成 payload
+  S-->>B: payload 或 PARAM_INVALID
+  C->>R: format 未独立校验
+  R->>E: csv 输出 CSV；非 csv 一律 JSON
+  E-->>C: attachment；无任务/会话/审计写入
 ```
 ### Target architecture flow
 ```mermaid
@@ -117,7 +132,7 @@ flowchart TD
   P --> D[异步下载契约]
 ```
 ### Gaps
-- targetPhase: 1；同步旧接口直接渲染，尚未迁移到可追踪的异步导出用例。
+- targetPhase: 1；同步旧接口直接渲染，format 未形成受限契约（非 csv 均为 JSON），尚未迁移到可追踪的异步导出用例。
 
 ## OPS-005 创建安全导出任务
 
@@ -137,8 +152,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#createSecurityEventsExportTask
   participant A as AuthApplicationService#createSecurityExportTask
-  C->>A: ADMIN 路由，@AuthTransactional 幂等、任务、执行、审计
-  A-->>C: 任务/复用结果或错误
+  participant S as SecurityEventService#createSecurityExportTask
+  C->>A: ADMIN 路由，@AuthTransactional REQUIRES_NEW
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后幂等、任务、执行、审计
+  S-->>A: 任务/复用结果或错误
+  A-->>C: 任务
 ```
 ### Target architecture flow
 ```mermaid
@@ -167,8 +185,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#retrySecurityEventsExportTask
   participant A as AuthApplicationService#retrySecurityExportTask
-  C->>A: ADMIN 路由，@AuthTransactional 重试计数、执行、审计
-  A-->>C: 任务或状态冲突/不存在错误
+  participant S as SecurityEventService#retrySecurityExportTask
+  C->>A: ADMIN 路由，@AuthTransactional REQUIRES_NEW
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后重试计数、执行、审计
+  S-->>A: 任务或状态冲突/不存在错误
+  A-->>C: 任务
 ```
 ### Target architecture flow
 ```mermaid
@@ -194,8 +215,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#getSecurityEventsExportTask
   participant A as AuthApplicationService#getSecurityExportTask
-  C->>A: ADMIN 路由，READ_COMMITTED 只读任务查询
-  A-->>C: 任务详情或不存在错误
+  participant S as SecurityEventService#getSecurityExportTask
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务查询
+  S-->>A: 任务详情或不存在错误
+  A-->>C: 任务详情
 ```
 ### Target architecture flow
 ```mermaid
@@ -222,8 +246,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#downloadSecurityEventsExportTask
   participant A as AuthApplicationService#getSecurityExportTaskDownload
-  C->>A: ADMIN 路由，READ_COMMITTED 只读并验证 SUCCESS
-  A-->>C: 内容附件或错误
+  participant S as SecurityEventService#getSecurityExportTaskDownload
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务并验证 SUCCESS
+  S-->>A: 内容或错误
+  A-->>C: 内容附件
 ```
 ### Target architecture flow
 ```mermaid
@@ -249,8 +276,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#listSecurityEventsExportTasks
   participant A as AuthApplicationService#listSecurityExportTasks
-  C->>A: ADMIN 路由，READ_COMMITTED 只读分页
-  A-->>C: items；无 token/会话/审计写入
+  participant S as SecurityEventService#listSecurityExportTasks
+  C->>A: ADMIN 路由，REQUIRED、READ_COMMITTED 只读
+  A->>S: REQUIRED、READ_COMMITTED 只读，加入当前事务分页
+  S-->>A: items；无 token/会话/审计写入
+  A-->>C: 分页结果
 ```
 ### Target architecture flow
 ```mermaid
@@ -276,8 +306,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminAuthController#cleanupSecurityEventsExportTasks
   participant A as AuthApplicationService#cleanupSecurityExportTasks
-  C->>A: ADMIN 路由，@AuthTransactional 清理完成任务
-  A-->>C: deletedCount；无 token/会话/审计写入
+  participant S as SecurityEventService#cleanupSecurityExportTasks
+  C->>A: ADMIN 路由，@AuthTransactional REQUIRES_NEW
+  A->>S: @AuthTransactional REQUIRES_NEW，挂起外层后清理完成任务
+  S-->>A: deletedCount；无 token/会话/审计写入
+  A-->>C: 删除统计
 ```
 ### Target architecture flow
 ```mermaid
@@ -289,7 +322,7 @@ flowchart TD
 
 ## OPS-S001 安全导出任务定时清理
 
-scheduler 按 `security.auth.export-task.cleanup-fixed-delay-ms`（默认 3600000ms）触发，无外部身份或 HTTP 授权；使用配置 retain-days 删除过期完成任务，并将超时 RUNNING 任务置 FAILED、写超时安全审计。整个调度方法为 `@AuthTransactional`；异常按 `RETRYABLE_FAILURE` 处理，当前未定义独立失败告警事件。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`OperationsSchedulerTest#documentsOperationsScheduler`。
+scheduler 按 `security.auth.export-task.cleanup-fixed-delay-ms`（默认 3600000ms）触发，无外部身份或 HTTP 授权；使用配置 retain-days 删除过期完成任务，并将超时 RUNNING 任务置 FAILED、写超时安全审计。整个调度方法为 `@AuthTransactional`。当前方法没有 catch、重试循环或错误码映射：若内部操作抛出异常，事务按异常回滚并由调度基础设施处理该次失败；该方法自身只会等待后续 fixed-delay 调度。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`OperationsSchedulerTest#documentsOperationsScheduler`。
 
 ### Requirement flow {#ops-s001}
 ```mermaid
@@ -304,6 +337,7 @@ flowchart TD
 flowchart TD
   S[SecurityEventService#scheduledCleanupSecurityExportTasks] --> C[@AuthTransactional 清理完成任务]
   C --> T[标记超时任务并记录审计]
+  C -->|异常| R[事务回滚；本方法无 catch/重试/错误码映射]
 ```
 ### Target architecture flow
 ```mermaid
