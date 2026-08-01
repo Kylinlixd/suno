@@ -33,6 +33,16 @@ class FlywayLocationProfileTest {
     }
 
     @Test
+    void mysqlProfileKeepsTinyintOneColumnsAsTinyintForHibernateValidation() {
+        ApplicationContextRunner runner = new ApplicationContextRunner()
+                .withInitializer(new ConfigDataApplicationContextInitializer())
+                .withPropertyValues("spring.profiles.active=mysql");
+
+        runner.run(context -> assertThat(context.getEnvironment().getProperty("spring.datasource.url"))
+                .contains("tinyInt1IsBit=false"));
+    }
+
+    @Test
     void stagingAndProdProfilesRequireExternalMysqlAndRealProviders() {
         for (String profile : List.of("staging", "prod")) {
             ApplicationContextRunner runner = new ApplicationContextRunner()
