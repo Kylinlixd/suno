@@ -885,17 +885,9 @@ mvn test
 mvn -Dtest=AuthSecurityIntegrationTest test
 mvn -Dtest=RecycleApplicationServiceQueryAuditActionsTest test
 
-# 使用项目脚本
-./scripts/run-tests.sh all        # 全量
-./scripts/run-tests.sh query      # query-audit-actions 契约测试
-./scripts/run-tests.sh app        # application 层测试
-./scripts/run-tests.sh self-check # 脚本自检
-./scripts/run-tests.sh list       # 列出可用范围
-
-# CI 入口
-./scripts/run-tests-ci.sh         # 默认 query
-./scripts/run-tests-ci.sh all     # 全量
-./scripts/run-tests-ci.sh query --json  # 机器可读输出
+# 项目验证入口
+./mvnw verify
+./scripts/verify-repository.sh
 ```
 
 ## 生产部署建议

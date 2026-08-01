@@ -20,7 +20,7 @@ public class PaymentSignatureService {
         this.paymentNonceRepository = paymentNonceRepository;
     }
 
-    @Value("${payment.callback.secret:demo-payment-secret}")
+    @Value("${payment.callback.secret}")
     private String callbackSecret;
 
     @Value("${payment.callback.max-skew-seconds:300}")

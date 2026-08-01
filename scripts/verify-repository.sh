@@ -35,7 +35,7 @@ for script in $(awk '
     }
   }
 ' "$readme_file" | sort -u); do
-  if [ ! -f "$script" ]; then
+  if [ ! -f "$script" ] || [ ! -x "$script" ]; then
     echo "README references missing local script: $script" >&2
     failed=1
   fi

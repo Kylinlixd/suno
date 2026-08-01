@@ -1,6 +1,7 @@
 
 # Compiled class files
 target/
+*.class
 
 # IDE - IntelliJ IDEA
 .idea/
@@ -35,6 +36,11 @@ logs/
 
 # Maven
 *.lastUpdated
+
+# Local secrets
+.env
+.env.*
+!.env.example
 
 # Virtual machine crash logs
 hs_err_pid*

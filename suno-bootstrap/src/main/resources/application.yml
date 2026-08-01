@@ -69,7 +69,7 @@ mall:
 
 payment:
   callback:
-    secret: demo-payment-secret
+    secret: ${PAYMENT_CALLBACK_SECRET}
     max-skew-seconds: 300
     nonce-cleanup-fixed-delay-ms: 300000
     response-mode: json

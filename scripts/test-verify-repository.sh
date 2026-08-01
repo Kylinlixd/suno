@@ -22,7 +22,7 @@ expect_absent() {
   fi
 }
 
-expect_present './mvnw'
+expect_absent './mvnw'
 expect_present 'bin/reconcile'
 expect_present 'tools/reindex'
 expect_present './tools/release.custom'

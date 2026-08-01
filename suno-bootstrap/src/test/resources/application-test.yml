@@ -22,3 +22,7 @@ spring:
   task:
     scheduling:
       enabled: false
+
+payment:
+  callback:
+    secret: test-payment-callback-secret
