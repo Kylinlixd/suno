@@ -117,7 +117,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#pageCallbackLogs
   participant A as RecycleApplicationService#pagePaymentCallbackLogs
+  participant P as PaymentReplayService#pagePaymentCallbackLogs
   C->>A: ADMIN 只读分页
+  A->>P: 委托回调日志查询
   A-->>C: 日志页
 ```
 ### Target architecture flow
@@ -130,7 +132,7 @@ flowchart TD
 
 ## PAY-102 同步重放回调
 
-ADMIN 按 callbackLogId 重放。存在日志时，当前实现直接按 orderNo 查订单；UNPAID 应用 PAID/TO_DELIVER，已支付视为幂等成功，随后更新 callback log 为 REPLAY_SUCCESS。异常更新 REPLAY_FAILED 后抛出；它不重新验签、不预约 nonce，也不重新比较签名。计划测试（Phase 2）：`PaymentUseCaseWebTest#documentsPaymentUseCase`。
+ADMIN 按 callbackLogId 重放。存在日志时，当前实现直接按 orderNo 查订单；UNPAID 应用 PAID/TO_DELIVER，但**每一种**非 UNPAID 状态都未经校验地视为重放成功，随后更新 callback log 为 REPLAY_SUCCESS。也就是说 PAID、CANCELLED、REFUNDED 等均不会产生 `ORDER_STATUS_CONFLICT`；这不是安全的幂等语义。异常才更新 REPLAY_FAILED 后抛出；它不重新验签、不预约 nonce，也不重新比较签名。计划测试（Phase 2）：`PaymentUseCaseWebTest#documentsPaymentUseCase`。
 
 ### Requirement flow {#pay-102}
 ```mermaid
@@ -138,9 +140,10 @@ flowchart TD
   A[ADMIN callbackLogId] --> L[读取原 callback log]
   L --> O{订单 UNPAID}
   O -->|是| P[应用 PAID/TO_DELIVER]
-  O -->|否| I[已支付幂等]
+  O -->|否| I[当前任意非 UNPAID 均 REPLAY_SUCCESS]
   P --> S[REPLAY_SUCCESS、计数加一]
   I --> S
+  I --> G[危险：CANCELLED/REFUNDED 未拒绝]
   L -->|异常| F[REPLAY_FAILED、计数加一]
 ```
 ### Current development flow {#pay-102-dev}
@@ -148,8 +151,11 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayCallback
   participant A as RecycleApplicationService#replayPaymentCallback
+  participant P as PaymentReplayService#replayPaymentCallback
   C->>A: ADMIN 同步重放
-  A-->>C: 成功、幂等或异常
+  A->>P: 委托实际重放
+  P-->>A: UNPAID 应用；非 UNPAID 也成功；或异常
+  A-->>C: REPLAY_SUCCESS 或 REPLAY_FAILED
 ```
 ### Target architecture flow
 ```mermaid
@@ -157,7 +163,7 @@ flowchart TD
   C[Admin replay adapter] --> P[PaymentEventProcessor] --> T[重放事务和稳定 ack]
 ```
 ### Gaps
-- targetPhase: 2；当前重放绕过验签并直接改订单/日志，缺少统一事件处理器及可审计的边界。
+- targetPhase: 2；当前重放绕过验签并直接改订单/日志，且把 CANCELLED/REFUNDED 等任意非 UNPAID 状态误报为成功。目标处理器必须仅把已 PAID 识别为可关联的幂等完成，并将 CANCELLED、REFUNDED 与其它非法状态稳定拒绝为 `ORDER_STATUS_CONFLICT`，再在事务边界内写 ack/事件。
 
 ## PAY-103 入队重放任务
 
@@ -177,7 +183,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#enqueueReplay
   participant A as RecycleApplicationService#enqueueReplayTask
+  participant P as PaymentReplayService#enqueueReplayTask
   C->>A: ADMIN 创建或复用任务
+  A->>P: 委托入队
   A-->>C: PENDING 或 deduplicated
 ```
 ### Target architecture flow
@@ -207,7 +215,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#consumeReplayQueue
   participant A as RecycleApplicationService#consumeReplayTasks
+  participant P as PaymentReplayService#consumeReplayTasks
   C->>A: ADMIN 批量消费
+  A->>P: 委托消费/退避/DEAD
   A-->>C: processed/success/retriableFailed/dead
 ```
 ### Target architecture flow
@@ -234,7 +244,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#pageReplayTasks
   participant A as RecycleApplicationService#pageReplayTasks
+  participant P as PaymentReplayService#pageReplayTasks
   C->>A: ADMIN 只读分页
+  A->>P: 委托任务查询
   A-->>C: 重放任务页
 ```
 ### Target architecture flow
@@ -260,7 +272,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayTaskSummary
   participant A as RecycleApplicationService#replayTaskSummary
+  participant P as PaymentReplayService#replayTaskSummary
   C->>A: ADMIN 只读汇总
+  A->>P: 委托状态计数
   A-->>C: 状态计数
 ```
 ### Target architecture flow
@@ -288,7 +302,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayQueryAuditActions
   participant A as RecycleApplicationService#replayQueryAuditActions
+  participant P as PaymentReplayService#replayQueryAuditActions
   C->>A: ADMIN 查询字典
+  A->>P: 委托字典和查询审计
   A-->>C: 字典和 requestId
 ```
 ### Target architecture flow
@@ -318,7 +334,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayTaskHealth
   participant A as RecycleApplicationService#replayTaskHealth
+  participant P as PaymentReplayService#replayTaskHealth
   C->>A: ADMIN 健康查询
+  A->>P: 委托健康计算
   A-->>C: OK/WARN 指标与告警
 ```
 ### Target architecture flow
@@ -347,7 +365,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayTaskDiagnosis
   participant A as RecycleApplicationService#replayTaskDiagnosis
+  participant P as PaymentReplayService#replayTaskDiagnosis
   C->>A: ADMIN 诊断
+  A->>P: 委托诊断
   A-->>C: 建议和状态
 ```
 ### Target architecture flow
@@ -377,7 +397,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayCleanupPerformanceCheck
   participant A as RecycleApplicationService#replayCleanupPerformanceCheck
+  participant P as PaymentReplayService#replayCleanupPerformanceCheck
   C->>A: ADMIN 性能验收
+  A->>P: 委托审计解析
   A-->>C: PASS/WARN
 ```
 ### Target architecture flow
@@ -410,7 +432,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#replayTaskAutoHandle
   participant A as RecycleApplicationService#replayTaskAutoHandle
+  participant P as PaymentReplayService#replayTaskAutoHandle
   C->>A: ADMIN、operator、traceId
+  A->>P: 委托幂等、诊断和队列动作
   A-->>C: 缓存响应或已执行动作
 ```
 ### Target architecture flow
@@ -438,7 +462,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#pageReplayAutoHandleIdempotencyRecords
   participant A as RecycleApplicationService#pageReplayAutoHandleIdempotencyRecords
+  participant P as PaymentReplayService#pageReplayAutoHandleIdempotencyRecords
   C->>A: ADMIN 只读筛选
+  A->>P: 委托记录查询
   A-->>C: 幂等记录页
 ```
 ### Target architecture flow
@@ -465,7 +491,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#getReplayAutoHandleIdempotencyDetail
   participant A as RecycleApplicationService#getReplayAutoHandleIdempotencyDetail
+  participant P as PaymentReplayService#getReplayAutoHandleIdempotencyDetail
   C->>A: ADMIN 只读详情
+  A->>P: 委托详情查询
   A-->>C: 响应快照或错误
 ```
 ### Target architecture flow
@@ -493,7 +521,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#deleteReplayAutoHandleIdempotencyByTraceId
   participant A as RecycleApplicationService#deleteReplayAutoHandleIdempotencyByTraceId
+  participant P as PaymentReplayService#deleteReplayAutoHandleIdempotencyByTraceId
   C->>A: ADMIN 删除 trace 缓存
+  A->>P: 委托删除
   A-->>C: deleted
 ```
 ### Target architecture flow
@@ -521,7 +551,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#batchDeleteReplayAutoHandleIdempotencyBefore
   participant A as RecycleApplicationService#batchDeleteReplayAutoHandleIdempotencyBefore
+  participant P as PaymentReplayService#batchDeleteReplayAutoHandleIdempotencyBefore
   C->>A: ADMIN 批量删除
+  A->>P: 委托删除
   A-->>C: deleted
 ```
 ### Target architecture flow
@@ -551,7 +583,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#cleanupReplayAutoHandleIdempotencyRecords
   participant A as RecycleApplicationService#cleanupReplayAutoHandleIdempotencyRecords
+  participant P as PaymentReplayService#cleanupReplayAutoHandleIdempotencyRecords
   C->>A: ADMIN 清理
+  A->>P: 委托锁、删除和审计
   A-->>C: skipped 或删除统计
 ```
 ### Target architecture flow
@@ -580,7 +614,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#requeueTask
   participant A as RecycleApplicationService#requeueReplayTask
+  participant P as PaymentReplayService#requeueReplayTask
   C->>A: ADMIN 单任务重投
+  A->>P: 委托状态校验/重投
   A-->>C: PENDING 或 deduplicated
 ```
 ### Target architecture flow
@@ -608,7 +644,9 @@ flowchart TD
 sequenceDiagram
   participant C as AdminPaymentController#batchRequeueDeadTasks
   participant A as RecycleApplicationService#batchRequeueDeadTasks
+  participant P as PaymentReplayService#batchRequeueDeadTasks
   C->>A: ADMIN 批量死信重投
+  A->>P: 委托批量状态更新
   A-->>C: requested/requeued
 ```
 ### Target architecture flow
@@ -663,7 +701,9 @@ flowchart TD
 sequenceDiagram
   participant S as PaymentReplayTaskScheduler#consumeReplayTasks
   participant A as RecycleApplicationService#consumeReplayTasks
+  participant P as PaymentReplayService#consumeReplayTasks
   S->>A: fixed-delay、配置 batch size
+  A->>P: 委托消费/退避/DEAD
 ```
 ### Target architecture flow
 ```mermaid
@@ -690,7 +730,9 @@ flowchart TD
 sequenceDiagram
   participant S as PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords
   participant A as RecycleApplicationService#cleanupReplayAutoHandleIdempotencyRecords
+  participant P as PaymentReplayService#cleanupReplayAutoHandleIdempotencyRecords
   S->>A: fixed-delay、retainDays
+  A->>P: 委托锁、删除和审计
 ```
 ### Target architecture flow
 ```mermaid
@@ -799,7 +841,9 @@ flowchart TD
 ```mermaid
 sequenceDiagram
   participant A as RecycleApplicationService#consumeReplayTasks
-  Note over A: 达到上限仅置 DEAD；没有事件发布
+  participant P as PaymentReplayService#consumeReplayTasks
+  A->>P: 委托消费
+  Note over P: 达到上限仅置 DEAD；没有事件发布
 ```
 ### Target architecture flow
 ```mermaid

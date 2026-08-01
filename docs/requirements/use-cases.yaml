@@ -98,6 +98,7 @@
   currentSymbols: [PaymentCallbackController#paymentCallback, PaymentSignatureService#verifyOrThrow, RecycleApplicationService#markResaleOrderPaidWithIdempotency, RecycleApplicationService#logPaymentCallback]
   targetPhase: 2
   documentationTask: 10
+  implementedTests: [PaymentReplayServiceTest#testLogPaymentCallback]
   plannedTests:
     - test: PaymentUseCaseWebTest#documentsPaymentUseCase
       targetPhase: 2
@@ -107,123 +108,142 @@
   requirementAnchor: pay-002
   developmentAnchor: pay-002-dev
   currentSymbols: [ResaleMallController#payOrder, PaymentSignatureService#verifyOrThrow, RecycleApplicationService#markResaleOrderPaidWithIdempotency]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-101
   method: GET
   path: /api/admin/payment/callback-logs
   requirementAnchor: pay-101
   developmentAnchor: pay-101-dev
-  currentSymbols: [AdminPaymentController#pageCallbackLogs, RecycleApplicationService#pagePaymentCallbackLogs]
+  currentSymbols: [AdminPaymentController#pageCallbackLogs, RecycleApplicationService#pagePaymentCallbackLogs, PaymentReplayService#pagePaymentCallbackLogs]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-102
   path: /api/admin/payment/callback-logs/replay
   requirementAnchor: pay-102
   developmentAnchor: pay-102-dev
-  currentSymbols: [AdminPaymentController#replayCallback, RecycleApplicationService#replayPaymentCallback]
+  currentSymbols: [AdminPaymentController#replayCallback, RecycleApplicationService#replayPaymentCallback, PaymentReplayService#replayPaymentCallback]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-103
   path: /api/admin/payment/callback-logs/replay/enqueue
   requirementAnchor: pay-103
   developmentAnchor: pay-103-dev
-  currentSymbols: [AdminPaymentController#enqueueReplay, RecycleApplicationService#enqueueReplayTask]
+  currentSymbols: [AdminPaymentController#enqueueReplay, RecycleApplicationService#enqueueReplayTask, PaymentReplayService#enqueueReplayTask]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-104
   path: /api/admin/payment/callback-logs/replay/consume
   requirementAnchor: pay-104
   developmentAnchor: pay-104-dev
-  currentSymbols: [AdminPaymentController#consumeReplayQueue, RecycleApplicationService#consumeReplayTasks]
+  currentSymbols: [AdminPaymentController#consumeReplayQueue, RecycleApplicationService#consumeReplayTasks, PaymentReplayService#consumeReplayTasks]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-105
   method: GET
   path: /api/admin/payment/replay-tasks
   requirementAnchor: pay-105
   developmentAnchor: pay-105-dev
-  currentSymbols: [AdminPaymentController#pageReplayTasks, RecycleApplicationService#pageReplayTasks]
+  currentSymbols: [AdminPaymentController#pageReplayTasks, RecycleApplicationService#pageReplayTasks, PaymentReplayService#pageReplayTasks]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-106
   method: GET
   path: /api/admin/payment/replay-tasks/summary
   requirementAnchor: pay-106
   developmentAnchor: pay-106-dev
-  currentSymbols: [AdminPaymentController#replayTaskSummary, RecycleApplicationService#replayTaskSummary]
+  currentSymbols: [AdminPaymentController#replayTaskSummary, RecycleApplicationService#replayTaskSummary, PaymentReplayService#replayTaskSummary]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-107
   method: GET
   path: /api/admin/payment/replay-tasks/query-audit-actions
   requirementAnchor: pay-107
   developmentAnchor: pay-107-dev
-  currentSymbols: [AdminPaymentController#replayQueryAuditActions, RecycleApplicationService#replayQueryAuditActions]
+  currentSymbols: [AdminPaymentController#replayQueryAuditActions, RecycleApplicationService#replayQueryAuditActions, PaymentReplayService#replayQueryAuditActions]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-108
   method: GET
   path: /api/admin/payment/replay-tasks/health
   requirementAnchor: pay-108
   developmentAnchor: pay-108-dev
-  currentSymbols: [AdminPaymentController#replayTaskHealth, RecycleApplicationService#replayTaskHealth]
+  currentSymbols: [AdminPaymentController#replayTaskHealth, RecycleApplicationService#replayTaskHealth, PaymentReplayService#replayTaskHealth]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-109
   method: GET
   path: /api/admin/payment/replay-tasks/diagnosis
   requirementAnchor: pay-109
   developmentAnchor: pay-109-dev
-  currentSymbols: [AdminPaymentController#replayTaskDiagnosis, RecycleApplicationService#replayTaskDiagnosis]
+  currentSymbols: [AdminPaymentController#replayTaskDiagnosis, RecycleApplicationService#replayTaskDiagnosis, PaymentReplayService#replayTaskDiagnosis]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-110
   method: GET
   path: /api/admin/payment/replay-tasks/cleanup-performance-check
   requirementAnchor: pay-110
   developmentAnchor: pay-110-dev
-  currentSymbols: [AdminPaymentController#replayCleanupPerformanceCheck, RecycleApplicationService#replayCleanupPerformanceCheck]
+  currentSymbols: [AdminPaymentController#replayCleanupPerformanceCheck, RecycleApplicationService#replayCleanupPerformanceCheck, PaymentReplayService#replayCleanupPerformanceCheck]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-111
   path: /api/admin/payment/replay-tasks/auto-handle
   requirementAnchor: pay-111
   developmentAnchor: pay-111-dev
-  currentSymbols: [AdminPaymentController#replayTaskAutoHandle, RecycleApplicationService#replayTaskAutoHandle]
+  currentSymbols: [AdminPaymentController#replayTaskAutoHandle, RecycleApplicationService#replayTaskAutoHandle, PaymentReplayService#replayTaskAutoHandle]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-112
   method: GET
   path: /api/admin/payment/replay-tasks/auto-handle-idempotency
   requirementAnchor: pay-112
   developmentAnchor: pay-112-dev
-  currentSymbols: [AdminPaymentController#pageReplayAutoHandleIdempotencyRecords, RecycleApplicationService#pageReplayAutoHandleIdempotencyRecords]
+  currentSymbols: [AdminPaymentController#pageReplayAutoHandleIdempotencyRecords, RecycleApplicationService#pageReplayAutoHandleIdempotencyRecords, PaymentReplayService#pageReplayAutoHandleIdempotencyRecords]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-113
   method: GET
   path: /api/admin/payment/replay-tasks/auto-handle-idempotency/detail
   requirementAnchor: pay-113
   developmentAnchor: pay-113-dev
-  currentSymbols: [AdminPaymentController#getReplayAutoHandleIdempotencyDetail, RecycleApplicationService#getReplayAutoHandleIdempotencyDetail]
+  currentSymbols: [AdminPaymentController#getReplayAutoHandleIdempotencyDetail, RecycleApplicationService#getReplayAutoHandleIdempotencyDetail, PaymentReplayService#getReplayAutoHandleIdempotencyDetail]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-114
   path: /api/admin/payment/replay-tasks/auto-handle-idempotency/delete
   requirementAnchor: pay-114
   developmentAnchor: pay-114-dev
-  currentSymbols: [AdminPaymentController#deleteReplayAutoHandleIdempotencyByTraceId, RecycleApplicationService#deleteReplayAutoHandleIdempotencyByTraceId]
+  currentSymbols: [AdminPaymentController#deleteReplayAutoHandleIdempotencyByTraceId, RecycleApplicationService#deleteReplayAutoHandleIdempotencyByTraceId, PaymentReplayService#deleteReplayAutoHandleIdempotencyByTraceId]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-115
   path: /api/admin/payment/replay-tasks/auto-handle-idempotency/delete-before
   requirementAnchor: pay-115
   developmentAnchor: pay-115-dev
-  currentSymbols: [AdminPaymentController#batchDeleteReplayAutoHandleIdempotencyBefore, RecycleApplicationService#batchDeleteReplayAutoHandleIdempotencyBefore]
+  currentSymbols: [AdminPaymentController#batchDeleteReplayAutoHandleIdempotencyBefore, RecycleApplicationService#batchDeleteReplayAutoHandleIdempotencyBefore, PaymentReplayService#batchDeleteReplayAutoHandleIdempotencyBefore]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-116
   path: /api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup
   requirementAnchor: pay-116
   developmentAnchor: pay-116-dev
-  currentSymbols: [AdminPaymentController#cleanupReplayAutoHandleIdempotencyRecords, RecycleApplicationService#cleanupReplayAutoHandleIdempotencyRecords]
+  currentSymbols: [AdminPaymentController#cleanupReplayAutoHandleIdempotencyRecords, RecycleApplicationService#cleanupReplayAutoHandleIdempotencyRecords, PaymentReplayService#cleanupReplayAutoHandleIdempotencyRecords]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-117
   path: /api/admin/payment/replay-tasks/requeue
   requirementAnchor: pay-117
   developmentAnchor: pay-117-dev
-  currentSymbols: [AdminPaymentController#requeueTask, RecycleApplicationService#requeueReplayTask]
+  currentSymbols: [AdminPaymentController#requeueTask, RecycleApplicationService#requeueReplayTask, PaymentReplayService#requeueReplayTask]
+  implementedTests: []
 - <<: *payment_http
   id: PAY-118
   path: /api/admin/payment/replay-tasks/requeue/dead
   requirementAnchor: pay-118
   developmentAnchor: pay-118-dev
-  currentSymbols: [AdminPaymentController#batchRequeueDeadTasks, RecycleApplicationService#batchRequeueDeadTasks]
+  currentSymbols: [AdminPaymentController#batchRequeueDeadTasks, RecycleApplicationService#batchRequeueDeadTasks, PaymentReplayService#batchRequeueDeadTasks]
+  implementedTests: []
 - &recycle_http
   id: REC-001
   kind: HTTP
@@ -663,7 +683,7 @@
   requirementAnchor: pay-s001
   developmentAnchor: pay-s001-dev
   implementationStatus: partial
-  currentSymbols: [PaymentNonceCleanupScheduler#cleanupExpiredNonces]
+  currentSymbols: [PaymentNonceCleanupScheduler#cleanupExpiredNonces, PaymentSignatureService#cleanupExpiredNonces]
   targetPhase: 2
   documentationTask: 10
   scheduledMethod: PaymentNonceCleanupScheduler#cleanupExpiredNonces
@@ -675,14 +695,14 @@
   id: PAY-S002
   requirementAnchor: pay-s002
   developmentAnchor: pay-s002-dev
-  currentSymbols: [PaymentReplayTaskScheduler#consumeReplayTasks]
+  currentSymbols: [PaymentReplayTaskScheduler#consumeReplayTasks, RecycleApplicationService#consumeReplayTasks, PaymentReplayService#consumeReplayTasks]
   scheduledMethod: PaymentReplayTaskScheduler#consumeReplayTasks
   scheduleProperty: payment.callback.replay-consume-fixed-delay-ms
 - <<: *payment_scheduler
   id: PAY-S003
   requirementAnchor: pay-s003
   developmentAnchor: pay-s003-dev
-  currentSymbols: [PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords]
+  currentSymbols: [PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords, RecycleApplicationService#cleanupReplayAutoHandleIdempotencyRecords, PaymentReplayService#cleanupReplayAutoHandleIdempotencyRecords]
   scheduledMethod: PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords
   scheduleProperty: payment.callback.replay-auto-handle-idempotency-cleanup-fixed-delay-ms
 - &marketplace_scheduler
@@ -815,7 +835,7 @@
   eventType: PaymentReplayDeadLettered
   requirementAnchor: pay-e004
   developmentAnchor: pay-e004-dev
-  currentSymbols: [RecycleApplicationService#consumeReplayTasks]
+  currentSymbols: [RecycleApplicationService#consumeReplayTasks, PaymentReplayService#consumeReplayTasks]
 - &recycle_event
   id: REC-E001
   kind: EVENT
