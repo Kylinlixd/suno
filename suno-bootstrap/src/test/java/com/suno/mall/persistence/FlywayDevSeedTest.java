@@ -1,6 +1,7 @@
 package com.suno.mall.persistence;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -18,8 +19,10 @@ class FlywayDevSeedTest {
         Flyway firstStart = devFlyway(jdbcUrl);
         firstStart.migrate();
 
+        markDevSeedAsChanged(jdbcUrl);
         Flyway secondStart = devFlyway(jdbcUrl);
-        secondStart.migrate();
+        MigrateResult secondResult = secondStart.migrate();
+        assertThat(secondResult.migrationsExecuted).isOne();
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "");
              Statement statement = connection.createStatement();
@@ -59,5 +62,17 @@ class FlywayDevSeedTest {
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
                 .load();
+    }
+
+    private static void markDevSeedAsChanged(String jdbcUrl) throws Exception {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "");
+             Statement statement = connection.createStatement()) {
+            int updated = statement.executeUpdate("""
+                    UPDATE flyway_schema_history
+                    SET checksum = 0
+                    WHERE script = 'R__dev_seed.sql'
+                    """);
+            assertThat(updated).isOne();
+        }
     }
 }
