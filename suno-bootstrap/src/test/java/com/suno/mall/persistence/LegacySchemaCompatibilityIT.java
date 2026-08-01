@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.MySQLContainer;
+import com.suno.mall.testsupport.MySqlContainerSupport;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -89,22 +88,15 @@ class LegacySchemaCompatibilityIT {
 
     @Test
     void migratesPopulatedLegacyMysqlWhenDockerIsAvailable() throws Exception {
-        Assumptions.assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "Docker unavailable: MySQL legacy migration was not verified in this environment"
-        );
-        try (MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.4")
-                .withDatabaseName("suno_legacy")
-                .withUsername("suno")
-                .withPassword("suno")) {
-            mysql.start();
-            Database database = new Database(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
-            executeLegacyFixture(database);
+        Assumptions.assumeTrue(MySqlContainerSupport.isDockerAvailable(),
+                MySqlContainerSupport.dockerUnavailableEvidence());
+        Database database = new Database(MySqlContainerSupport.createDatabaseUrl("legacy"),
+                MySqlContainerSupport.mysql().getUsername(), MySqlContainerSupport.mysql().getPassword());
+        executeLegacyFixture(database);
 
-            migrate(database);
+        migrate(database);
 
-            assertPopulatedLegacyData(database);
-        }
+        assertPopulatedLegacyData(database);
     }
 
     private static void executeLegacyFixture(Database database) throws Exception {

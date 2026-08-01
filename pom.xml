@@ -36,6 +36,7 @@
         <maven.compiler-plugin.version>3.14.0</maven.compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>3.5.5</maven-failsafe-plugin.version>
+        <skipUnitTests>false</skipUnitTests>
         <archunit.version>1.4.2</archunit.version>
         <jacoco.version>0.8.15</jacoco.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
@@ -101,6 +102,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <skipTests>${skipUnitTests}</skipTests>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
