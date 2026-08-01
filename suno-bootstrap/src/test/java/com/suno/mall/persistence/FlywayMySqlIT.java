@@ -9,11 +9,27 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class FlywayMySqlIT {
+
+    @Test
+    void generatedDatabaseGrantsTheConfiguredUserAccess() throws Exception {
+        Assumptions.assumeTrue(
+                MySqlContainerSupport.isDockerAvailable(),
+                MySqlContainerSupport.dockerUnavailableEvidence()
+        );
+        String jdbcUrl = MySqlContainerSupport.createDatabaseUrl("configured-user-access");
+
+        try (Connection connection = DriverManager.getConnection(
+                jdbcUrl, MySqlContainerSupport.mysql().getUsername(), MySqlContainerSupport.mysql().getPassword())) {
+            assertThat(connection.isValid(5)).isTrue();
+        }
+    }
 
     @Test
     void migratesAnEmptyMysqlDatabaseValidatesHibernateMappingsAndIsIdempotent() {

@@ -49,10 +49,13 @@ public interface MySqlContainerSupport {
         MYSQL.start();
         String database = "suno_it_" + label.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_")
                 + "_" + UUID.randomUUID().toString().replace("-", "");
+        String databaseIdentifier = quoteIdentifier(database);
         try (Connection connection = DriverManager.getConnection(
                 MYSQL.getJdbcUrl(), "root", MYSQL.getPassword());
              Statement statement = connection.createStatement()) {
-            statement.execute("CREATE DATABASE `" + database + "` CHARACTER SET utf8mb4");
+            statement.execute("CREATE DATABASE " + databaseIdentifier + " CHARACTER SET utf8mb4");
+            statement.execute("GRANT ALL PRIVILEGES ON " + databaseIdentifier + ".* TO "
+                    + quoteLiteral(MYSQL.getUsername()) + "@'%'");
         }
         String jdbcUrl = MYSQL.getJdbcUrl();
         int queryStart = jdbcUrl.indexOf('?');
@@ -69,5 +72,16 @@ public interface MySqlContainerSupport {
 
     private static boolean isCi() {
         return System.getenv("CI") != null;
+    }
+
+    private static String quoteIdentifier(String identifier) {
+        if (!identifier.matches("[a-z0-9_]+")) {
+            throw new IllegalArgumentException("Unsafe MySQL database identifier: " + identifier);
+        }
+        return "`" + identifier.replace("`", "``") + "`";
+    }
+
+    private static String quoteLiteral(String value) {
+        return "'" + value.replace("'", "''") + "'";
     }
 }

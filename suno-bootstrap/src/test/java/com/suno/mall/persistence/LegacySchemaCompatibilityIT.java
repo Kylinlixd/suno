@@ -51,19 +51,15 @@ class LegacySchemaCompatibilityIT {
     @Test
     void rejectsPopulatedLegacyAndCanonicalTableCollisionWithOperatorAction() throws Exception {
         Database database = Database.h2("collision");
-        try (Connection connection = database.connect(); Statement statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE user_account (id BIGINT PRIMARY KEY)");
-            statement.execute("CREATE TABLE suno_user_account (id BIGINT PRIMARY KEY)");
-            statement.execute("INSERT INTO user_account VALUES (1)");
-            statement.execute("INSERT INTO suno_user_account VALUES (2)");
-        }
+        assertCollisionIsRejectedWithoutChangingEitherTable(database);
+    }
 
-        assertThatThrownBy(() -> migrate(database))
-                .hasStackTraceContaining("user_account")
-                .hasStackTraceContaining("suno_user_account")
-                .hasStackTraceContaining("operator resolution required");
-        assertThat(rowCount(database, "user_account")).isOne();
-        assertThat(rowCount(database, "suno_user_account")).isOne();
+    @Test
+    void rejectsPopulatedLegacyAndCanonicalTableCollisionOnMysqlWithOperatorAction() throws Exception {
+        Assumptions.assumeTrue(MySqlContainerSupport.isDockerAvailable(),
+                MySqlContainerSupport.dockerUnavailableEvidence());
+        Database database = Database.mysql("collision");
+        assertCollisionIsRejectedWithoutChangingEitherTable(database);
     }
 
     @Test
@@ -113,6 +109,22 @@ class LegacySchemaCompatibilityIT {
                 .baselineVersion("0")
                 .load()
                 .migrate();
+    }
+
+    private static void assertCollisionIsRejectedWithoutChangingEitherTable(Database database) throws Exception {
+        try (Connection connection = database.connect(); Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE user_account (id BIGINT PRIMARY KEY)");
+            statement.execute("CREATE TABLE suno_user_account (id BIGINT PRIMARY KEY)");
+            statement.execute("INSERT INTO user_account VALUES (1)");
+            statement.execute("INSERT INTO suno_user_account VALUES (2)");
+        }
+
+        assertThatThrownBy(() -> migrate(database))
+                .hasStackTraceContaining("user_account")
+                .hasStackTraceContaining("suno_user_account")
+                .hasStackTraceContaining("operator resolution required");
+        assertThat(rowCount(database, "user_account")).isOne();
+        assertThat(rowCount(database, "suno_user_account")).isOne();
     }
 
     private static void assertPopulatedLegacyData(Database database) throws Exception {
@@ -253,6 +265,11 @@ class LegacySchemaCompatibilityIT {
     private record Database(String url, String username, String password) {
         static Database h2(String label) {
             return new Database(FlywayH2MigrationTest.h2Url(label), "sa", "");
+        }
+
+        static Database mysql(String label) throws SQLException {
+            return new Database(MySqlContainerSupport.createDatabaseUrl(label),
+                    MySqlContainerSupport.mysql().getUsername(), MySqlContainerSupport.mysql().getPassword());
         }
 
         Connection connect() throws SQLException {

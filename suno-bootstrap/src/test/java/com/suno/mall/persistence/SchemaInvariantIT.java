@@ -1,6 +1,7 @@
 package com.suno.mall.persistence;
 
 import com.suno.mall.testsupport.MySqlContainerSupport;
+import db.migration.CanonicalSchemaManifestExpectations;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.TestInstance;
@@ -67,14 +68,17 @@ class SchemaInvariantIT {
         Set<String> mappedTables = FlywayH2MigrationTest.mappedTableNames();
         Set<String> tables = tableNames(database);
         assertThat(tables).containsAll(mappedTables);
+        CanonicalSchemaManifestExpectations.ExpectedSchema expected =
+                CanonicalSchemaManifestExpectations.expectedSchema();
+        assertThat(tables).containsAll(expected.tables());
 
         SchemaSignature signature = backend == DatabaseBackend.MYSQL
                 ? mysqlInformationSchemaSignature(database)
                 : h2MetadataSignature(database, mappedTables);
-        assertThat(signature.columns()).contains("suno_resale_listing.version");
-        assertThat(signature.uniqueKeys()).isNotEmpty();
-        assertThat(signature.foreignKeys()).isNotEmpty();
-        assertThat(signature.indexes()).isNotEmpty();
+        assertThat(signature.columns()).containsAll(expected.columns());
+        assertThat(signature.uniqueKeys()).containsAll(expected.uniqueKeys());
+        assertThat(signature.foreignKeys()).containsAll(expected.foreignKeys());
+        assertThat(signature.indexes()).containsAll(expected.indexes());
         return signature;
     }
 
