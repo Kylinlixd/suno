@@ -15,9 +15,11 @@
   requirementAnchor: idn-001
   developmentAnchor: idn-001-dev
   implementationStatus: partial
-  currentSymbols: [AuthController#login]
+  currentSymbols: [AuthController#login, AuthApplicationService#login]
   targetPhase: 1
   documentationTask: 9
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   plannedTests:
     - test: IdentityUseCaseWebTest#documentsIdentityUseCase
       targetPhase: 1
@@ -27,48 +29,57 @@
   path: /api/auth/me
   requirementAnchor: idn-002
   developmentAnchor: idn-002-dev
+  currentSymbols: [AuthController#me, AuthApplicationService#me]
 - <<: *identity_http
   id: IDN-003
   method: GET
   path: /api/auth/sessions
   requirementAnchor: idn-003
   developmentAnchor: idn-003-dev
+  currentSymbols: [AuthController#sessions, AuthApplicationService#listActiveSessions]
 - <<: *identity_http
   id: IDN-004
   path: /api/auth/sessions/revoke-device
   requirementAnchor: idn-004
   developmentAnchor: idn-004-dev
+  currentSymbols: [AuthController#revokeDevice, AuthApplicationService#revokeDeviceSession]
 - <<: *identity_http
   id: IDN-005
   path: /api/auth/sessions/revoke-all
   requirementAnchor: idn-005
   developmentAnchor: idn-005-dev
+  currentSymbols: [AuthController#revokeAll, AuthApplicationService#revokeAllSessions]
 - <<: *identity_http
   id: IDN-006
   path: /api/auth/logout
   requirementAnchor: idn-006
   developmentAnchor: idn-006-dev
+  currentSymbols: [AuthController#logout, AuthApplicationService#logout]
 - <<: *identity_http
   id: IDN-007
   path: /api/auth/refresh
   requirementAnchor: idn-007
   developmentAnchor: idn-007-dev
+  currentSymbols: [AuthController#refresh, AuthApplicationService#refresh]
 - <<: *identity_http
   id: IDN-101
   method: GET
   path: /api/admin/auth/sessions
   requirementAnchor: idn-101
   developmentAnchor: idn-101-dev
+  currentSymbols: [AdminAuthController#listUserSessions, AuthApplicationService#adminListUserSessions]
 - <<: *identity_http
   id: IDN-102
   path: /api/admin/auth/sessions/revoke-device
   requirementAnchor: idn-102
   developmentAnchor: idn-102-dev
+  currentSymbols: [AdminAuthController#revokeUserDevice, AuthApplicationService#adminRevokeUserDeviceSession]
 - <<: *identity_http
   id: IDN-103
   path: /api/admin/auth/sessions/revoke-all
   requirementAnchor: idn-103
   developmentAnchor: idn-103-dev
+  currentSymbols: [AdminAuthController#revokeUserAll, AuthApplicationService#adminRevokeUserAllSessions]
 - &payment_http
   id: PAY-001
   kind: HTTP
@@ -449,13 +460,15 @@
   permission: administrator
   invariants: [contract-documented]
   errors: [BUSINESS_ERROR]
-  requirementDoc: docs/requirements/identity.md
+  requirementDoc: docs/requirements/operations.md
   requirementAnchor: ops-001
   developmentAnchor: ops-001-dev
   implementationStatus: partial
-  currentSymbols: [AdminAuthController#securityEventsSummary]
+  currentSymbols: [AdminAuthController#securityEventsSummary, AuthApplicationService#adminSecurityEventsSummary]
   targetPhase: 1
   documentationTask: 9
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   plannedTests:
     - test: OperationsSecurityWebTest#documentsSecurityOperation
       targetPhase: 1
@@ -464,50 +477,59 @@
   path: /api/admin/auth/security-events/timeline
   requirementAnchor: ops-002
   developmentAnchor: ops-002-dev
+  currentSymbols: [AdminAuthController#securityEventsTimeline, AuthApplicationService#adminSecurityEventsTimeline]
 - <<: *operations_security_http
   id: OPS-003
   path: /api/admin/auth/security-events/risk-users-top
   requirementAnchor: ops-003
   developmentAnchor: ops-003-dev
+  currentSymbols: [AdminAuthController#securityRiskUsersTop, AuthApplicationService#adminSecurityRiskUsersTop]
 - <<: *operations_security_http
   id: OPS-004
   path: /api/admin/auth/security-events/export
   requirementAnchor: ops-004
   developmentAnchor: ops-004-dev
+  currentSymbols: [AdminAuthController#securityEventsExport, AuthApplicationService#buildSecurityExportPayload, AuthApplicationService#renderSecurityExportContent]
 - <<: *operations_security_http
   id: OPS-005
   method: POST
   path: /api/admin/auth/security-events/export/tasks
   requirementAnchor: ops-005
   developmentAnchor: ops-005-dev
+  currentSymbols: [AdminAuthController#createSecurityEventsExportTask, AuthApplicationService#createSecurityExportTask]
 - <<: *operations_security_http
   id: OPS-006
   method: POST
   path: /api/admin/auth/security-events/export/tasks/{taskId}/retry
   requirementAnchor: ops-006
   developmentAnchor: ops-006-dev
+  currentSymbols: [AdminAuthController#retrySecurityEventsExportTask, AuthApplicationService#retrySecurityExportTask]
 - <<: *operations_security_http
   id: OPS-007
   method: GET
   path: /api/admin/auth/security-events/export/tasks/{taskId}
   requirementAnchor: ops-007
   developmentAnchor: ops-007-dev
+  currentSymbols: [AdminAuthController#getSecurityEventsExportTask, AuthApplicationService#getSecurityExportTask]
 - <<: *operations_security_http
   id: OPS-008
   path: /api/admin/auth/security-events/export/tasks/{taskId}/download
   requirementAnchor: ops-008
   developmentAnchor: ops-008-dev
+  currentSymbols: [AdminAuthController#downloadSecurityEventsExportTask, AuthApplicationService#getSecurityExportTaskDownload]
 - <<: *operations_security_http
   id: OPS-009
   path: /api/admin/auth/security-events/export/tasks
   requirementAnchor: ops-009
   developmentAnchor: ops-009-dev
+  currentSymbols: [AdminAuthController#listSecurityEventsExportTasks, AuthApplicationService#listSecurityExportTasks]
 - <<: *operations_security_http
   id: OPS-010
   method: POST
   path: /api/admin/auth/security-events/export/tasks/cleanup
   requirementAnchor: ops-010
   developmentAnchor: ops-010-dev
+  currentSymbols: [AdminAuthController#cleanupSecurityEventsExportTasks, AuthApplicationService#cleanupSecurityExportTasks]
 - &operations_http
   id: OPS-020
   kind: HTTP
@@ -681,13 +703,15 @@
   permission: internal
   invariants: [contract-documented]
   errors: [RETRYABLE_FAILURE]
-  requirementDoc: docs/requirements/identity.md
+  requirementDoc: docs/requirements/operations.md
   requirementAnchor: ops-s001
   developmentAnchor: ops-s001-dev
   implementationStatus: partial
   currentSymbols: [SecurityEventService#scheduledCleanupSecurityExportTasks]
   targetPhase: 1
   documentationTask: 9
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   scheduledMethod: SecurityEventService#scheduledCleanupSecurityExportTasks
   scheduleProperty: security.auth.export-task.cleanup-fixed-delay-ms
   plannedTests:
@@ -706,9 +730,11 @@
   requirementAnchor: idn-e001
   developmentAnchor: idn-e001-dev
   implementationStatus: absent
-  currentSymbols: [ConfigurationPublished#catalogVersion]
+  currentSymbols: [AuthApplicationService#login]
   targetPhase: 1
   documentationTask: 9
+  implementedTests:
+    - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   eventType: UserAuthenticated
   version: 1
   plannedTests:
@@ -719,16 +745,19 @@
   eventType: RefreshSessionRotated
   requirementAnchor: idn-e002
   developmentAnchor: idn-e002-dev
+  currentSymbols: [AuthApplicationService#refresh]
 - <<: *identity_event
   id: IDN-E003
   eventType: SessionRevoked
   requirementAnchor: idn-e003
   developmentAnchor: idn-e003-dev
+  currentSymbols: [AuthApplicationService#revokeAllSessions]
 - <<: *identity_event
   id: IDN-E004
   eventType: SecurityIncidentRaised
   requirementAnchor: idn-e004
   developmentAnchor: idn-e004-dev
+  currentSymbols: [AuthApplicationService#refresh]
 - &payment_event
   id: PAY-E001
   kind: EVENT
