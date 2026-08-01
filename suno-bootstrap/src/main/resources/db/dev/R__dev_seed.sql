@@ -37,6 +37,30 @@ WHERE NOT EXISTS (
     WHERE brand = 'DEMO_BRAND' AND model = 'DEMO_MODEL' AND min_months = 0 AND grade = 'UNQUALIFIED'
 );
 
+INSERT INTO suno_valuation_rule
+    (brand, model, min_months, max_months, min_wear_score, max_wear_score, grade, price)
+SELECT 'ALL', 'ALL', 0, 18, 0, 100, 'GOOD', 1800.00
+WHERE NOT EXISTS (
+    SELECT 1 FROM suno_valuation_rule
+    WHERE brand = 'ALL' AND model = 'ALL' AND min_months = 0 AND grade = 'GOOD'
+);
+
+INSERT INTO suno_valuation_rule
+    (brand, model, min_months, max_months, min_wear_score, max_wear_score, grade, price)
+SELECT 'ALL', 'ALL', 19, 36, 0, 100, 'MEDIUM', 1200.00
+WHERE NOT EXISTS (
+    SELECT 1 FROM suno_valuation_rule
+    WHERE brand = 'ALL' AND model = 'ALL' AND min_months = 19 AND grade = 'MEDIUM'
+);
+
+INSERT INTO suno_valuation_rule
+    (brand, model, min_months, max_months, min_wear_score, max_wear_score, grade, price)
+SELECT 'ALL', 'ALL', 37, 240, 0, 100, 'UNQUALIFIED', 300.00
+WHERE NOT EXISTS (
+    SELECT 1 FROM suno_valuation_rule
+    WHERE brand = 'ALL' AND model = 'ALL' AND min_months = 37 AND grade = 'UNQUALIFIED'
+);
+
 INSERT INTO suno_product
     (id, sn_code, brand, model, production_date, image_url, wear_score, recycle_grade,
      estimated_recycle_price)
