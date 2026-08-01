@@ -228,6 +228,7 @@
                                     <includes>
                                         <include>com/suno/mall/*/domain/*</include>
                                         <include>com/suno/mall/*/application/*</include>
+                                        <include>com/suno/mall/*/api/event/*</include>
                                     </includes>
                                     <limits>
                                         <limit>

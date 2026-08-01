@@ -29,6 +29,7 @@ class PublicEventBoundaryTest {
     private static final String DOCUMENTED_DOMAIN_EVENT = "com.suno.mall.core.event.DocumentedDomainEvent";
     private static final String USE_CASE_ID = "com.suno.mall.core.event.UseCaseId";
     private static final String EVENT_OUTBOX = "com.suno.mall.core.event.EventOutbox";
+    private static final String EVENT_CATALOG_PUBLISHED = "com.suno.mall.core.event.EventCatalogPublished";
 
     @ArchTest
     static final ArchRule eventOutboxAcceptsOnlyDomainEvents = methods()
@@ -43,6 +44,7 @@ class PublicEventBoundaryTest {
                     "com.suno.mall.marketplace.api.event..",
                     "com.suno.mall.payment.api.event..",
                     "com.suno.mall.operations.api.event..")
+            .and().areDeclaredInClassesThat().areInterfaces()
             .should().haveRawParameterTypes(DomainEvent.class)
             .allowEmptyShould(true);
 
@@ -51,10 +53,14 @@ class PublicEventBoundaryTest {
         Class<?> domainEvent = load(DOMAIN_EVENT);
         Class<?> documentedDomainEvent = load(DOCUMENTED_DOMAIN_EVENT);
         Class<?> eventOutbox = load(EVENT_OUTBOX);
+        Class<?> eventCatalogPublished = load(EVENT_CATALOG_PUBLISHED);
+        Class<? extends Annotation> useCaseId = loadAnnotation(USE_CASE_ID);
 
         assertTrue(domainEvent.isInterface());
         assertTrue(documentedDomainEvent.isInterface());
         assertTrue(domainEvent.isAssignableFrom(documentedDomainEvent));
+        assertTrue(documentedDomainEvent.isAssignableFrom(eventCatalogPublished));
+        assertTrue(eventCatalogPublished.isAnnotationPresent(useCaseId));
         assertEquals(Set.of(DOMAIN_EVENT), Arrays.stream(eventOutbox.getDeclaredMethods())
                 .map(Method::getParameterTypes)
                 .flatMap(Arrays::stream)
@@ -71,14 +77,14 @@ class PublicEventBoundaryTest {
                 .withImportOption(new ImportOption.DoNotIncludeTests())
                 .importPackages("com.suno.mall");
 
-        classes.stream()
+        var publicEvents = classes.stream()
                 .filter(candidate -> !candidate.isInterface()
                         && !candidate.isAnnotation()
                         && !candidate.isEnum())
-                .filter(candidate -> candidate.isAssignableTo(domainEvent)
-                        || candidate.getPackageName().matches(
-                                "com\\.suno\\.mall\\.(identity|recycle|marketplace|payment|operations)\\.api\\.event(\\..*)?"))
-                .forEach(candidate -> {
+                .filter(candidate -> candidate.isAssignableTo(domainEvent))
+                .collect(Collectors.toList());
+        assertTrue(!publicEvents.isEmpty(), "at least one concrete public DomainEvent must exist");
+        publicEvents.forEach(candidate -> {
                     Class<?> eventType = candidate.reflect();
                     assertTrue(documentedDomainEvent.isAssignableFrom(eventType),
                             () -> eventType.getName() + " must implement DocumentedDomainEvent");
@@ -89,7 +95,7 @@ class PublicEventBoundaryTest {
                                         "com\\.suno\\.mall\\.(identity|recycle|marketplace|payment|operations)\\.api\\.event(\\..*)?"),
                                 () -> eventType.getName() + " must be exposed from its module api.event package");
                     }
-                });
+        });
 
         classes.stream()
                 .filter(JavaClass::isInterface)

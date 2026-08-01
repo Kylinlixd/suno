@@ -15,6 +15,7 @@ class QualityGateConfigurationTest {
         assertTrue(pom.contains("<include>com/suno/mall/common/*</include>"));
         assertTrue(pom.contains("<include>com/suno/mall/*/domain/*</include>"));
         assertTrue(pom.contains("<include>com/suno/mall/*/application/*</include>"));
+        assertTrue(pom.contains("<include>com/suno/mall/*/api/event/*</include>"));
         assertTrue(pom.contains("<minimum>0.70</minimum>"));
         assertTrue(pom.contains("<minimum>0.80</minimum>"));
     }

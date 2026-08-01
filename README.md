@@ -40,11 +40,14 @@ Suno Mall 是一个完整的二手商品循环交易平台，覆盖从回收估�
 # 生成并导出本机开发密钥；不将其提交到仓库
 export PAYMENT_CALLBACK_SECRET="$(openssl rand -hex 32)"
 
+# 构建 bootstrap 模块及其依赖，生成可执行 JAR
+./mvnw -pl suno-bootstrap -am package -DskipUnitTests=true
+
 # 默认 H2 内存库启动
-./mvnw -pl suno-bootstrap -am spring-boot:run
+java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar
 
 # MySQL 环境启动
-./mvnw -pl suno-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=mysql
+java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar --spring.profiles.active=mysql
 ```
 
 启动后访问 `http://localhost:8080`。
