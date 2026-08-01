@@ -18,6 +18,8 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -44,6 +46,109 @@ class DocumentationCatalogCoverageTest {
             "invariants", "errors", "requirementDoc", "requirementAnchor", "developmentAnchor",
             "implementationStatus", "currentSymbols", "targetPhase", "documentationTask");
     private static final Set<Integer> TASKS = Set.of(9, 10, 11, 12, 13);
+    private static final Map<String, String> EXPECTED_HTTP = expected("""
+IDN-001|POST|/api/auth/login|Identity
+IDN-002|GET|/api/auth/me|Identity
+IDN-003|GET|/api/auth/sessions|Identity
+IDN-004|POST|/api/auth/sessions/revoke-device|Identity
+IDN-005|POST|/api/auth/sessions/revoke-all|Identity
+IDN-006|POST|/api/auth/logout|Identity
+IDN-007|POST|/api/auth/refresh|Identity
+IDN-101|GET|/api/admin/auth/sessions|Identity
+IDN-102|POST|/api/admin/auth/sessions/revoke-device|Identity
+IDN-103|POST|/api/admin/auth/sessions/revoke-all|Identity
+PAY-001|POST|/api/payment/callback|Payment
+PAY-002|POST|/api/mall/orders/pay|Payment
+PAY-101|GET|/api/admin/payment/callback-logs|Payment
+PAY-102|POST|/api/admin/payment/callback-logs/replay|Payment
+PAY-103|POST|/api/admin/payment/callback-logs/replay/enqueue|Payment
+PAY-104|POST|/api/admin/payment/callback-logs/replay/consume|Payment
+PAY-105|GET|/api/admin/payment/replay-tasks|Payment
+PAY-106|GET|/api/admin/payment/replay-tasks/summary|Payment
+PAY-107|GET|/api/admin/payment/replay-tasks/query-audit-actions|Payment
+PAY-108|GET|/api/admin/payment/replay-tasks/health|Payment
+PAY-109|GET|/api/admin/payment/replay-tasks/diagnosis|Payment
+PAY-110|GET|/api/admin/payment/replay-tasks/cleanup-performance-check|Payment
+PAY-111|POST|/api/admin/payment/replay-tasks/auto-handle|Payment
+PAY-112|GET|/api/admin/payment/replay-tasks/auto-handle-idempotency|Payment
+PAY-113|GET|/api/admin/payment/replay-tasks/auto-handle-idempotency/detail|Payment
+PAY-114|POST|/api/admin/payment/replay-tasks/auto-handle-idempotency/delete|Payment
+PAY-115|POST|/api/admin/payment/replay-tasks/auto-handle-idempotency/delete-before|Payment
+PAY-116|POST|/api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup|Payment
+PAY-117|POST|/api/admin/payment/replay-tasks/requeue|Payment
+PAY-118|POST|/api/admin/payment/replay-tasks/requeue/dead|Payment
+REC-001|POST|/api/recycle/orders|Recycle
+REC-002|GET|/api/recycle/logistics/status|Recycle
+REC-101|GET|/api/admin/recycle/orders|Recycle
+REC-102|PATCH|/api/admin/recycle/orders/review|Recycle
+MKT-001|GET|/products/{id}.html|Marketplace
+MKT-002|POST|/api/resale/listings|Marketplace
+MKT-003|GET|/api/resale/listings|Marketplace
+MKT-004|GET|/api/resale/listings/sold-out|Marketplace
+MKT-005|POST|/api/resale/listings/{listingId}/reduce-stock|Marketplace
+MKT-006|POST|/api/resale/listings/{listingId}/favorite|Marketplace
+MKT-007|DELETE|/api/resale/listings/{listingId}/favorite|Marketplace
+MKT-008|GET|/api/resale/listings/favorites|Marketplace
+MKT-020|GET|/api/mall/listings|Marketplace
+MKT-021|GET|/api/mall/orders|Marketplace
+MKT-022|GET|/api/mall/orders/status-dictionary|Marketplace
+MKT-023|GET|/api/mall/orders/summary|Marketplace
+MKT-024|POST|/api/mall/orders|Marketplace
+MKT-026|POST|/api/mall/orders/cancel|Marketplace
+MKT-027|POST|/api/mall/orders/confirm-receipt|Marketplace
+MKT-028|GET|/api/mall/orders/{orderNo}/track|Marketplace
+MKT-029|POST|/api/mall/favorites/add|Marketplace
+MKT-030|POST|/api/mall/favorites/remove|Marketplace
+MKT-031|GET|/api/mall/favorites|Marketplace
+MKT-032|POST|/api/mall/reviews/create|Marketplace
+MKT-033|POST|/api/mall/reviews/append|Marketplace
+MKT-034|POST|/api/mall/reviews/reply|Marketplace
+MKT-035|GET|/api/mall/reviews|Marketplace
+MKT-036|POST|/api/mall/reviews/vote-useful|Marketplace
+MKT-037|POST|/api/mall/reviews/report|Marketplace
+MKT-100|POST|/api/admin/recycle/listings/publish|Marketplace
+MKT-101|POST|/api/admin/recycle/resale-orders/deliver|Marketplace
+MKT-102|POST|/api/admin/recycle/resale-orders/refund|Marketplace
+MKT-103|POST|/api/admin/recycle/resale-orders/auto-confirm-receipt|Marketplace
+MKT-110|GET|/api/admin/recycle/review-reports|Marketplace
+MKT-111|GET|/api/admin/recycle/review-reports/{reportId}|Marketplace
+MKT-112|POST|/api/admin/recycle/review-reports/process|Marketplace
+MKT-113|POST|/api/admin/recycle/review-reports/process-batch|Marketplace
+OPS-001|GET|/api/admin/auth/security-events/summary|Operations
+OPS-002|GET|/api/admin/auth/security-events/timeline|Operations
+OPS-003|GET|/api/admin/auth/security-events/risk-users-top|Operations
+OPS-004|GET|/api/admin/auth/security-events/export|Operations
+OPS-005|POST|/api/admin/auth/security-events/export/tasks|Operations
+OPS-006|POST|/api/admin/auth/security-events/export/tasks/{taskId}/retry|Operations
+OPS-007|GET|/api/admin/auth/security-events/export/tasks/{taskId}|Operations
+OPS-008|GET|/api/admin/auth/security-events/export/tasks/{taskId}/download|Operations
+OPS-009|GET|/api/admin/auth/security-events/export/tasks|Operations
+OPS-010|POST|/api/admin/auth/security-events/export/tasks/cleanup|Operations
+OPS-020|GET|/api/admin/recycle/audit-logs|Operations
+OPS-021|GET|/api/admin/recycle/audit-logs/page|Operations
+OPS-022|GET|/api/admin/recycle/audit-logs/export|Operations
+OPS-030|GET|/api/admin/recycle/review-risk/summary|Operations
+OPS-031|GET|/api/admin/recycle/review-risk/timeline|Operations
+OPS-032|GET|/api/admin/recycle/review-risk/top-listings|Operations
+OPS-040|GET|/api/admin/recycle/review-strategy|Operations
+OPS-041|POST|/api/admin/recycle/review-strategy/update|Operations
+OPS-042|GET|/api/admin/recycle/error-codes/global|Operations
+OPS-043|GET|/api/admin/recycle/degrade-actions/dictionary|Operations
+OPS-044|GET|/api/admin/recycle/alert-noise-rules|Operations
+OPS-045|POST|/api/admin/recycle/alert-noise-rules/update|Operations
+OPS-046|GET|/api/admin/recycle/config-center/bundle|Operations
+OPS-047|GET|/api/admin/recycle/config-center/module/{moduleName}|Operations
+OPS-048|GET|/api/admin/recycle/config-center/modules|Operations
+OPS-049|POST|/api/admin/recycle/config-center/module-diff|Operations
+""");
+    private static final Map<String, String> EXPECTED_SCHEDULERS = expected("""
+PAY-S001|PaymentNonceCleanupScheduler#cleanupExpiredNonces|payment.callback.nonce-cleanup-fixed-delay-ms|Payment
+PAY-S002|PaymentReplayTaskScheduler#consumeReplayTasks|payment.callback.replay-consume-fixed-delay-ms|Payment
+PAY-S003|PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords|payment.callback.replay-auto-handle-idempotency-cleanup-fixed-delay-ms|Payment
+MKT-S001|ResaleOrderScheduler#autoCloseExpiredUnpaidOrders|mall.order.auto-close-fixed-delay-ms|Marketplace
+MKT-S002|ResaleOrderScheduler#autoConfirmDeliveredOrders|mall.order.auto-confirm-receipt-fixed-delay-ms|Marketplace
+OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.export-task.cleanup-fixed-delay-ms|Operations
+""");
 
     @Autowired
     private RequestMappingHandlerMapping mappings;
@@ -59,6 +164,8 @@ class DocumentationCatalogCoverageTest {
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
         assertEquals(93, http.size());
+        assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
+        assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
                 .filter(entry -> isDocumentedApplicationEndpoint(entry.getValue().getBeanType()))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream().flatMap(path -> entry.getKey().getMethodsCondition()
@@ -71,6 +178,9 @@ class DocumentationCatalogCoverageTest {
 
         List<Map<String, Object>> schedulers = ofKind(catalog, "SCHEDULER");
         assertEquals(6, schedulers.size());
+        assertEquals(EXPECTED_SCHEDULERS, contractMap(schedulers, "scheduledMethod", "scheduleProperty"),
+                "scheduler ID ownership and source order");
+        assertEquals(List.copyOf(EXPECTED_SCHEDULERS.keySet()), schedulers.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualSchedulers = concreteClasses().stream().flatMap(type -> List.of(type.getDeclaredMethods()).stream()
                 .filter(method -> method.isAnnotationPresent(Scheduled.class))
                 .map(method -> type.getSimpleName() + "#" + method.getName())).collect(Collectors.toSet());
@@ -128,7 +238,8 @@ class DocumentationCatalogCoverageTest {
             assertEquals(eventKeys(List.of(registered)), eventKeys(List.of(catalogEntry)));
         });
         events.stream().filter(entry -> "implemented".equals(string(entry, "implementationStatus"))).forEach(entry -> assertEquals(1,
-                concreteClasses().stream().filter(type -> type.isAnnotationPresent(UseCaseId.class)
+                concreteClasses().stream().filter(DocumentationCatalogCoverageTest::isDiscoveredPublicEvent)
+                        .filter(type -> type.isAnnotationPresent(UseCaseId.class)
                         && string(entry, "id").equals(type.getAnnotation(UseCaseId.class).value())).count()));
     }
 
@@ -201,6 +312,22 @@ class DocumentationCatalogCoverageTest {
     private static Set<String> eventKeys(List<Map<String, Object>> entries) {
         return entries.stream().map(entry -> String.join("|", string(entry, "id"), string(entry, "eventType"),
                 String.valueOf(integer(entry, "version")), string(entry, "owner"))).collect(Collectors.toSet());
+    }
+
+    private static Map<String, String> expected(String table) {
+        Map<String, String> expected = new LinkedHashMap<>();
+        for (String row : table.strip().split("\\R")) {
+            String[] parts = row.split("\\|", 2);
+            expected.put(parts[0], parts[1]);
+        }
+        return Collections.unmodifiableMap(expected);
+    }
+
+    private static Map<String, String> contractMap(List<Map<String, Object>> entries, String first, String second) {
+        Map<String, String> actual = new LinkedHashMap<>();
+        entries.forEach(entry -> actual.put(string(entry, "id"), String.join("|", string(entry, first),
+                string(entry, second), string(entry, "owner"))));
+        return actual;
     }
 
     private static List<Map<String, Object>> ofKind(List<Map<String, Object>> catalog, String kind) {

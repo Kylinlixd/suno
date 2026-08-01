@@ -39,15 +39,21 @@ def has_anchor(section, anchor):
             or f"{{#{anchor}}}" in section)
 
 def section_for(document, entry_id):
-    match = re.search(r"(?m)^##\s+" + re.escape(entry_id) + r"(?:\s|$).*?$", document)
+    match = re.search(r"(?m)^(#{2,})\s+" + re.escape(entry_id) + r"(?:\s|$).*?$", document)
     if match is None:
         return None
-    next_heading = re.search(r"(?m)^##\s+", document[match.end():])
-    return document[match.start():match.end() + next_heading.start()] if next_heading else document[match.start():]
+    level = len(match.group(1))
+    remainder = document[match.end():]
+    boundary = next((heading.start() for heading in re.finditer(r"(?m)^(#{2,})\s+", remainder)
+                     if len(heading.group(1)) <= level), None)
+    return document[match.start():match.end() + boundary] if boundary is not None else document[match.start():]
+
+def anchor_index(section, anchor):
+    positions = [section.find(f'id="{anchor}"'), section.find(f"id='{anchor}'"), section.find(f"{{#{anchor}}}")]
+    return min(position for position in positions if position >= 0)
 
 def mermaid_after(section, anchor):
-    positions = [section.find(f'id="{anchor}"'), section.find(f"id='{anchor}'"), section.find(f"{{#{anchor}}}")]
-    position = min(position for position in positions if position >= 0)
+    position = anchor_index(section, anchor)
     remainder = section[position:]
     opening = remainder.find("```mermaid")
     if opening < 0:
@@ -83,7 +89,7 @@ for entry in selected:
     for symbol in entry["currentSymbols"]:
         require(symbol_exists(symbol), f"{entry_id}: unresolved current symbol {symbol}")
     if entry.get("implementationStatus") != "implemented":
-        tail = section[section.find(f'id="{development_anchor}"'):]
+        tail = section[anchor_index(section, development_anchor):]
         require(re.search(r"(?im)^#{2,6}\s+target architecture flow\s*$", tail) is not None,
                 f"{entry_id}: missing target architecture flow")
         require(re.search(r"(?im)^#{2,6}\s+gaps\s*$", tail) is not None,
