@@ -1,924 +1,287 @@
-# Suno Mall — C2B2C 二手循环交易平台
+# Suno Mall
 
-> C2B2C 二手商品循环交易平台（第一阶段：主体框架 + 持久层落库）
+> 面向二手商品循环交易的 C2B2C 模块化单体平台
 
-## 项目概览
+[![Verify](https://github.com/Kylinlixd/suno/actions/workflows/verify.yml/badge.svg)](https://github.com/Kylinlixd/suno/actions/workflows/verify.yml)
 
-Suno Mall 是一个完整的二手商品循环交易平台，覆盖从回收估价、物流追踪到二销上架、C 端购买的全链路闭环。项目采用 Spring Boot 3.5 单体架构，内置 H2/MySQL 双数据源切换，适合快速联调与近生产环境验证。
+Suno Mall 将“回收估价 → 物流履约 → 二次上架 → C 端购买 → 支付与售后”串成一条可审计的业务链路。项目当前以 **Phase 0 专业化基线**为主，重点验证模块边界、数据库迁移、认证安全、幂等处理、运行探针和可重复交付能力。
 
-### 核心业务能力
+这不是一个分布式微服务集合，而是一个可演进的 **模块化单体（modular monolith）**：业务边界先在同一运行时内通过 Maven 模块、应用用例、端口和事件契约隔离，待边界稳定后再评估独立部署。
 
-| 模块 | 能力 |
-|------|------|
-| **回收流程** | 图片审核 → SN 解析 → 自动估价 → 生成回收单据 |
-| **物流追踪** | 物流单号生成、状态查询、外部平台对接 |
-| **积分体系** | 积分规则计算与流水落库 |
-| **二销闭环** | 后台发布二销商品、C 端下单、支付幂等、取消、退款、履约发货 |
-| **订单管理** | 超时自动关单、自动确认收货、订单概览统计 |
-| **评价系统** | 首评/追评、商家回复、有用性投票、举报处置、智能排序 |
-| **支付回调** | 回调签名校验、幂等防重、异步重放队列、死信再投递 |
-| **配置中心** | 评价策略/异常码/告警降噪规则热更新、模块化增量同步 |
-| **认证鉴权** | JWT + RBAC、Refresh Token 轮换、重放防护、多设备会话管理 |
-| **审计日志** | 全链路操作审计、CSV 导出、分页查询 |
-| **安全监控** | 安全事件汇总/时间线/风险用户 TopN、异步导出任务 |
+## 先看这里
+
+| 目标 | 入口 |
+| --- | --- |
+| 了解模块边界与架构决策 | [架构说明](docs/architecture/modules.md) |
+| 了解业务流程与需求覆盖 | [业务流程图](docs/business-flow.md)、[需求目录](docs/requirements/README.md) |
+| 本地启动、Profile、密钥与探针 | [配置与运维](docs/development/configuration.md) |
+| Flyway、Schema 与迁移策略 | [数据库迁移](docs/development/migrations.md) |
+| 测试分层与质量门禁 | [测试策略](docs/development/testing.md) |
+| 分支、提交、审查与交付 | [开发工作流](docs/development/workflow.md) |
+| 全量文档索引 | [docs/README.md](docs/README.md) |
+
+## 业务闭环
+
+```text
+用户提交回收申请
+        │
+        ▼
+图片审核 / SN 解析 / 服务端估价
+        │
+        ▼
+回收单审核 ──► 物流追踪 ──► 积分流水
+        │
+        ▼
+二次商品发布 ──► 下单 ──► 支付回调与幂等
+                              │
+                              ▼
+                       发货 / 收货 / 退款
+                              │
+                              ▼
+                    评价、举报、审计与运营分析
+```
+
+核心能力按领域分组如下：
+
+| 领域 | 主要能力 |
+| --- | --- |
+| Identity | JWT、RBAC、Refresh Token 轮换、多设备会话、重放防护 |
+| Recycle | 回收单、图片审核、SN 解析、估价、物流和积分 |
+| Marketplace | 商品列表、订单、库存、收藏、评价、举报与履约 |
+| Payment | 回调验签、幂等账本、重放队列、死信再投递和运维处置 |
+| Operations | 配置中心、审计日志、安全事件、导出任务和告警降噪 |
+
+## 架构与模块边界
+
+仓库由 **9 个 Maven Reactor 项目**组成：父工程加 8 个模块。`suno-bootstrap` 负责 Spring Boot 运行时和当前 HTTP/JPA 适配器；其余模块承载逐步迁移中的内核、领域契约、应用用例和测试支持。模块化单体阶段不通过网络调用模块，而通过显式依赖、端口和事件契约协作。
+
+| 模块 | 职责 | 边界约束 |
+| --- | --- | --- |
+| `suno-core` | 共享内核、领域事件、事件版本和 Use Case 标识 | 不依赖 Web、JPA 或具体外部平台 |
+| `suno-identity` | 身份与会话领域的迁移边界 | 通过公开契约与 Bootstrap 协作 |
+| `suno-recycle` | 回收领域的迁移边界 | 估价、外部调用和事务边界逐步收敛 |
+| `suno-marketplace` | 二销商城领域的迁移边界 | 商品、订单、库存与评价保持业务内聚 |
+| `suno-payment` | 支付领域的迁移边界 | 回调、幂等和重放不跨越领域泄漏状态 |
+| `suno-operations` | 运维用例、事件和升级协作契约 | 审计与配置能力通过事件/端口接入 |
+| `suno-test-support` | Testcontainers、共享测试支持和夹具边界 | 仅测试作用域，不反向污染生产模块 |
+| `suno-bootstrap` | 启动入口、HTTP 适配器、JPA、Flyway、Provider 和定时任务 | 组合模块，不作为新的业务领域 |
+
+运行时边界可以概括为：
+
+```text
+HTTP / Scheduler / Callback
+            │
+            ▼
+     Bootstrap adapters
+            │
+            ▼
+ Application use cases ── Domain rules ── Domain events / outbox
+            │                         │
+            ▼                         ▼
+     Persistence ports          External providers
+            │
+            ▼
+      JPA repositories ── Flyway ── H2 / MySQL
+```
+
+关键工程约束：
+
+- 数据库结构由 Flyway 管理，Hibernate 使用 `ddl-auto=validate`，不允许运行时自动建表。
+- 支付回调、重放任务、导出任务和会话撤销都要求幂等或可审计。
+- 外部图像审核与物流通过 Provider 接口隔离；默认开发环境使用 Mock，`staging`/`prod` 强制外部配置。
+- `EventOutbox` 与公开事件契约为后续异步化和拆分部署预留边界，但当前部署形态仍是单体。
 
 ## 技术栈
 
-| 类别 | 技术 | 版本 |
-|------|------|------|
-| 语言 | Java | 25 |
-| 框架 | Spring Boot | 3.5.16 |
-| 安全 | Spring Security + OAuth2 Resource Server + JWT | 随 Boot 版本管理 |
-| 模板 | Freemarker | 随 Boot 版本管理 |
-| 持久层 | Spring Data JPA | 随 Boot 版本管理 |
-| 数据库 | H2（开发）/ MySQL（生产） | 随 Boot 版本管理 |
-| 构建 | Maven | 3.9+ |
+| 类别 | 选型 |
+| --- | --- |
+| Runtime | Java 25、Spring Boot 3.5.16 |
+| Web & Security | Spring MVC、Spring Security、OAuth2 Resource Server、JWT |
+| Persistence | Spring Data JPA、Hibernate、Flyway |
+| Database | H2（开发/测试）、MySQL（验证/部署） |
+| Cache | Redis 可选 Profile；不作为 readiness 的硬依赖 |
+| Build | Maven Wrapper 3.9+ |
+| Quality | JUnit 5、ArchUnit、JaCoCo、Checkstyle、Maven Enforcer |
+| Integration | Testcontainers（Docker 可用时运行 MySQL 集成测试） |
+
+## 环境要求
+
+- JDK 25（以 `./mvnw --version` 为准）
+- Git
+- Maven Wrapper；不要求预装 Maven
+- Docker Desktop 或 Docker Engine（运行 MySQL/Testcontainers 集成测试时需要）
+- `curl` 与 `openssl`（本地启动和探针验证）
 
 ## 快速启动
 
+### 1. H2 本地开发
+
+Spring Boot 默认使用内存 H2、Flyway 基础迁移和 Mock Provider。密钥只在当前 shell 注入，不要写入仓库：
+
 ```bash
-# 生成并导出本机开发密钥；不要提交这些值或已填充的 .env 文件
 export SUNO_JWT_SECRET="$(openssl rand -base64 48)"
 export PAYMENT_CALLBACK_SECRET="$(openssl rand -hex 32)"
 
-# 构建 bootstrap 模块及其依赖，生成可执行 JAR
 ./mvnw -pl suno-bootstrap -am package -DskipUnitTests=true
-
-# 默认 H2 内存库启动
 java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar
-
-# MySQL 环境启动（先为 SUNO_DB_USERNAME / SUNO_DB_PASSWORD 创建最小权限账号）
-java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar --spring.profiles.active=mysql
 ```
 
-启动后访问 `http://localhost:8080`。
-
-`SUNO_JWT_SECRET` 和 `PAYMENT_CALLBACK_SECRET` 必须通过环境变量或外部配置提供。生产环境应由密钥管理服务注入；不要使用或提交示例值。完整变量表、Profile 说明、Actuator 探针和故障处理见 [配置与运维说明](docs/development/configuration.md)。
-
-### 环境配置
-
-| 环境 | Profile | 数据库 | 说明 |
-|------|---------|--------|------|
-| 本地开发 | 默认 | H2 内存库 | Flyway 迁移；需要 `SUNO_JWT_SECRET` 和 `PAYMENT_CALLBACK_SECRET` |
-| 本地 MySQL | `mysql` | MySQL | Flyway 迁移；还需要 `SUNO_DB_USERNAME` / `SUNO_DB_PASSWORD` |
-| 可选缓存 | `redis` | Redis | 非关键查询缓存；不是 readiness 依赖 |
-| 测试/生产 | `mysql` + 外置配置 | MySQL | 独立库与外部密钥；无 demo 凭据 |
-
-### 演示账号
-
-| 角色 | 用户名 | 密码 |
-|------|--------|------|
-| 管理员 | `admin` | `admin123` |
-| 普通用户 | `alice` | `user123` |
-| 普通用户 | `bob` | `user123` |
-
-> ⚠️ 演示数据使用 `{noop}` 明文密码，生产环境请改为 `{bcrypt}` 加密。
-
-## 模块与文档
-
-根项目是一个八模块 Maven Reactor：`suno-core` 提供共享内核；`suno-identity`、`suno-recycle`、`suno-marketplace`、`suno-payment` 和 `suno-operations` 按业务边界拥有应用代码；`suno-test-support` 提供测试支撑；`suno-bootstrap` 组合 Spring Boot 运行时、迁移和 HTTP 适配器。架构、迁移、测试与开发流程的入口在 [docs/](docs/README.md)。
-
-## 传统 HTTP 适配器结构
-
-```
-src/main/java/com/suno/mall/
-├── SunoMallApplication.java       # 启动入口
-├── common/                           # 通用响应与缓存契约
-│   ├── ApiResponse.java
-│   └── CacheContract.java
-├── config/
-│   └── SecurityConfig.java           # Spring Security + JWT 配置
-├── controller/                       # HTTP 接口层
-│   ├── AuthController.java           # 登录/刷新/登出/会话
-│   ├── AdminAuthController.java      # 管理员会话审计/安全事件/导出
-│   ├── RecycleController.java        # C 端回收入口
-│   ├── AdminRecycleController.java   # 后台回收/评价/配置中心
-│   ├── ResaleMallController.java     # C 端二销商城
-│   ├── PaymentCallbackController.java # 支付回调
-│   ├── AdminPaymentController.java   # 支付重放管理
-│   ├── GlobalExceptionHandler.java   # 全局异常处理
-│   └── *Scheduler.java               # 定时任务
-├── dao/                              # JPA Repository 层
-├── entity/                           # JPA 实体
-├── provider/                         # 外部平台适配（Mock/Real 切换）
-│   ├── ImageAuditProvider.java       # 图像审核接口
-│   └── LogisticsProvider.java        # 物流查询接口
-└── service/                          # 业务逻辑层
-    ├── AuthApplicationService.java   # 认证鉴权
-    ├── RecycleApplicationService.java # 回收流程编排
-    ├── ResaleOrderService.java       # 二销订单
-    ├── ResaleListingService.java     # 二销商品
-    ├── ResaleReviewService.java      # 评价系统
-    ├── PaymentReplayService.java     # 支付重放队列
-    ├── PaymentSignatureService.java  # 支付签名
-    ├── ConfigCenterService.java      # 配置中心
-    ├── AuditLogService.java          # 审计日志
-    ├── ValuationService.java         # 估价算法
-    └── support/                      # 辅助工具
-        ├── AuditLogHelper.java
-        ├── I18nHelper.java
-        └── VersionHelper.java
-```
-
-## API 接口总览
-
-### 认证鉴权 `/api/auth`
-
-| 方法 | 路径 | 说明 | 权限 |
-|------|------|------|------|
-| POST | `/api/auth/login` | 登录（返回 JWT + Refresh Token） | 公开 |
-| POST | `/api/auth/refresh` | 刷新 Access Token | 公开 |
-| GET | `/api/auth/me` | 查询当前用户信息 | 登录 |
-| POST | `/api/auth/logout` | 登出（黑名单 + 可选撤销 Refresh Token） | 登录 |
-| GET | `/api/auth/sessions` | 查询活跃设备会话 | 登录 |
-| POST | `/api/auth/sessions/revoke-device` | 按设备下线 | 登录 |
-| POST | `/api/auth/sessions/revoke-all` | 全设备下线 | 登录 |
-
-### 管理员认证 `/api/admin/auth`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/auth/sessions?username=` | 查看指定用户会话 |
-| POST | `/api/admin/auth/sessions/revoke-device` | 管理员按设备强制下线 |
-| POST | `/api/admin/auth/sessions/revoke-all` | 管理员强制全设备下线 |
-| GET | `/api/admin/auth/security-events/summary` | 安全事件汇总 |
-| GET | `/api/admin/auth/security-events/timeline` | 安全事件时间序列 |
-| GET | `/api/admin/auth/security-events/risk-users-top` | 风险用户 TopN |
-| GET | `/api/admin/auth/security-events/export` | 同步导出（CSV/JSON） |
-| GET | `/api/admin/auth/security-events/export/tasks` | 异步导出任务列表 |
-| POST | `/api/admin/auth/security-events/export/tasks` | 创建异步导出任务 |
-| GET | `/api/admin/auth/security-events/export/tasks/{taskId}` | 查询导出任务状态 |
-| GET | `/api/admin/auth/security-events/export/tasks/{taskId}/download` | 下载导出结果 |
-| POST | `/api/admin/auth/security-events/export/tasks/{taskId}/retry` | 重试失败任务 |
-| POST | `/api/admin/auth/security-events/export/tasks/cleanup` | 清理过期任务 |
-
-### 回收流程 `/api/recycle`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/recycle/orders` | 创建回收单 |
-| GET | `/api/recycle/logistics/status?trackingNo=` | 查询物流状态 |
-
-### 后台回收管理 `/api/admin/recycle`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/recycle/orders` | 查看回收单列表 |
-| PATCH | `/api/admin/recycle/orders/review` | 审核回收单 |
-| POST | `/api/admin/recycle/listings/publish` | 发布二销商品 |
-| POST | `/api/admin/recycle/resale-orders/deliver` | 确认发货 |
-| POST | `/api/admin/recycle/resale-orders/refund` | 退款 |
-| POST | `/api/admin/recycle/resale-orders/auto-confirm-receipt` | 自动确认收货 |
-| GET | `/api/admin/recycle/audit-logs` | 查询审计日志 |
-| GET | `/api/admin/recycle/audit-logs/page` | 分页查询审计日志 |
-| GET | `/api/admin/recycle/audit-logs/export` | 导出审计日志 CSV |
-
-### 评价管理 `/api/admin/recycle/review-*`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/recycle/review-reports` | 查看举报工单列表 |
-| GET | `/api/admin/recycle/review-reports/{reportId}` | 查看举报工单详情 |
-| POST | `/api/admin/recycle/review-reports/process` | 处理举报工单 |
-| POST | `/api/admin/recycle/review-reports/process-batch` | 批量处理举报 |
-| GET | `/api/admin/recycle/review-risk/summary` | 评价风控概览 |
-| GET | `/api/admin/recycle/review-risk/timeline` | 风控时间线 |
-| GET | `/api/admin/recycle/review-risk/top-listings` | 高风险商品 TopN |
-| GET | `/api/admin/recycle/review-strategy` | 查询评价策略（支持 ETag 缓存） |
-| POST | `/api/admin/recycle/review-strategy/update` | 热更新评价策略 |
-
-### 配置中心 `/api/admin/recycle/config-center`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/recycle/config-center/bundle` | 聚合包（评价策略 + 异常码 + 启动计划，支持 ETag） |
-| GET | `/api/admin/recycle/config-center/modules` | 模块摘要（digest，支持 ETag） |
-| POST | `/api/admin/recycle/config-center/module-diff` | 增量差异比对 |
-| GET | `/api/admin/recycle/config-center/module/{name}` | 按模块拉取配置（支持 ETag） |
-| GET | `/api/admin/recycle/error-codes/global` | 全局异常码字典（支持 ETag） |
-| GET | `/api/admin/recycle/degrade-actions/dictionary` | 降级动作字典（支持 ETag） |
-| GET | `/api/admin/recycle/alert-noise-rules` | 告警降噪规则（支持 ETag） |
-| POST | `/api/admin/recycle/alert-noise-rules/update` | 热更新降噪规则 |
-
-### C 端商城 `/api/mall`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/mall/listings` | 在售商品列表（支持筛选排序） |
-| POST | `/api/mall/orders` | 创建订单 |
-| POST | `/api/mall/orders/pay` | 订单支付（签名校验 + 幂等） |
-| POST | `/api/mall/orders/cancel` | 取消未支付订单 |
-| POST | `/api/mall/orders/confirm-receipt` | 确认收货 |
-| GET | `/api/mall/orders` | 买家订单列表（分页/筛选，支持 ETag） |
-| GET | `/api/mall/orders/status-dictionary` | 订单状态字典（支持 ETag） |
-| GET | `/api/mall/orders/summary` | 订单概览统计（支持 ETag） |
-| GET | `/api/mall/orders/{orderNo}/track` | 订单履约轨迹 |
-| POST | `/api/mall/favorites/add` | 添加收藏 |
-| POST | `/api/mall/favorites/remove` | 取消收藏 |
-| GET | `/api/mall/favorites` | 我的收藏 |
-| POST | `/api/mall/reviews/create` | 提交评价 |
-| POST | `/api/mall/reviews/append` | 追评 |
-| POST | `/api/mall/reviews/reply` | 商家回复 |
-| GET | `/api/mall/reviews` | 商品评价列表（智能排序） |
-| POST | `/api/mall/reviews/vote-useful` | 有用性投票 |
-| POST | `/api/mall/reviews/report` | 举报评价 |
-
-### 支付回调 `/api/payment`
-
-| 方法 | 路径 | 说明 | 权限 |
-|------|------|------|------|
-| POST | `/api/payment/callback` | 支付回调（签名校验 + 幂等 + 日志落库） | 公开 |
-
-### 支付重放管理 `/api/admin/payment`
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/payment/callback-logs` | 分页查询回调日志 |
-| POST | `/api/admin/payment/callback-logs/replay` | 同步重放回调 |
-| POST | `/api/admin/payment/callback-logs/replay/enqueue` | 异步入队重放 |
-| POST | `/api/admin/payment/callback-logs/replay/consume` | 手工消费重放队列 |
-| GET | `/api/admin/payment/replay-tasks` | 分页查询重放任务 |
-| GET | `/api/admin/payment/replay-tasks/summary` | 重放队列摘要 |
-| GET | `/api/admin/payment/replay-tasks/query-audit-actions` | 查询审计动作列表 |
-| GET | `/api/admin/payment/replay-tasks/health` | 队列健康状态 |
-| GET | `/api/admin/payment/replay-tasks/diagnosis` | 一键巡检与处置建议 |
-| GET | `/api/admin/payment/replay-tasks/cleanup-performance-check` | 清理性能检查 |
-| POST | `/api/admin/payment/replay-tasks/auto-handle` | 半自动处置 |
-| GET | `/api/admin/payment/replay-tasks/auto-handle-idempotency` | 分页查询幂等记录 |
-| GET | `/api/admin/payment/replay-tasks/auto-handle-idempotency/detail` | 幂等记录详情 |
-| POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/delete` | 按traceId删除幂等记录 |
-| POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/delete-before` | 批量删除指定时间前的幂等记录 |
-| POST | `/api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup` | 清理过期幂等记录 |
-| POST | `/api/admin/payment/replay-tasks/requeue` | 单条再投递 |
-| POST | `/api/admin/payment/replay-tasks/requeue/dead` | 批量再投递 DEAD |
-
-### 商品详情页
-
-```
-http://localhost:8080/products/{productId}.html
-```
-
-## curl 测试
-
-以下 curl 命令可直接复制执行，覆盖全链路核心场景。
-
-> 环境变量 `$TOKEN` 和 `$ADMIN_TOKEN` 需先通过登录获取，或使用下方一键登录脚本。
-
-### 一键登录获取 Token
+启动后检查：
 
 ```bash
-# 普通用户 Token
-TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"user123","deviceId":"curl-test"}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])")
-
-echo "USER TOKEN: $TOKEN"
-
-# 管理员 Token
-ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin123","deviceId":"curl-admin"}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])")
-
-echo "ADMIN TOKEN: $ADMIN_TOKEN"
+curl -fsS http://localhost:8080/actuator/health/liveness
+curl -fsS http://localhost:8080/actuator/health/readiness
 ```
 
----
+readiness 只有在 Spring readiness、数据库连接和 Flyway 校验都健康时才会返回 `UP`。
 
-### 认证鉴权
+### 2. MySQL 验证或部署
+
+先创建独立数据库和最小权限应用账号，再通过环境变量注入凭据。`mysql`、`staging` 和 `prod` 不接受缺失的外部数据库凭据：
 
 ```bash
-# 登录（返回 JWT + Refresh Token）
-curl -s -X POST http://localhost:8080/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"user123","deviceId":"web-chrome-01"}'
+export SUNO_JWT_SECRET="$(openssl rand -base64 48)"
+export PAYMENT_CALLBACK_SECRET="$(openssl rand -hex 32)"
+export SUNO_DB_URL="jdbc:mysql://127.0.0.1:3306/suno_mall?useSSL=false&serverTimezone=UTC&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=utf8&tinyInt1isBit=false"
+export SUNO_DB_USERNAME="suno"
+export SUNO_DB_PASSWORD="<least-privilege-password>"
 
-# 刷新 Token（需替换 refreshToken）
-curl -s -X POST http://localhost:8080/api/auth/refresh \
-  -H 'Content-Type: application/json' \
-  -d '{"refreshToken":"<refreshToken>","deviceId":"web-chrome-01"}'
-
-# 查询当前用户
-curl -s http://localhost:8080/api/auth/me \
-  -H "Authorization: Bearer $TOKEN"
-
-# 查询活跃设备会话
-curl -s http://localhost:8080/api/auth/sessions \
-  -H "Authorization: Bearer $TOKEN"
-
-# 按设备下线
-curl -s -X POST http://localhost:8080/api/auth/sessions/revoke-device \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"deviceId":"web-chrome-01"}'
-
-# 全设备下线
-curl -s -X POST http://localhost:8080/api/auth/sessions/revoke-all \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN"
-
-# 登出
-curl -s -X POST http://localhost:8080/api/auth/logout \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"refreshToken":"<refreshToken>"}'
+./mvnw -pl suno-bootstrap -am package -DskipUnitTests=true
+java -jar suno-bootstrap/target/suno-bootstrap-0.0.1-SNAPSHOT.jar \
+  --spring.profiles.active=mysql
 ```
 
-### 管理员 — 认证与安全
+如果数据库地址已写入外部配置，也可以只切换 `--spring.profiles.active=staging` 或 `prod`。生产环境的 JWT、支付回调和外部 Provider 凭据应由 Secret Manager、进程管理器或平台密钥服务注入。
+
+### 3. 质量验证
+
+本地无 Docker 时运行 H2 和非 Docker 测试：
 
 ```bash
-# 查看指定用户会话
-curl -s "http://localhost:8080/api/admin/auth/sessions?username=alice" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 管理员按设备强制下线
-curl -s -X POST http://localhost:8080/api/admin/auth/sessions/revoke-device \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"username":"alice","deviceId":"web-chrome-01"}'
-
-# 管理员强制全设备下线
-curl -s -X POST http://localhost:8080/api/admin/auth/sessions/revoke-all \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"username":"alice"}'
-
-# 安全事件汇总
-curl -s "http://localhost:8080/api/admin/auth/security-events/summary?lookbackMinutes=60" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 安全事件时间线
-curl -s "http://localhost:8080/api/admin/auth/security-events/timeline?lookbackMinutes=60" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 风险用户 TopN
-curl -s "http://localhost:8080/api/admin/auth/security-events/risk-users-top?lookbackMinutes=60&topN=10" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 同步导出安全事件（JSON）
-curl -s "http://localhost:8080/api/admin/auth/security-events/export?type=summary&format=json&lookbackMinutes=60" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 同步导出安全事件（CSV）
-curl -s "http://localhost:8080/api/admin/auth/security-events/export?type=summary&format=csv&lookbackMinutes=60" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -o security-events.csv
-
-# 创建异步导出任务
-curl -s -X POST http://localhost:8080/api/admin/auth/security-events/export/tasks \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"type":"summary","format":"json","lookbackMinutes":60,"topN":10,"idempotencyKey":"export-001"}'
-
-# 查询导出任务状态（需替换 taskId）
-curl -s http://localhost:8080/api/admin/auth/security-events/export/tasks/<taskId> \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 下载导出结果
-curl -s http://localhost:8080/api/admin/auth/security-events/export/tasks/<taskId>/download \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -o export-result.json
-
-# 重试失败任务
-curl -s -X POST http://localhost:8080/api/admin/auth/security-events/export/tasks/<taskId>/retry \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 清理过期导出任务
-curl -s -X POST http://localhost:8080/api/admin/auth/security-events/export/tasks/cleanup \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"retainDays":7}'
-```
-
-### 回收流程
-
-```bash
-# 创建回收单
-curl -s -X POST http://localhost:8080/api/recycle/orders \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "userId":1001,
-    "snCode":"SN-DEMO-001",
-    "imageUrl":"https://demo/image.jpg",
-    "wearScore":85,
-    "recycleCount":3
-  }'
-
-# 查询物流状态（需替换 trackingNo）
-curl -s "http://localhost:8080/api/recycle/logistics/status?trackingNo=<trackingNo>" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### 后台回收管理
-
-```bash
-# 查看回收单列表
-curl -s http://localhost:8080/api/admin/recycle/orders \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 审核回收单（通过）
-curl -s -X PATCH http://localhost:8080/api/admin/recycle/orders/review \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"orderNo":"<orderNo>","action":"APPROVE","reviewedGrade":"GOOD"}'
-
-# 审核回收单（拒绝）
-curl -s -X PATCH http://localhost:8080/api/admin/recycle/orders/review \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"orderNo":"<orderNo>","action":"REJECT"}'
-
-# 发布二销商品
-curl -s -X POST http://localhost:8080/api/admin/recycle/listings/publish \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"recycleOrderNo":"<orderNo>","salePrice":1599.00,"stock":1}'
-
-# 确认发货
-curl -s -X POST http://localhost:8080/api/admin/recycle/resale-orders/deliver \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"orderNo":"<orderNo>"}'
-
-# 退款
-curl -s -X POST http://localhost:8080/api/admin/recycle/resale-orders/refund \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"orderNo":"<orderNo>"}'
-
-# 自动确认收货
-curl -s -X POST http://localhost:8080/api/admin/recycle/resale-orders/auto-confirm-receipt \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 查询审计日志
-curl -s "http://localhost:8080/api/admin/recycle/audit-logs?limit=20" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 分页查询审计日志
-curl -s "http://localhost:8080/api/admin/recycle/audit-logs/page?page=0&size=10" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 导出审计日志 CSV
-curl -s "http://localhost:8080/api/admin/recycle/audit-logs/export?limit=1000" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -o audit-logs.csv
-```
-
-### 评价管理
-
-```bash
-# 查看举报工单列表
-curl -s "http://localhost:8080/api/admin/recycle/review-reports" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 查看举报工单详情
-curl -s http://localhost:8080/api/admin/recycle/review-reports/1 \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 处理举报工单
-curl -s -X POST http://localhost:8080/api/admin/recycle/review-reports/process \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"reportId":1,"action":"HIDE_REVIEW","processNote":"违规内容","operator":"admin"}'
-
-# 批量处理举报
-curl -s -X POST http://localhost:8080/api/admin/recycle/review-reports/process-batch \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"reportIds":[1,2],"action":"HIDE_REVIEW","processNote":"批量处理","operator":"admin"}'
-
-# 评价风控概览
-curl -s "http://localhost:8080/api/admin/recycle/review-risk/summary?lookbackMinutes=60" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 风控时间线
-curl -s "http://localhost:8080/api/admin/recycle/review-risk/timeline?lookbackMinutes=60" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 高风险商品 TopN
-curl -s "http://localhost:8080/api/admin/recycle/review-risk/top-listings?lookbackMinutes=60&topN=10" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 查询评价策略
-curl -s http://localhost:8080/api/admin/recycle/review-strategy \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 热更新评价策略
-curl -s -X POST http://localhost:8080/api/admin/recycle/review-strategy/update \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"updates":{"sensitiveWords":["假货","骗子"]},"operator":"admin"}'
-```
-
-### 配置中心
-
-```bash
-# 聚合包
-curl -s http://localhost:8080/api/admin/recycle/config-center/bundle \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 模块摘要
-curl -s http://localhost:8080/api/admin/recycle/config-center/modules \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 增量差异比对
-curl -s -X POST http://localhost:8080/api/admin/recycle/config-center/module-diff \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"localDigests":{"reviewStrategy":"abc123"}}'
-
-# 按模块拉取配置
-curl -s http://localhost:8080/api/admin/recycle/config-center/module/review-strategy \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 全局异常码字典
-curl -s http://localhost:8080/api/admin/recycle/error-codes/global \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 降级动作字典
-curl -s http://localhost:8080/api/admin/recycle/degrade-actions/dictionary \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 告警降噪规则
-curl -s http://localhost:8080/api/admin/recycle/alert-noise-rules \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 热更新降噪规则
-curl -s -X POST http://localhost:8080/api/admin/recycle/alert-noise-rules/update \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"updates":{"rules":[{"pattern":".*timeout.*","action":"IGNORE"}]},"operator":"admin"}'
-```
-
-### C 端商城
-
-```bash
-# 在售商品列表
-curl -s "http://localhost:8080/api/mall/listings" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 按品级筛选
-curl -s "http://localhost:8080/api/mall/listings?grade=GOOD&sortBy=price&sortOrder=asc" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 创建订单
-curl -s -X POST http://localhost:8080/api/mall/orders \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"buyerUserId":1001,"listingId":1}'
-
-# 取消未支付订单
-curl -s -X POST http://localhost:8080/api/mall/orders/cancel \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>"}'
-
-# 确认收货
-curl -s -X POST http://localhost:8080/api/mall/orders/confirm-receipt \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>","buyerUserId":1001}'
-
-# 买家订单列表
-curl -s "http://localhost:8080/api/mall/orders?buyerUserId=1001&page=0&size=10" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 订单状态字典
-curl -s http://localhost:8080/api/mall/orders/status-dictionary \
-  -H "Authorization: Bearer $TOKEN"
-
-# 订单概览统计
-curl -s "http://localhost:8080/api/mall/orders/summary?buyerUserId=1001" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 订单履约轨迹
-curl -s "http://localhost:8080/api/mall/orders/<orderNo>/track?buyerUserId=1001" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 添加收藏
-curl -s -X POST http://localhost:8080/api/mall/favorites/add \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"userId":1001,"listingId":1}'
-
-# 取消收藏
-curl -s -X POST http://localhost:8080/api/mall/favorites/remove \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"userId":1001,"listingId":1}'
-
-# 我的收藏
-curl -s "http://localhost:8080/api/mall/favorites?userId=1001" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 提交评价
-curl -s -X POST http://localhost:8080/api/mall/reviews/create \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>","buyerUserId":1001,"rating":5,"content":"成色很好，和描述一致"}'
-
-# 追评
-curl -s -X POST http://localhost:8080/api/mall/reviews/append \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>","buyerUserId":1001,"appendContent":"用了一周依然很好"}'
-
-# 商家回复
-curl -s -X POST http://localhost:8080/api/mall/reviews/reply \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>","merchantReply":"感谢您的评价"}'
-
-# 商品评价列表
-curl -s "http://localhost:8080/api/mall/reviews?listingId=1" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 有用性投票
-curl -s -X POST http://localhost:8080/api/mall/reviews/vote-useful \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>","voterUserId":1002}'
-
-# 举报评价
-curl -s -X POST http://localhost:8080/api/mall/reviews/report \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"orderNo":"<orderNo>","reporterUserId":1002,"reason":"虚假评价"}'
-```
-
-### 支付回调
-
-```bash
-# 模拟支付回调（需签名，此处仅示例请求格式）
-curl -s -X POST http://localhost:8080/api/payment/callback \
-  -H 'Content-Type: application/json' \
-  -H 'X-Timestamp: 1715500000000' \
-  -H 'X-Signature: <signature>' \
-  -d '{"orderNo":"<orderNo>","idempotencyKey":"pay-001","payStatus":"SUCCESS","nonce":"random-nonce"}'
-```
-
-### 支付重放管理
-
-```bash
-# 分页查询回调日志
-curl -s "http://localhost:8080/api/admin/payment/callback-logs?page=0&size=20" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 同步重放回调
-curl -s -X POST http://localhost:8080/api/admin/payment/callback-logs/replay \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"callbackLogId":1}'
-
-# 异步入队重放
-curl -s -X POST http://localhost:8080/api/admin/payment/callback-logs/replay/enqueue \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"callbackLogId":1}'
-
-# 手工消费重放队列
-curl -s -X POST http://localhost:8080/api/admin/payment/callback-logs/replay/consume \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"maxCount":10}'
-
-# 分页查询重放任务
-curl -s "http://localhost:8080/api/admin/payment/replay-tasks?page=0&size=20" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 重放队列摘要
-curl -s http://localhost:8080/api/admin/payment/replay-tasks/summary \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 查询审计动作列表
-curl -s "http://localhost:8080/api/admin/payment/replay-tasks/query-audit-actions" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 队列健康状态
-curl -s http://localhost:8080/api/admin/payment/replay-tasks/health \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 一键巡检与处置建议
-curl -s http://localhost:8080/api/admin/payment/replay-tasks/diagnosis \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 清理性能检查
-curl -s http://localhost:8080/api/admin/payment/replay-tasks/cleanup-performance-check \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 半自动处置
-curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/auto-handle \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"allowRequeueDead":true,"consumeMaxCount":50,"requeueMaxCount":50}'
-
-# 分页查询幂等记录
-curl -s "http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency?page=0&size=20" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 幂等记录详情
-curl -s "http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency/detail?traceId=<traceId>" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 按traceId删除幂等记录
-curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency/delete \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"traceId":"<traceId>"}'
-
-# 清理过期幂等记录
-curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/auto-handle-idempotency/cleanup \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"retainDays":7}'
-
-# 单条再投递
-curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/requeue \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"taskId":1}'
-
-# 批量再投递 DEAD
-curl -s -X POST http://localhost:8080/api/admin/payment/replay-tasks/requeue/dead \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"maxCount":50}'
-```
-
-### 商品详情页
-
-```bash
-# 访问商品详情页（Freemarker 模板渲染）
-curl -s http://localhost:8080/products/1.html
-```
-
-## 估价算法
-
-采用"规则表匹配 + 兜底策略"双层机制：
-
-1. **输入因子**：品牌、型号、生产日期（SN 解析）、磨损分（图片审核）
-2. **规则匹配**：按品牌/型号精确或 `ALL` 通配查询规则表，通配越少优先级越高
-3. **优先级**：精确品牌+精确型号 > 精确品牌+ALL > ALL+精确型号 > ALL+ALL
-4. **兜底策略**：规则未命中时按机龄内置估价（≤18月 GOOD/1800，≤36月 MEDIUM/1200，>36月 UNQUALIFIED/300）
-
-## 认证鉴权
-
-### JWT 流程
-
-```
-登录 → 签发 Access Token (HS256) + Refresh Token (绑定设备)
-       ↓
-请求携带 Bearer Token → JwtDecoder 校验签名 + 有效期 + jti 黑名单
-       ↓
-Refresh Token 过期前 → POST /api/auth/refresh 换发新 Token 对（旧 Refresh Token 失效）
-       ↓
-检测 Refresh Token 重放 → 撤销该用户全部活跃 Refresh Token
-```
-
-### RBAC 规则
-
-| 路径 | 权限 |
-|------|------|
-| `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/payment/callback`, `/products/**` | 公开 |
-| `/api/admin/**` | `ROLE_ADMIN` |
-| `/api/recycle/**`, `/api/mall/**`, `/api/auth/me`, `/api/auth/logout` | 已登录 |
-
-### 统一错误返回
-
-- **401**：`{"success":false,"message":"请先登录","data":null}`
-- **403**：`{"success":false,"message":"无权限访问该资源","data":null}`
-
-## 支付重放队列
-
-```
-回调日志 → 入队 → PENDING → PROCESSING → SUCCESS
-                                    ↓ (失败+重试)
-                              PENDING (退避等待)
-                                    ↓ (超过最大重试)
-                                   DEAD → 人工再投递
-```
-
-- **退避公式**：`backoff = min(base × 2^(retry-1), max)`，默认 base=5s, max=300s
-- **去重约束**：同一 `callbackLogId` 在 PENDING/PROCESSING 下仅允许一条任务
-- **半自动处置**：`POST /api/admin/payment/replay-tasks/auto-handle`（自动消费 + 可选自动重投 DEAD）
-- **幂等保护**：auto-handle 基于 traceId 做短窗口幂等
-
-## 配置中心
-
-支持模块化增量同步，前端可按 `groupMeta + fieldMeta` 自动渲染配置表单：
-
-1. `GET /modules` → 获取模块摘要（digest）
-2. `POST /module-diff` → 比对本地与服务端差异
-3. `GET /module/{name}` → 按需拉取变化模块
-4. `POST /review-strategy/update` 或 `/alert-noise-rules/update` → 热更新配置
-
-所有管理端配置接口支持 **ETag 缓存协商**（`If-None-Match` / `304 Not Modified`）。
-
-## 缓存协商
-
-以下接口支持 HTTP 缓存协商：
-
-- 管理端：`review-strategy`、`error-codes/global`、`config-center/bundle`、`config-center/module/*`
-- C 端：`/api/mall/orders`、`/api/mall/orders/status-dictionary`、`/api/mall/orders/summary`
-
-请求头：`If-None-Match`，响应头：`ETag`、`Last-Modified`、`X-Cache-Digest`，命中返回 `304`。
-
-## 外部平台配置
-
-默认使用 Mock，切换真实对接：
-
-```yaml
-provider:
-  image-audit:
-    mode: real
-    baidu:
-      endpoint: "https://your-baidu-audit-endpoint"
-      access-token: "your-access-token"
-  logistics:
-    mode: real
-    endpoint: "https://your-logistics-endpoint"
-    api-key: "your-api-key"
-```
-
-## 关键配置项
-
-```yaml
-# 所有可部署密钥来自环境变量；不要把实际值写进 YAML。
-security:
-  auth:
-    jwt:
-      secret: ${SUNO_JWT_SECRET}
-      expire-minutes: 120
-      refresh-expire-minutes: 10080
-    export-task:
-      retain-days: 7
-      cleanup-fixed-delay-ms: 3600000
-      max-running: 3
-      default-max-retry: 2
-      running-timeout-minutes: 10
-
-# 支付重放
-payment:
-  callback:
-    secret: ${PAYMENT_CALLBACK_SECRET}
-    replay-consume-fixed-delay-ms: 30000
-    replay-consume-batch-size: 20
-    replay-max-retry: 3
-    replay-backoff-base-seconds: 5
-    replay-backoff-max-seconds: 300
-    replay-health-pending-threshold: 100
-    replay-health-dead-threshold: 10
-
-# 评价
-mall:
-  review:
-    append-window-days: 30
-```
-
-## 审计日志
-
-所有关键操作自动写入 `operation_audit_log`，支持按 `actionType`/`targetId` 检索。
-
-### 主要审计动作类型
-
-| 类别 | 动作类型 |
-|------|----------|
-| 认证 | `AUTH_LOGIN_SUCCESS`, `AUTH_LOGOUT`, `AUTH_REFRESH_SUCCESS`, `AUTH_REFRESH_REPLAY_BLOCKED` |
-| 会话 | `AUTH_SESSION_REVOKE_DEVICE`, `AUTH_SESSION_REVOKE_ALL`, `AUTH_ADMIN_SESSION_REVOKE_DEVICE`, `AUTH_ADMIN_SESSION_REVOKE_ALL` |
-| 导出 | `AUTH_EXPORT_TASK_CREATED`, `AUTH_EXPORT_TASK_SUCCESS`, `AUTH_EXPORT_TASK_FAILED`, `AUTH_EXPORT_TASK_RETRY`, `AUTH_EXPORT_TASK_TIMEOUT` |
-| 支付 | `RESALE_ORDER_PAY`, `PAYMENT_REPLAY_HEALTH_QUERY`, `PAYMENT_REPLAY_DIAGNOSIS_QUERY` |
-| 清理 | `PAYMENT_REPLAY_AUTO_HANDLE_IDEMPOTENCY_CLEANUP`, `PAYMENT_REPLAY_AUTO_HANDLE_IDEMPOTENCY_CLEANUP_WARN` |
-
-## 测试
-
-```bash
-# 全量单元测试
-./mvnw --batch-mode test
-
-# H2 readiness / Actuator 集成测试
-./mvnw -pl suno-bootstrap -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=HealthEndpointIT test
-
-# 项目验证入口
-./mvnw --batch-mode --no-transfer-progress verify
+./mvnw --batch-mode --no-transfer-progress -DskipITs verify
 ./scripts/verify-repository.sh
+./scripts/verify-docs.sh
 ```
 
-## 生产部署建议
+Docker 可用时运行完整门禁：
 
-- 🔑 通过部署环境注入 `SUNO_JWT_SECRET` 与 `PAYMENT_CALLBACK_SECRET`
-- 🗄️ 使用最小权限数据库账号
-- 📋 固化审计日志与导出任务保留策略
-- 🔒 密码存储改为 `{bcrypt}` 加密
-- 📊 接入监控告警（支付重放队列健康、认证安全事件、配置同步状态）
+```bash
+./mvnw --batch-mode --no-transfer-progress verify
+```
 
-## 下一阶段规划
+没有 Docker 时，MySQL Testcontainers 集成测试会被跳过；跳过结果不等同于生产数据库验证。独立本地 MySQL 启动验证、迁移证据和已知限制记录在 [开发基线](docs/development/baseline.md)。
 
-1. 接入真实支付网关 SDK（统一下单、验签、公钥轮换、证书管理）
-2. 增加支付与重放监控指标（成功率、死信增长率、平均重放时延）并接告警
-3. 完善 C 端二销评价能力（图片评价、评价举报、评价有用性投票）
-4. 增加关键链路集成测试（回调签名、nonce 重放、退避重试、死信再投递）
+## 配置与安全基线
+
+Spring Boot 不会自动加载 `.env`。可以参考 [`.env.example`](.env.example)，但不要提交填充后的 `.env` 或任何真实密钥。
+
+| 变量 | 适用范围 | 用途 |
+| --- | --- | --- |
+| `SUNO_JWT_SECRET` | 所有启动 | JWT HMAC 签名与校验 |
+| `PAYMENT_CALLBACK_SECRET` | 所有启动 | 支付回调签名校验 |
+| `SUNO_DB_URL` | `mysql`/`staging`/`prod` | 外部 MySQL 连接串 |
+| `SUNO_DB_USERNAME` / `SUNO_DB_PASSWORD` | `mysql`/`staging`/`prod` | 最小权限数据库账号 |
+| `SUNO_REDIS_HOST` / `SUNO_REDIS_PORT` / `SUNO_REDIS_PASSWORD` / `SUNO_REDIS_DATABASE` | `redis` | 可选查询缓存 |
+| `BAIDU_IMAGE_AUDIT_ENDPOINT` / `BAIDU_IMAGE_AUDIT_ACCESS_TOKEN` | `staging`/`prod` | 真实图片审核 Provider |
+| `LOGISTICS_ENDPOINT` / `LOGISTICS_API_KEY` | `staging`/`prod` | 真实物流 Provider |
+
+必须遵守的边界：
+
+- 不使用 README、配置文件或测试数据中的 demo 凭据作为生产凭据。
+- 生产数据库账号只授予应用所需的库表权限，迁移权限应与运行时账号分离。
+- Actuator 的 aggregate health、metrics、info 和 Flyway 详情要求管理员认证；公开只暴露 liveness/readiness 探针。
+- `dev` Profile 的 seed 用户只用于本地演示，密码采用 `{noop}` 是有意的开发约束，不能带入生产。
+- 应用启动失败时优先检查密钥、数据库连接、Flyway checksum 和 Profile 组合，不要通过关闭校验绕过问题。
+
+## API 入口
+
+README 只保留路由分区，完整请求参数、事件契约和流程锚点见 [需求目录](docs/requirements/README.md)：
+
+| 路由分区 | 典型能力 |
+| --- | --- |
+| `/api/auth` | 登录、刷新、登出、会话查询和设备撤销 |
+| `/api/admin/auth` | 会话审计、安全事件汇总、风险用户和导出任务 |
+| `/api/recycle` | 创建回收单、查询物流状态 |
+| `/api/admin/recycle` | 回收审核、二销发布、履约、退款和审计 |
+| `/api/mall` | 商品、订单、收藏、评价、投票和举报 |
+| `/api/payment` | 支付回调验签、幂等落库和响应 |
+| `/api/admin/payment` | 回调日志、重放队列、死信再投递和运维处置 |
+| `/actuator/health/*` | liveness/readiness 探针 |
+
+代表性请求：
+
+```bash
+# 登录获取 access token（开发 seed 仅适用于 dev 场景）
+curl -fsS -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"user123","deviceId":"curl-test"}'
+
+# 创建回收单
+curl -fsS -X POST http://localhost:8080/api/recycle/orders \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"userId":1001,"snCode":"SN-DEMO-001","imageUrl":"https://demo/image.jpg","wearScore":85,"recycleCount":3}'
+
+# 查询商城商品
+curl -fsS http://localhost:8080/api/mall/listings \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+完整 curl 示例和管理员接口请查阅 [docs/requirements](docs/requirements/README.md) 及历史接口说明；不要把生产 token、真实图片地址或支付密钥写进 shell 历史和 issue。
+
+## 测试与交付门禁
+
+测试按 Unit、Application、Web、Persistence、Concurrency、Provider、E2E 和 Architecture 分层。测试 fixture 由拥有业务语义的模块负责，生产 seed 不作为测试 fixture。详见 [测试策略](docs/development/testing.md)。
+
+常用命令：
+
+```bash
+# Bootstrap 模块快速测试
+./mvnw -pl suno-bootstrap -am test
+
+# 需求目录与流程图覆盖
+./mvnw -pl suno-bootstrap -am \
+  -Dtest=DocumentationCatalogCoverageTest,DocumentationFlowCoverageTest \
+  -Dsurefire.failIfNoSpecifiedTests=false test
+./scripts/verify-requirement-flows.sh --task 13
+
+# CI 等价门禁
+./mvnw --batch-mode --no-transfer-progress verify
+```
+
+CI 工作流位于 [`.github/workflows/verify.yml`](.github/workflows/verify.yml)，对 `main` push 和 Pull Request 执行 Java 25 构建与 Maven `verify`。
+
+## 当前阶段与后续路线
+
+### Phase 0 已建立的基线
+
+- 模块化 Maven Reactor、架构边界测试和文档覆盖校验。
+- Flyway 迁移与 H2/MySQL Profile，JPA schema validation 和 readiness 探针。
+- JWT、RBAC、Refresh Token 轮换、多设备会话、支付回调幂等和重放治理。
+- 回收、二销、订单、评价、审计、配置中心和安全事件的 HTTP 适配器。
+- 可重复的 Maven、仓库卫生、Checkstyle、JaCoCo 和 CI 验证路径。
+
+### 明确的非目标与下一阶段
+
+Phase 0 不等于所有业务安全和生产治理已经完成。下一阶段应按需求文档继续收敛：
+
+- [Identity requirements](docs/requirements/identity.md)：refresh/session 持久化语义、RBAC 和安全事件边界。
+- [Payment requirements](docs/requirements/payment.md)：回调验签、幂等账本、重放任务领取和死信治理。
+- [Marketplace requirements](docs/requirements/marketplace.md)：CurrentActor、资源所有权、库存/订单/评价状态机。
+- [Recycle requirements](docs/requirements/recycle.md)：服务端估值、积分、外部调用和短事务边界。
+- [Operations requirements](docs/requirements/operations.md)：审计、配置、导出和运维任务。
+
+## 贡献与开发流程
+
+建议贡献流程：
+
+1. 从 `main` 创建短生命周期分支，先阅读对应模块和需求文档。
+2. 以用例、边界和不变量为单位修改，补充同层测试与文档流程锚点。
+3. 本地执行 `./mvnw -DskipITs verify`、仓库校验和文档校验；Docker 可用时再运行完整 `verify`。
+4. 提交信息使用清晰的动作式描述，Pull Request 说明行为变化、迁移影响、验证证据和未覆盖风险。
+
+详细约定见 [开发工作流](docs/development/workflow.md)、[架构说明](docs/architecture/modules.md) 和 [项目开发文档](docs/项目开发文档.md)。
 
 ## License
 
-Private — All rights reserved.
+当前仓库未声明独立开源许可证。若要对外发布，请先补充根目录 `LICENSE` 并在此处更新授权条款。
