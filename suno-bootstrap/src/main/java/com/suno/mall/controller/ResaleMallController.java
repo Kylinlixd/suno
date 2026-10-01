@@ -128,7 +128,7 @@ public class ResaleMallController {
 
     @PostMapping("/orders/cancel")
     public ApiResponse<Map<String, Object>> cancelOrder(@RequestBody CancelResaleOrderRequest request) {
-        return ApiResponse.ok(recycleApplicationService.cancelUnpaidResaleOrder(request.orderNo()));
+        return ApiResponse.ok(recycleApplicationService.cancelUnpaidResaleOrder(request.orderNo(), request.buyerUserId()));
     }
 
     @PostMapping("/orders/confirm-receipt")
@@ -236,7 +236,8 @@ public class ResaleMallController {
     }
 
     public record CancelResaleOrderRequest(
-            @NotBlank String orderNo
+            @NotBlank String orderNo,
+            @NotNull Long buyerUserId
     ) {
     }
 

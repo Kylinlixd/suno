@@ -124,8 +124,8 @@ public class RecycleApplicationService {
     }
 
     @RecycleTransactional
-    public Map<String, Object> cancelUnpaidResaleOrder(String orderNo) {
-        return resaleOrderService.cancelUnpaidResaleOrder(orderNo);
+    public Map<String, Object> cancelUnpaidResaleOrder(String orderNo, Long buyerUserId) {
+        return resaleOrderService.cancelUnpaidResaleOrder(orderNo, buyerUserId);
     }
 
     @RecycleTransactional

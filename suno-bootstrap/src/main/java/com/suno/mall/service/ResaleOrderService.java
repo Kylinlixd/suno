@@ -196,9 +196,12 @@ public class ResaleOrderService {
     }
 
     @ResaleTransactional
-    public Map<String, Object> cancelUnpaidResaleOrder(String orderNo) {
+    public Map<String, Object> cancelUnpaidResaleOrder(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
+        if (!order.getBuyerUser().getId().equals(buyerUserId)) {
+            throw new BizException("仅允许取消本人订单", ErrorCode.ORDER_NOT_OWNER);
+        }
         if (!"UNPAID".equals(order.getPayStatus())) {
             throw new BizException("仅 UNPAID 订单可取消", ErrorCode.ORDER_STATUS_CONFLICT);
         }
@@ -208,7 +211,7 @@ public class ResaleOrderService {
         order.setFulfillStatus("CANCELLED");
         resaleOrderRepository.save(order);
         restoreListingStock(order.getListing());
-        auditLogService.logAction("RESALE_ORDER_CANCEL", "RESALE_ORDER", orderNo, "fulfillStatus=CANCELLED");
+        auditLogService.logAction("RESALE_ORDER_CANCEL", "RESALE_ORDER", orderNo, "fulfillStatus=CANCELLED,buyerUserId=" + buyerUserId);
         return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
     }
 
