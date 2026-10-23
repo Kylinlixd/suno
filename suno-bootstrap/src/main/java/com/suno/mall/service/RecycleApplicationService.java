@@ -139,6 +139,11 @@ public class RecycleApplicationService {
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> getBuyerResaleOrderDetail(String orderNo, Long buyerUserId) {
+        return resaleOrderService.getBuyerResaleOrderDetail(orderNo, buyerUserId);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public Map<String, Object> queryResaleOrderTrack(String orderNo, Long buyerUserId) {
         return resaleOrderService.queryResaleOrderTrack(orderNo, buyerUserId);
     }

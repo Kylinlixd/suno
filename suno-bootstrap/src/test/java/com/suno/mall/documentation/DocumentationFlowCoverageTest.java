@@ -40,7 +40,7 @@ class DocumentationFlowCoverageTest {
     @Test
     void catalogEntriesHaveCompleteHonestFlowsAndTestContracts() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(122, catalog.size());
+        assertEquals(123, catalog.size());
         for (Map<String, Object> entry : catalog) {
             String id = string(entry, "id");
             String document = Files.readString(Path.of("..", string(entry, "requirementDoc")));

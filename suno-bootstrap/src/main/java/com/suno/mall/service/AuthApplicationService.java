@@ -142,9 +142,21 @@ public class AuthApplicationService {
         return result;
     }
 
+    /**
+     * 从认证主体解析当前用户 ID。买家侧订单接口必须使用该值，
+     * 不能信任请求体或查询参数中的 buyerUserId。
+     */
+    public Long requireUserId(Jwt jwt) {
+        return requireUser(jwt).getId();
+    }
+
+    public UserAccountEntity requireUser(Jwt jwt) {
+        return userAccountRepository.findByUsername(jwt.getSubject())
+                .orElseThrow(() -> new BizException("用户不存在", ErrorCode.AUTH_UNAUTHORIZED));
+    }
+
     public Map<String, Object> me(Jwt jwt) {
-        UserAccountEntity user = userAccountRepository.findByUsername(jwt.getSubject())
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        UserAccountEntity user = requireUser(jwt);
         Map<String, Object> data = new HashMap<>();
         data.put("userId", user.getId());
         data.put("username", user.getUsername());

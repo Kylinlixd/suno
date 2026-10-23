@@ -19,8 +19,10 @@ import com.suno.mall.dao.ResaleOrderRepository;
 import com.suno.mall.dao.ResaleReviewRepository;
 import com.suno.mall.dao.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
@@ -59,7 +61,6 @@ public class ResaleOrderService {
     private final ResaleListingRepository resaleListingRepository;
     private final PaymentIdempotencyRepository paymentIdempotencyRepository;
     private final AuditLogService auditLogService;
-    private final ResaleListingService resaleListingService;
 
     public ResaleOrderService(
             UserAccountRepository userAccountRepository,
@@ -67,8 +68,7 @@ public class ResaleOrderService {
             ResaleReviewRepository resaleReviewRepository,
             ResaleListingRepository resaleListingRepository,
             PaymentIdempotencyRepository paymentIdempotencyRepository,
-            AuditLogService auditLogService,
-            ResaleListingService resaleListingService
+            AuditLogService auditLogService
     ) {
         this.userAccountRepository = userAccountRepository;
         this.resaleOrderRepository = resaleOrderRepository;
@@ -76,7 +76,6 @@ public class ResaleOrderService {
         this.resaleListingRepository = resaleListingRepository;
         this.paymentIdempotencyRepository = paymentIdempotencyRepository;
         this.auditLogService = auditLogService;
-        this.resaleListingService = resaleListingService;
     }
 
     @ResaleTransactional
@@ -92,14 +91,11 @@ public class ResaleOrderService {
         if (listing.getStock() <= 0) {
             throw new BizException("库存不足", ErrorCode.ORDER_STOCK_INSUFFICIENT);
         }
-        try {
-            listing.setStock(listing.getStock() - 1);
-            if (listing.getStock() == 0) {
-                listing.setStatus(LISTING_STATUS_SOLD_OUT);
-            }
-            resaleListingRepository.saveAndFlush(listing);
-        } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new BizException("下单冲突，请刷新后重试", ErrorCode.ORDER_CONCURRENT_CONFLICT);
+        int reserved = resaleListingRepository.reserveOneStock(
+                listingId, LISTING_STATUS_ON_SHELF, LISTING_STATUS_SOLD_OUT, LocalDateTime.now());
+        if (reserved == 0) {
+            // 读取后库存被并发抢占或商品下架
+            throw new BizException("商品已下架或库存不足", ErrorCode.ORDER_CONCURRENT_CONFLICT);
         }
 
         String orderNo = "B2C-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -125,18 +121,21 @@ public class ResaleOrderService {
 
 
     @ResaleTransactional
-    @CacheEvict(value = "resaleOrder", key = "#orderNo")
+    @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"UNPAID".equals(order.getPayStatus())) {
             throw new BizException("订单支付状态异常: " + order.getPayStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
         }
-        order.setPayStatus("PAID");
-        order.setFulfillStatus("TO_DELIVER");
-        resaleOrderRepository.save(order);
+        int updated = resaleOrderRepository.compareAndSetStatus(
+                orderNo, "UNPAID", "WAIT_PAY", "PAID", "TO_DELIVER");
+        if (updated == 0) {
+            // 自动关单或用户取消已先一步改变状态，迟到支付必须拒绝
+            throw new BizException("订单状态已变更，不可支付", ErrorCode.ORDER_STATUS_CONFLICT);
+        }
         auditLogService.logAction("RESALE_ORDER_PAY", "RESALE_ORDER", orderNo, "payStatus=PAID");
-        return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
+        return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "TO_DELIVER");
     }
 
     @ResaleTransactional
@@ -160,20 +159,28 @@ public class ResaleOrderService {
     }
 
     @ResaleTransactional
+    @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"PAID".equals(order.getPayStatus())) {
             throw new BizException("未支付订单不可发货", ErrorCode.ORDER_STATUS_CONFLICT);
         }
-        order.setFulfillStatus("DELIVERED");
-        resaleOrderRepository.save(order);
+        if ("DELIVERED".equals(order.getFulfillStatus())) {
+            return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "DELIVERED", "idempotentReplay", true);
+        }
+        int updated = resaleOrderRepository.compareAndSetStatus(
+                orderNo, "PAID", "TO_DELIVER", "PAID", "DELIVERED");
+        if (updated == 0) {
+            throw new BizException("当前履约状态不可发货", ErrorCode.ORDER_STATUS_CONFLICT);
+        }
         auditLogService.logAction("RESALE_ORDER_DELIVER", "RESALE_ORDER", orderNo,
                 "fulfillStatus=DELIVERED" + auditLogService.buildAuditContextSuffix(auditContext));
-        return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
+        return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "DELIVERED");
     }
 
     @ResaleTransactional
+    @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> confirmResaleOrderReceipt(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -189,13 +196,17 @@ public class ResaleOrderService {
         if (!"DELIVERED".equals(order.getFulfillStatus())) {
             throw new BizException("当前履约状态不可确认收货: " + order.getFulfillStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
         }
-        order.setFulfillStatus("COMPLETED");
-        resaleOrderRepository.save(order);
+        int updated = resaleOrderRepository.compareAndSetStatus(
+                orderNo, "PAID", "DELIVERED", "PAID", "COMPLETED");
+        if (updated == 0) {
+            throw new BizException("订单状态已变更，请刷新后重试", ErrorCode.ORDER_STATUS_CONFLICT);
+        }
         auditLogService.logAction("RESALE_ORDER_RECEIVE", "RESALE_ORDER", orderNo, "fulfillStatus=COMPLETED,buyerUserId=" + buyerUserId);
-        return Map.of("orderNo", order.getOrderNo(), "buyerUserId", buyerUserId, "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
+        return Map.of("orderNo", orderNo, "buyerUserId", buyerUserId, "payStatus", "PAID", "fulfillStatus", "COMPLETED");
     }
 
     @ResaleTransactional
+    @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -208,14 +219,19 @@ public class ResaleOrderService {
         if (!"WAIT_PAY".equals(order.getFulfillStatus())) {
             throw new BizException("当前履约状态不可取消: " + order.getFulfillStatus(), ErrorCode.ORDER_STATUS_CONFLICT);
         }
-        order.setFulfillStatus("CANCELLED");
-        resaleOrderRepository.save(order);
-        restoreListingStock(order.getListing());
+        int updated = resaleOrderRepository.compareAndSetStatus(
+                orderNo, "UNPAID", "WAIT_PAY", "UNPAID", "CANCELLED");
+        if (updated == 0) {
+            // 自动关单或支付先一步成功；只有 CAS 成功的事务可以释放库存
+            throw new BizException("订单状态已变更，取消失败", ErrorCode.ORDER_STATUS_CONFLICT);
+        }
+        releaseListingStock(order.getListing().getId());
         auditLogService.logAction("RESALE_ORDER_CANCEL", "RESALE_ORDER", orderNo, "fulfillStatus=CANCELLED,buyerUserId=" + buyerUserId);
-        return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
+        return Map.of("orderNo", orderNo, "payStatus", "UNPAID", "fulfillStatus", "CANCELLED");
     }
 
     @ResaleTransactional
+    @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> refundPaidResaleOrder(String orderNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
@@ -225,13 +241,14 @@ public class ResaleOrderService {
         if ("REFUNDED".equals(order.getFulfillStatus())) {
             throw new BizException("订单已退款", ErrorCode.ORDER_STATUS_CONFLICT);
         }
-        order.setPayStatus("REFUNDED");
-        order.setFulfillStatus("REFUNDED");
-        resaleOrderRepository.save(order);
-        restoreListingStock(order.getListing());
+        int updated = resaleOrderRepository.refundIfPaid(orderNo);
+        if (updated == 0) {
+            throw new BizException("订单状态已变更，退款失败", ErrorCode.ORDER_STATUS_CONFLICT);
+        }
+        releaseListingStock(order.getListing().getId());
         auditLogService.logAction("RESALE_ORDER_REFUND", "RESALE_ORDER", orderNo,
                 "payStatus=REFUNDED" + auditLogService.buildAuditContextSuffix(auditContext));
-        return Map.of("orderNo", order.getOrderNo(), "payStatus", order.getPayStatus(), "fulfillStatus", order.getFulfillStatus());
+        return Map.of("orderNo", orderNo, "payStatus", "REFUNDED", "fulfillStatus", "REFUNDED");
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
@@ -287,6 +304,42 @@ public class ResaleOrderService {
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> getBuyerResaleOrderDetail(String orderNo, Long buyerUserId) {
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
+        if (!order.getBuyerUser().getId().equals(buyerUserId)) {
+            throw new BizException("仅允许查看本人订单", ErrorCode.ORDER_NOT_OWNER);
+        }
+        ResaleListingEntity listing = order.getListing();
+        ProductEntity product = listing.getProduct();
+        boolean completed = "COMPLETED".equals(order.getFulfillStatus());
+        boolean hasReviewed = resaleReviewRepository
+                .findByOrder_OrderNoAndUser_Id(orderNo, buyerUserId).isPresent();
+
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("orderNo", order.getOrderNo());
+        detail.put("buyerUserId", buyerUserId);
+        detail.put("listingId", listing.getId());
+        detail.put("productId", product.getId());
+        detail.put("productBrand", product.getBrand());
+        detail.put("productModel", product.getModel());
+        detail.put("amount", order.getAmount());
+        detail.put("payStatus", order.getPayStatus());
+        detail.put("fulfillStatus", order.getFulfillStatus());
+        detail.put("statusText", I18nHelper.orderStatusText(order.getPayStatus(), order.getFulfillStatus()));
+        detail.put("statusTextI18n", I18nHelper.orderStatusTextI18n(order.getPayStatus(), order.getFulfillStatus()));
+        detail.put("createdAt", order.getCreatedAt());
+        detail.put("listingStatus", listing.getStatus());
+        detail.put("listingSalePrice", listing.getSalePrice());
+        detail.put("listingStock", listing.getStock());
+        detail.put("canPay", "UNPAID".equals(order.getPayStatus()) && "WAIT_PAY".equals(order.getFulfillStatus()));
+        detail.put("canCancel", "UNPAID".equals(order.getPayStatus()) && "WAIT_PAY".equals(order.getFulfillStatus()));
+        detail.put("canConfirmReceipt", "PAID".equals(order.getPayStatus()) && "DELIVERED".equals(order.getFulfillStatus()));
+        detail.put("canCreateReview", completed && !hasReviewed);
+        return detail;
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     @Cacheable(value = "resaleOrder", key = "#buyerUserId + '::list::' + #payStatus + '::' + #fulfillStatus + '::' + #sortBy + '::' + #sortOrder + '::' + #limit + '::' + #page + '::' + #size")
     public Map<String, Object> listBuyerResaleOrders(
             Long buyerUserId,
@@ -308,24 +361,19 @@ public class ResaleOrderService {
         String normalizedSortOrder = normalizeSortOrder(sortOrder);
         String normalizedPayStatus = normalizeFilterValue(payStatus);
         String normalizedFulfillStatus = normalizeFilterValue(fulfillStatus);
-        Comparator<ResaleOrderEntity> orderComparator = buildOrderComparator(normalizedSortBy, normalizedSortOrder);
-        List<Map<String, Object>> filtered = resaleOrderRepository.findByBuyerUser_IdOrderByCreatedAtDesc(buyerUserId).stream()
-                .filter(order -> normalizedPayStatus == null || normalizedPayStatus.equals(order.getPayStatus()))
-                .filter(order -> normalizedFulfillStatus == null || normalizedFulfillStatus.equals(order.getFulfillStatus()))
-                .sorted(orderComparator)
+        Sort.Direction direction = "asc".equals(normalizedSortOrder) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(
+                pagingEnabled ? normalizedPage : 0,
+                pagingEnabled ? normalizedSize : normalizedLimit,
+                Sort.by(direction, normalizedSortBy).and(Sort.by(Sort.Direction.DESC, "id")));
+        Page<ResaleOrderEntity> orderPage = resaleOrderRepository.pageByBuyer(
+                buyerUserId,
+                normalizedPayStatus == null ? "" : normalizedPayStatus,
+                normalizedFulfillStatus == null ? "" : normalizedFulfillStatus,
+                pageable);
+        List<Map<String, Object>> items = orderPage.getContent().stream()
                 .map(this::toBuyerOrderListItem)
                 .toList();
-        List<Map<String, Object>> items;
-        int totalMatched = filtered.size();
-        boolean hasMore = false;
-        if (pagingEnabled) {
-            int start = Math.min(totalMatched, normalizedPage * normalizedSize);
-            int end = Math.min(totalMatched, start + normalizedSize);
-            items = filtered.subList(start, end);
-            hasMore = end < totalMatched;
-        } else {
-            items = filtered.stream().limit(normalizedLimit).toList();
-        }
         Map<String, Object> filters = new LinkedHashMap<>();
         filters.put("payStatus", normalizedPayStatus);
         filters.put("fulfillStatus", normalizedFulfillStatus);
@@ -335,13 +383,13 @@ public class ResaleOrderService {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("buyerUserId", buyerUserId);
         response.put("filters", filters);
-        response.put("total", items.size());
+        response.put("total", orderPage.getTotalElements());
         response.put("items", items);
         if (pagingEnabled) {
-            response.put("totalMatched", totalMatched);
+            response.put("totalMatched", orderPage.getTotalElements());
             response.put("page", normalizedPage);
             response.put("size", normalizedSize);
-            response.put("hasMore", hasMore);
+            response.put("hasMore", orderPage.hasNext());
         }
         return response;
     }
@@ -359,6 +407,7 @@ public class ResaleOrderService {
                 statusDictItem("DELIVERED", "待收货", "Awaiting Receipt"),
                 statusDictItem("COMPLETED", "已完成", "Completed"),
                 statusDictItem("CANCELLED", "已取消", "Cancelled"),
+                statusDictItem("AUTO_CLOSED", "已关闭", "Auto Closed"),
                 statusDictItem("REFUNDED", "已退款", "Refunded")
         );
         return Map.of("schemaVersion", "1.0.0", "payStatus", payStatus, "fulfillStatus", fulfillStatus, "generatedAt", LocalDateTime.now());
@@ -423,13 +472,20 @@ public class ResaleOrderService {
             List<ResaleOrderEntity> expiredOrders = resaleOrderRepository.findByPayStatusAndFulfillStatusAndCreatedAtBefore(
                     "UNPAID", "WAIT_PAY", threshold, PageRequest.of(0, batchSize));
             if (expiredOrders.isEmpty()) break;
+            int roundClosed = 0;
             for (ResaleOrderEntity order : expiredOrders) {
-                order.setFulfillStatus("AUTO_CLOSED");
-                resaleOrderRepository.save(order);
-                resaleListingService.restoreListingStock(order.getListing());
+                int updated = resaleOrderRepository.compareAndSetStatus(
+                        order.getOrderNo(), "UNPAID", "WAIT_PAY", "UNPAID", "AUTO_CLOSED");
+                if (updated == 0) {
+                    // 用户取消或支付已先完成，不能再关单或释放库存
+                    continue;
+                }
+                releaseListingStock(order.getListing().getId());
                 auditLogService.logAction("RESALE_ORDER_AUTO_CLOSE", "RESALE_ORDER", order.getOrderNo(), "expireMinutes=" + expireMinutes);
                 closedCount++;
+                roundClosed++;
             }
+            if (roundClosed == 0) break;
         }
         return closedCount;
     }
@@ -445,8 +501,9 @@ public class ResaleOrderService {
             int roundConfirmed = 0;
             for (ResaleOrderEntity order : deliveredOrders) {
                 if (!auditLogService.isDeliveredBefore(order.getOrderNo(), threshold)) continue;
-                order.setFulfillStatus("COMPLETED");
-                resaleOrderRepository.save(order);
+                int updated = resaleOrderRepository.compareAndSetStatus(
+                        order.getOrderNo(), "PAID", "DELIVERED", "PAID", "COMPLETED");
+                if (updated == 0) continue;
                 auditLogService.logAction("RESALE_ORDER_AUTO_RECEIVE", "RESALE_ORDER", order.getOrderNo(),
                         "confirmAfterMinutes=" + confirmAfterMinutes + auditLogService.buildAuditContextSuffix(auditContext));
                 confirmedCount++;
@@ -515,17 +572,11 @@ public class ResaleOrderService {
         if ("asc".equals(n) || "desc".equals(n)) return n;
         throw new IllegalArgumentException("排序方向仅支持 asc 或 desc");
     }
-    private Comparator<ResaleOrderEntity> buildOrderComparator(String sortBy, String sortOrder) {
-        Comparator<ResaleOrderEntity> comparator = switch (sortBy) {
-            case "amount" -> Comparator.comparing(ResaleOrderEntity::getAmount, Comparator.nullsLast(Comparator.naturalOrder()));
-            default -> Comparator.comparing(ResaleOrderEntity::getCreatedAt, Comparator.nullsLast(LocalDateTime::compareTo));
-        };
-        return "asc".equals(sortOrder) ? comparator : comparator.reversed();
-    }
-
-    private void restoreListingStock(ResaleListingEntity listing) {
-        listing.setStock(listing.getStock() + 1);
-        listing.setStatus(LISTING_STATUS_ON_SHELF);
-        resaleListingRepository.save(listing);
+    private void releaseListingStock(Long listingId) {
+        int updated = resaleListingRepository.releaseOneStock(
+                listingId, LISTING_STATUS_ON_SHELF, LISTING_STATUS_SOLD_OUT, LocalDateTime.now());
+        if (updated == 0) {
+            throw new BizException("商品不存在，库存释放失败: " + listingId, ErrorCode.ORDER_NOT_FOUND);
+        }
     }
 }

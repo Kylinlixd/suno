@@ -281,7 +281,7 @@ flowchart TD
 
 ## MKT-021 买家订单列表
 
-买家按支付/履约状态查看自己的订单，目标只读当前主体订单。当前请求传 buyerUserId，虽然服务过滤该 ID，未验证认证所有权。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家按支付/履约状态查看自己的订单，目标只读当前主体订单。当前从 JWT 的 `sub` 解析用户并作为买家 ID，不再接受请求传入的 buyerUserId；列表已改为数据库分页/排序。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-021}
 ```mermaid
@@ -296,7 +296,7 @@ sequenceDiagram
   participant C as ResaleMallController#listBuyerOrders
   participant A as RecycleApplicationService#listBuyerResaleOrders
   participant S as ResaleOrderService#listBuyerResaleOrders
-  C->>A: request buyerUserId、筛选
+  C->>A: JWT、筛选、分页
   A->>S: 委托读取
 ```
 ### Target architecture flow
@@ -308,7 +308,7 @@ flowchart TD
   O -->|是| R[Own orders]
 ```
 ### Gaps
-- targetPhase: 3；当前 client-supplied buyerUserId 可查询其他人的订单。
+- targetPhase: 3；已绑定认证主体并改为数据库分页，剩余缺口是独立订单读模型与事件投影。
 
 ## MKT-022 订单状态字典
 
@@ -338,7 +338,7 @@ flowchart TD
 
 ## MKT-023 买家订单摘要
 
-买家读取自己窗口内的订单摘要；目标由认证主体限定并使用可审计聚合。当前接受 buyerUserId 和 lookbackDays。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家读取自己窗口内的订单摘要；目标由认证主体限定并使用可审计聚合。当前从 JWT 解析买家身份并接受 lookbackDays。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-023}
 ```mermaid
@@ -353,7 +353,7 @@ sequenceDiagram
   participant C as ResaleMallController#summarizeBuyerOrders
   participant A as RecycleApplicationService#summarizeBuyerResaleOrders
   participant S as ResaleOrderService#summarizeBuyerResaleOrders
-  C->>A: request buyerUserId、lookbackDays
+  C->>A: JWT、lookbackDays
   A->>S: 委托聚合
 ```
 ### Target architecture flow
@@ -365,11 +365,11 @@ flowchart TD
   O -->|是| R[Own summary]
 ```
 ### Gaps
-- targetPhase: 3；当前信任请求 buyerUserId，摘要缺少 owner 授权边界。
+- targetPhase: 3；已绑定认证主体，剩余缺口是独立摘要读模型与事件投影。
 
 ## MKT-024 创建商城订单
 
-买家为在售 listing 下单。目标在短事务内以乐观版本预留一件库存、写 `UNPAID/WAIT_PAY` 订单和 outbox；库存不足/并发冲突稳定失败。订单与库存预留唯一关联，后续只由一次释放动作恢复库存。当前执行扣库存、保存订单和审计，但请求传 buyerUserId。实现测试：`ResaleOrderServiceTest#testCreateResaleOrder`、`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家为在售 listing 下单。目标在短事务内以乐观版本预留一件库存、写 `UNPAID/WAIT_PAY` 订单和 outbox；库存不足/并发冲突稳定失败。订单与库存预留唯一关联，后续只由一次释放动作恢复库存。当前买家身份取自 JWT，库存以 `stock = stock - 1` 的条件更新原子预留并同步递增 `version`，随后写订单和审计；尚无预留台账与 outbox。实现测试：`ResaleOrderServiceTest#testCreateResaleOrder`、`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-024}
 ```mermaid
@@ -377,7 +377,7 @@ flowchart TD
   C[下单] --> O[认证主体作为买家]
   O --> L{listing ON_SHELF 且库存>0}
   L -->|否| E[ORDER_LISTING_UNAVAILABLE 或 ORDER_STOCK_INSUFFICIENT]
-  L -->|是| V{版本匹配}
+  L -->|是| V{stock>0 且 ON_SHELF 的条件更新成功}
   V -->|否| X[ORDER_CONCURRENT_CONFLICT]
   V -->|是| W[短事务：预留库存、订单 UNPAID/WAIT_PAY、outbox]
   W --> E2[MarketplaceStockReserved v1]
@@ -389,9 +389,10 @@ sequenceDiagram
   participant C as ResaleMallController#createOrder
   participant A as RecycleApplicationService#createResaleOrder
   participant S as ResaleOrderService#createResaleOrder
-  C->>A: request buyerUserId、listingId
+  C->>A: JWT、listingId
   A->>S: @RecycleTransactional
-  S->>S: 扣库存、写 UNPAID/WAIT_PAY 订单和审计
+  S->>S: 原子预留库存（stock-1、version+1）
+  S->>S: 写 UNPAID/WAIT_PAY 订单和审计
 ```
 ### Target architecture flow
 ```mermaid
@@ -401,12 +402,44 @@ flowchart TD
   T --> E[Marketplace order events]
 ```
 ### Gaps
-- targetPhase: 3；当前 client-supplied buyerUserId 未绑定认证主体，且没有库存预留记录/outbox。
-- targetPhase: 3；当前只有 listing 乐观锁；目标需使订单预留、单次释放和事件在同一资源边界可恢复。
+- targetPhase: 3；已绑定认证主体并用条件更新原子预留库存，但没有库存预留台账/outbox。
+- targetPhase: 3；目标需使订单预留、单次释放和事件在同一资源边界可恢复。
+
+## MKT-025 买家订单详情
+
+买家读取自己订单的商品、金额、支付/履约状态和可执行动作。目标只返回认证主体拥有的订单，并由读模型给出稳定快照；越权返回 `ORDER_NOT_OWNER`。当前从 JWT 解析买家身份，查询订单聚合后校验所有权并计算 `canPay/canCancel/canConfirmReceipt/canCreateReview`。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+
+### Requirement flow {#mkt-025}
+```mermaid
+flowchart TD
+  C[详情请求] --> O{认证主体拥有订单}
+  O -->|否| X[ORDER_NOT_OWNER]
+  O -->|是| Q[读取订单、商品和状态] --> A[计算可执行动作] --> R[订单详情]
+```
+### Current development flow {#mkt-025-dev}
+```mermaid
+sequenceDiagram
+  participant C as ResaleMallController#getOrderDetail
+  participant A as RecycleApplicationService#getBuyerResaleOrderDetail
+  participant S as ResaleOrderService#getBuyerResaleOrderDetail
+  C->>A: JWT、orderNo
+  A->>S: 委托读取
+  S->>S: fetch 订单聚合、校验 owner、计算动作
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  CurrentActor[Authenticated buyer] --> Q[Order detail read model]
+  Q --> O{CurrentActor owns order}
+  O -->|否| X[Reject]
+  O -->|是| R[Order detail snapshot]
+```
+### Gaps
+- targetPhase: 3；当前详情直接聚合实体，未使用独立读模型/事件投影。
 
 ## MKT-026 取消未支付订单
 
-买家只能取消自己的 `UNPAID/WAIT_PAY` 订单。目标在状态 CAS 成功时仅释放一次库存并写审计/outbox；取消后到达的支付必须被拒绝，不能回归 `PAID`。当前不传 buyerUserId，且直接恢复库存。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家只能取消自己的 `UNPAID/WAIT_PAY` 订单。目标在状态 CAS 成功时仅释放一次库存并写审计/outbox；取消后到达的支付必须被拒绝，不能回归 `PAID`。当前买家身份取自 JWT，取消以 `UNPAID/WAIT_PAY → UNPAID/CANCELLED` CAS 成功为前提，仅成功事务原子回补库存；迟到支付因 CAS 条件不匹配被拒绝。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-026}
 ```mermaid
@@ -425,9 +458,10 @@ sequenceDiagram
   participant C as ResaleMallController#cancelOrder
   participant A as RecycleApplicationService#cancelUnpaidResaleOrder
   participant S as ResaleOrderService#cancelUnpaidResaleOrder
-  C->>A: orderNo
+  C->>A: JWT、orderNo
   A->>S: @RecycleTransactional
-  S->>S: CANCELLED 后直接恢复 listing 库存
+  S->>S: CAS UNPAID/WAIT_PAY → UNPAID/CANCELLED
+  S->>S: CAS 成功后原子回补库存并写审计
 ```
 ### Target architecture flow
 ```mermaid
@@ -438,11 +472,11 @@ flowchart TD
   O -->|是| T[CAS state + release ledger + outbox]
 ```
 ### Gaps
-- targetPhase: 3；当前取消没有买家所有权校验、单次释放记录或晚到支付隔离。
+- targetPhase: 3；已具备 owner 校验、状态 CAS 和单事务库存释放，剩余缺口是释放台账与 outbox。
 
 ## MKT-027 确认收货
 
-买家只能确认自己的 `PAID/DELIVERED` 订单；重复确认或其它状态为冲突。目标用状态 CAS 保证不回退，提交 `MarketplaceFulfillmentCompleted`。当前已校验请求 buyerUserId 与订单买家，但端点仍不从认证主体取得身份。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家只能确认自己的 `PAID/DELIVERED` 订单；重复确认或其它状态为冲突。目标用状态 CAS 保证不回退，提交 `MarketplaceFulfillmentCompleted`。当前从 JWT 解析买家身份，校验所有权后以 `PAID/DELIVERED → PAID/COMPLETED` CAS 完成。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-027}
 ```mermaid
@@ -460,8 +494,8 @@ sequenceDiagram
   participant C as ResaleMallController#confirmReceipt
   participant A as RecycleApplicationService#confirmResaleOrderReceipt
   participant S as ResaleOrderService#confirmResaleOrderReceipt
-  C->>A: orderNo、request buyerUserId
-  A->>S: 委托状态校验和保存
+  C->>A: JWT、orderNo
+  A->>S: 委托 owner 校验和状态 CAS
 ```
 ### Target architecture flow
 ```mermaid
@@ -472,11 +506,11 @@ flowchart TD
   O -->|是| T[CAS completion + outbox]
 ```
 ### Gaps
-- targetPhase: 3；当前所有权以客户端 buyerUserId 表达，完成事件没有 outbox。
+- targetPhase: 3；所有权已由认证主体表达并改为 CAS，完成事件仍没有 outbox。
 
 ## MKT-028 查询订单履约轨迹
 
-买家只能读取自己的订单轨迹和评价资格。评价资格为订单 `COMPLETED`、本人未评价；追加还必须在窗口内且未追加过。当前服务有这些大部分计算，但端点接受 buyerUserId。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家只能读取自己的订单轨迹和评价资格。评价资格为订单 `COMPLETED`、本人未评价；追加还必须在窗口内且未追加过。当前从 JWT 解析买家身份并完成这些计算。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-028}
 ```mermaid
@@ -494,7 +528,7 @@ sequenceDiagram
   participant C as ResaleMallController#queryOrderTrack
   participant A as RecycleApplicationService#queryResaleOrderTrack
   participant S as ResaleOrderService#queryResaleOrderTrack
-  C->>A: orderNo、request buyerUserId
+  C->>A: JWT、orderNo
   A->>S: 读取订单、审计和评价资格
 ```
 ### Target architecture flow
@@ -506,7 +540,7 @@ flowchart TD
   O -->|是| R[Timeline + review eligibility]
 ```
 ### Gaps
-- targetPhase: 3；当前资源所有权依赖请求参数，资格和审计未封装为稳定读模型。
+- targetPhase: 3；所有权已绑定认证主体，资格和审计仍未封装为稳定读模型。
 
 ## MKT-029 商城添加收藏
 

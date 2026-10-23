@@ -410,6 +410,15 @@
     - ResaleOrderServiceTest#testCreateResaleOrder
     - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
 - <<: *marketplace_http
+  id: MKT-025
+  method: GET
+  path: /api/mall/orders/{orderNo}
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-025
+  developmentAnchor: mkt-025-dev
+  currentSymbols: [ResaleMallController#getOrderDetail, RecycleApplicationService#getBuyerResaleOrderDetail, ResaleOrderService#getBuyerResaleOrderDetail]
+- <<: *marketplace_http
   id: MKT-026
   method: POST
   path: /api/mall/orders/cancel

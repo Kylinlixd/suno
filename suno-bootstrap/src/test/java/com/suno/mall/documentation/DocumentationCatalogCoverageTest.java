@@ -97,6 +97,7 @@ MKT-021|GET|/api/mall/orders|Marketplace
 MKT-022|GET|/api/mall/orders/status-dictionary|Marketplace
 MKT-023|GET|/api/mall/orders/summary|Marketplace
 MKT-024|POST|/api/mall/orders|Marketplace
+MKT-025|GET|/api/mall/orders/{orderNo}|Marketplace
 MKT-026|POST|/api/mall/orders/cancel|Marketplace
 MKT-027|POST|/api/mall/orders/confirm-receipt|Marketplace
 MKT-028|GET|/api/mall/orders/{orderNo}/track|Marketplace
@@ -160,14 +161,14 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(122, catalog.size());
+        assertEquals(123, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
                 () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
-        assertEquals(93, http.size());
+        assertEquals(94, http.size());
         assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
@@ -197,7 +198,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 25L, 10, 27L, 11, 9L, 12, 41L, 13, 20L), catalog.stream()
+        assertEquals(Map.of(9, 25L, 10, 27L, 11, 9L, 12, 42L, 13, 20L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 

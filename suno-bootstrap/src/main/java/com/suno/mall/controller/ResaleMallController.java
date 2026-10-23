@@ -2,10 +2,12 @@ package com.suno.mall.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.suno.mall.service.AuthApplicationService;
 import com.suno.mall.service.RecycleApplicationService;
 import com.suno.mall.common.ApiResponse;
 import com.suno.mall.common.CacheContract;
 import com.suno.mall.service.PaymentSignatureService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -13,6 +15,8 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,15 +41,18 @@ import java.util.Map;
 public class ResaleMallController {
 
     private final RecycleApplicationService recycleApplicationService;
+    private final AuthApplicationService authApplicationService;
     private final PaymentSignatureService paymentSignatureService;
     private final ObjectMapper objectMapper;
 
     public ResaleMallController(
             RecycleApplicationService recycleApplicationService,
+            AuthApplicationService authApplicationService,
             PaymentSignatureService paymentSignatureService,
             ObjectMapper objectMapper
     ) {
         this.recycleApplicationService = recycleApplicationService;
+        this.authApplicationService = authApplicationService;
         this.paymentSignatureService = paymentSignatureService;
         this.objectMapper = objectMapper;
     }
@@ -62,7 +69,7 @@ public class ResaleMallController {
 
     @GetMapping("/orders")
     public ResponseEntity<ApiResponse<Map<String, Object>>> listBuyerOrders(
-            @RequestParam Long buyerUserId,
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String payStatus,
             @RequestParam(required = false) String fulfillStatus,
             @RequestParam(required = false) String sortBy,
@@ -73,7 +80,7 @@ public class ResaleMallController {
             @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch
     ) {
         Map<String, Object> payload = recycleApplicationService.listBuyerResaleOrders(
-                buyerUserId,
+                authApplicationService.requireUserId(jwt),
                 payStatus,
                 fulfillStatus,
                 sortBy,
@@ -95,24 +102,30 @@ public class ResaleMallController {
 
     @GetMapping("/orders/summary")
     public ResponseEntity<ApiResponse<Map<String, Object>>> summarizeBuyerOrders(
-            @RequestParam Long buyerUserId,
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) @Min(1) @Max(365) Integer lookbackDays,
             @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch
     ) {
-        Map<String, Object> payload = recycleApplicationService.summarizeBuyerResaleOrders(buyerUserId, lookbackDays);
+        Map<String, Object> payload = recycleApplicationService.summarizeBuyerResaleOrders(
+                authApplicationService.requireUserId(jwt), lookbackDays);
         return buildEtagOnlyResponse(payload, ifNoneMatch);
     }
 
     @PostMapping("/orders")
-    public ApiResponse<Map<String, Object>> createOrder(@RequestBody CreateResaleOrderRequest request) {
+    public ApiResponse<Map<String, Object>> createOrder(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid CreateResaleOrderRequest request
+    ) {
         return ApiResponse.ok(recycleApplicationService.createResaleOrder(
-                request.buyerUserId(),
+                authApplicationService.requireUserId(jwt),
                 request.listingId()
         ));
     }
 
+    // TODO 支付宝沙箱：此接口仅为联调占位，真实支付改为下单后返回支付宝 form/二维码，
+    // 由 /api/payment/callback 使用支付宝 RSA2 异步通知驱动 markResaleOrderPaidWithIdempotency。
     @PostMapping("/orders/pay")
-    public ApiResponse<Map<String, Object>> payOrder(@RequestBody PayResaleOrderRequest request) {
+    public ApiResponse<Map<String, Object>> payOrder(@RequestBody @Valid PayResaleOrderRequest request) {
         paymentSignatureService.verifyOrThrow(
                 request.orderNo(),
                 request.idempotencyKey(),
@@ -127,24 +140,47 @@ public class ResaleMallController {
     }
 
     @PostMapping("/orders/cancel")
-    public ApiResponse<Map<String, Object>> cancelOrder(@RequestBody CancelResaleOrderRequest request) {
-        return ApiResponse.ok(recycleApplicationService.cancelUnpaidResaleOrder(request.orderNo(), request.buyerUserId()));
+    public ApiResponse<Map<String, Object>> cancelOrder(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid CancelResaleOrderRequest request
+    ) {
+        return ApiResponse.ok(recycleApplicationService.cancelUnpaidResaleOrder(
+                request.orderNo(),
+                authApplicationService.requireUserId(jwt)
+        ));
     }
 
     @PostMapping("/orders/confirm-receipt")
-    public ApiResponse<Map<String, Object>> confirmReceipt(@RequestBody ConfirmResaleOrderReceiptRequest request) {
+    public ApiResponse<Map<String, Object>> confirmReceipt(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid ConfirmResaleOrderReceiptRequest request
+    ) {
         return ApiResponse.ok(recycleApplicationService.confirmResaleOrderReceipt(
                 request.orderNo(),
-                request.buyerUserId()
+                authApplicationService.requireUserId(jwt)
+        ));
+    }
+
+    @GetMapping("/orders/{orderNo}")
+    public ApiResponse<Map<String, Object>> getOrderDetail(
+            @PathVariable String orderNo,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ApiResponse.ok(recycleApplicationService.getBuyerResaleOrderDetail(
+                orderNo,
+                authApplicationService.requireUserId(jwt)
         ));
     }
 
     @GetMapping("/orders/{orderNo}/track")
     public ApiResponse<Map<String, Object>> queryOrderTrack(
             @PathVariable String orderNo,
-            @RequestParam Long buyerUserId
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return ApiResponse.ok(recycleApplicationService.queryResaleOrderTrack(orderNo, buyerUserId));
+        return ApiResponse.ok(recycleApplicationService.queryResaleOrderTrack(
+                orderNo,
+                authApplicationService.requireUserId(jwt)
+        ));
     }
 
     @PostMapping("/favorites/add")
@@ -221,7 +257,6 @@ public class ResaleMallController {
     }
 
     public record CreateResaleOrderRequest(
-            @NotNull Long buyerUserId,
             @NotNull Long listingId
     ) {
     }
@@ -236,14 +271,12 @@ public class ResaleMallController {
     }
 
     public record CancelResaleOrderRequest(
-            @NotBlank String orderNo,
-            @NotNull Long buyerUserId
+            @NotBlank String orderNo
     ) {
     }
 
     public record ConfirmResaleOrderReceiptRequest(
-            @NotBlank String orderNo,
-            @NotNull Long buyerUserId
+            @NotBlank String orderNo
     ) {
     }
 

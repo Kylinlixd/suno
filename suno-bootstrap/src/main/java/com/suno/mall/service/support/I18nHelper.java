@@ -70,6 +70,7 @@ public final class I18nHelper {
             case "DELIVERED" -> "待收货";
             case "COMPLETED" -> "已完成";
             case "CANCELLED" -> "已取消";
+            case "AUTO_CLOSED" -> "已关闭";
             default -> "状态更新中";
         };
     }
@@ -84,6 +85,7 @@ public final class I18nHelper {
             case "DELIVERED" -> zhEn("待收货", "Awaiting Receipt");
             case "COMPLETED" -> zhEn("已完成", "Completed");
             case "CANCELLED" -> zhEn("已取消", "Cancelled");
+            case "AUTO_CLOSED" -> zhEn("已关闭", "Auto Closed");
             default -> zhEn("状态更新中", "Status Updating");
         };
     }
