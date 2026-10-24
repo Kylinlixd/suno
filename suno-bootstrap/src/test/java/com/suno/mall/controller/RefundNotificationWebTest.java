@@ -86,7 +86,7 @@ class RefundNotificationWebTest {
         MvcResult apply = mockMvc.perform(post("/api/mall/orders/" + orderNo + "/refund-apply")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefundController.RefundApplyRequest("商品与描述不符，希望退款"))))
+                        .content(objectMapper.writeValueAsString(new RefundController.RefundApplyRequest("商品与描述不符，希望退款", null))))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode applyData = objectMapper.readTree(apply.getResponse().getContentAsString()).get("data");
@@ -96,7 +96,7 @@ class RefundNotificationWebTest {
         MvcResult duplicate = mockMvc.perform(post("/api/mall/orders/" + orderNo + "/refund-apply")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefundController.RefundApplyRequest("再次申请售后试试看"))))
+                        .content(objectMapper.writeValueAsString(new RefundController.RefundApplyRequest("再次申请售后试试看", null))))
                 .andExpect(status().isBadRequest())
                 .andReturn();
         assertEquals("REFUND_ALREADY_OPEN",
@@ -124,7 +124,7 @@ class RefundNotificationWebTest {
         mockMvc.perform(post("/api/mall/orders/" + orderNo + "/refund-apply")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefundController.RefundApplyRequest("物流破损，申请退款处理"))))
+                        .content(objectMapper.writeValueAsString(new RefundController.RefundApplyRequest("物流破损，申请退款处理", null))))
                 .andExpect(status().isOk());
 
         recycleApplicationService.refundPaidResaleOrder(orderNo);

@@ -625,3 +625,57 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 3；封禁不发布公开事件，已签发 access token 靠会话撤销+黑名单兜底。
+
+## IDN-009 发送短信验证码
+
+匿名用户提交 11 位手机号获取 6 位验证码（5 分钟有效，默认 60 秒发送间隔限频；路由级另受 M4 限流保护）。发送通道由 Provider 隔离，当前为日志实现；`security.auth.sms.dev-echo=true`（仅开发/测试）在响应回显 devCode 供联调，生产必须关闭。实现测试：`GrowthFeaturesWebTest#smsCodeLoginConsumesCodeAndAutoRegisters`。
+
+### Requirement flow {#idn-009}
+```mermaid
+flowchart TD
+  A[手机号] --> V[格式校验] --> R[间隔限频] --> G[生成 6 位码] --> W[落库 5 分钟有效]
+```
+### Current development flow {#idn-009-dev}
+```mermaid
+sequenceDiagram
+  participant C as AuthController#sendSmsCode
+  participant S as SmsCodeService#send
+  C->>S: phone
+  S-->>C: expireMinutes（dev 回显 devCode）
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Sms send handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 1；短信服务商 Provider 未接入（日志兜底），无图形验证码防护。
+
+## IDN-010 短信验证码登录
+
+匿名用户提交手机号+验证码：校验后一次性消费验证码（重放拒绝），已有账户直接签发令牌、无账户自动注册（用户名=手机号、随机不可登录密码）。用户创建与令牌签发在同一个 `@AuthTransactional` 内（REQUIRES_NEW 边界内可见）。实现测试：`GrowthFeaturesWebTest#smsCodeLoginConsumesCodeAndAutoRegisters`。
+
+### Requirement flow {#idn-010}
+```mermaid
+flowchart TD
+  A[手机号+码] --> V[未用且未过期] -->|否| E[AUTH_BAD_CREDENTIALS]
+  V -->|是| U[一次性消费]
+  U --> F[找/建账户] --> T[签发令牌]
+```
+### Current development flow {#idn-010-dev}
+```mermaid
+sequenceDiagram
+  participant C as AuthController#smsLogin
+  participant S as SmsCodeService#loginBySms
+  participant A as AuthApplicationService#loginOrRegisterByPhone
+  C->>S: phone、code
+  S->>A: 单事务找/建账户并签发
+  S-->>C: 令牌
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Sms login handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 1；未接微信/Apple 等第三方登录；自动注册无手机号唯一性之外的资料收集。

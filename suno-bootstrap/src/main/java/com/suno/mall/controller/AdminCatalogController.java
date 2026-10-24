@@ -59,6 +59,14 @@ public class AdminCatalogController {
         return ApiResponse.ok(adminCatalogService.changeShelf(listingId, true));
     }
 
+    @PostMapping("/recycle/listings/{listingId}/images")
+    public ApiResponse<Map<String, Object>> attachImage(
+            @PathVariable Long listingId,
+            @RequestBody @Valid AttachImageRequest request
+    ) {
+        return ApiResponse.ok(adminCatalogService.attachListingImage(listingId, request.imageUrl()));
+    }
+
     @GetMapping("/recycle/resale-orders")
     public ApiResponse<Map<String, Object>> pageOrders(
             @RequestParam(required = false) String payStatus,
@@ -76,5 +84,8 @@ public class AdminCatalogController {
     }
 
     public record AdjustPriceRequest(@NotNull @DecimalMin("0.01") BigDecimal salePrice) {
+    }
+
+    public record AttachImageRequest(@NotBlank String imageUrl) {
     }
 }

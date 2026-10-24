@@ -192,7 +192,7 @@ class AdminConsoleWebTest {
         MvcResult created = mockMvc.perform(post("/api/admin/coupons").header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new AdminCouponController.CreateCouponRequest(
-                                "运营满减券", new BigDecimal("1000"), new BigDecimal("100"), 50, 1, 30))))
+                                "运营满减券", "FIXED", new BigDecimal("1000"), new BigDecimal("100"), 50, 1, 30))))
                 .andExpect(status().isOk()).andReturn();
         long couponId = objectMapper.readTree(created.getResponse().getContentAsString()).at("/data/couponId").asLong();
 

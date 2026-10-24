@@ -38,6 +38,10 @@ public class CouponUserEntity {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /** P1 到期提醒已发送时间（去重，避免每次扫描重复提醒） */
+    @Column(name = "expire_reminded_at")
+    private LocalDateTime expireRemindedAt;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -59,4 +63,12 @@ public class CouponUserEntity {
     public void setExpireAt(LocalDateTime expireAt) { this.expireAt = expireAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getExpireRemindedAt() {
+        return expireRemindedAt;
+    }
+
+    public void setExpireRemindedAt(LocalDateTime expireRemindedAt) {
+        this.expireRemindedAt = expireRemindedAt;
+    }
 }

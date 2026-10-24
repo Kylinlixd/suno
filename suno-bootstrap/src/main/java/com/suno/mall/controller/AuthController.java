@@ -20,9 +20,12 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthApplicationService authApplicationService;
+    private final com.suno.mall.service.SmsCodeService smsCodeService;
 
-    public AuthController(AuthApplicationService authApplicationService) {
+    public AuthController(AuthApplicationService authApplicationService,
+                          com.suno.mall.service.SmsCodeService smsCodeService) {
         this.authApplicationService = authApplicationService;
+        this.smsCodeService = smsCodeService;
     }
 
     @PostMapping("/login")
@@ -83,6 +86,18 @@ public class AuthController {
         ));
     }
 
+    /** IDN-009 发送短信验证码 */
+    @PostMapping("/sms/send")
+    public ApiResponse<Map<String, Object>> sendSmsCode(@RequestBody SmsSendRequest request) {
+        return ApiResponse.ok(smsCodeService.send(request.phone()));
+    }
+
+    /** IDN-010 手机号验证码登录（无账户自动注册） */
+    @PostMapping("/sms/login")
+    public ApiResponse<Map<String, Object>> smsLogin(@RequestBody SmsLoginRequest request) {
+        return ApiResponse.ok(smsCodeService.loginBySms(request.phone(), request.code(), request.deviceId()));
+    }
+
     public record LoginRequest(
             @NotBlank String username,
             @NotBlank String password,
@@ -107,5 +122,11 @@ public class AuthController {
     }
 
     public record RevokeDeviceRequest(@NotBlank String deviceId) {
+    }
+
+    public record SmsSendRequest(@NotBlank String phone) {
+    }
+
+    public record SmsLoginRequest(@NotBlank String phone, @NotBlank String code, String deviceId) {
     }
 }

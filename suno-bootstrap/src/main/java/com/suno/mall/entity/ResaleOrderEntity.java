@@ -82,6 +82,17 @@ public class ResaleOrderEntity {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    /** P1 积分抵现：本单消耗的积分数量与抵扣金额 */
+    @Column(name = "points_used")
+    private Integer pointsUsed;
+
+    @Column(name = "points_deduct_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal pointsDeductAmount = BigDecimal.ZERO;
+
+    /** P1 发货物流单号 */
+    @Column(name = "tracking_no", length = 64)
+    private String trackingNo;
+
     @Nullable
     public Long getId() {
         return id;
@@ -217,5 +228,29 @@ public class ResaleOrderEntity {
 
     public void setPaidAt(LocalDateTime paidAt) {
         this.paidAt = paidAt;
+    }
+
+    public Integer getPointsUsed() {
+        return pointsUsed;
+    }
+
+    public void setPointsUsed(Integer pointsUsed) {
+        this.pointsUsed = pointsUsed;
+    }
+
+    public BigDecimal getPointsDeductAmount() {
+        return pointsDeductAmount;
+    }
+
+    public void setPointsDeductAmount(BigDecimal pointsDeductAmount) {
+        this.pointsDeductAmount = pointsDeductAmount;
+    }
+
+    public String getTrackingNo() {
+        return trackingNo;
+    }
+
+    public void setTrackingNo(String trackingNo) {
+        this.trackingNo = trackingNo;
     }
 }

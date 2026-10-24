@@ -34,7 +34,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/mall/orders",
             "/api/mall/orders/pay",
             "/api/payment/callback",
-            "/api/payment/alipay/notify"
+            "/api/payment/alipay/notify",
+            "/api/auth/sms/send"
     );
 
     public RateLimitFilter(@Value("${mall.rate-limit.enabled:true}") boolean enabled,

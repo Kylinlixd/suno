@@ -140,7 +140,8 @@ public class ResaleMallController {
                 authApplicationService.requireUserId(jwt),
                 request.listingId(),
                 request.addressId(),
-                request.couponUserId()
+                request.couponUserId(),
+                Boolean.TRUE.equals(request.usePoints())
         ));
     }
 
@@ -289,7 +290,8 @@ public class ResaleMallController {
     public record CreateResaleOrderRequest(
             @NotNull Long listingId,
             Long addressId,
-            Long couponUserId
+            Long couponUserId,
+            Boolean usePoints
     ) {
     }
 

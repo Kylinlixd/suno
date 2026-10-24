@@ -26,13 +26,16 @@ public class AdminCatalogService {
 
     private final ResaleListingRepository resaleListingRepository;
     private final ResaleOrderRepository resaleOrderRepository;
+    private final com.suno.mall.dao.ProductImageRepository productImageRepository;
     private final AuditLogService auditLogService;
 
     public AdminCatalogService(ResaleListingRepository resaleListingRepository,
                                ResaleOrderRepository resaleOrderRepository,
+                               com.suno.mall.dao.ProductImageRepository productImageRepository,
                                AuditLogService auditLogService) {
         this.resaleListingRepository = resaleListingRepository;
         this.resaleOrderRepository = resaleOrderRepository;
+        this.productImageRepository = productImageRepository;
         this.auditLogService = auditLogService;
     }
 
@@ -78,6 +81,25 @@ public class AdminCatalogService {
         auditLogService.logAction(onShelf ? "RESALE_LISTING_ON_SHELF" : "RESALE_LISTING_OFF_SHELF",
                 "RESALE_LISTING", String.valueOf(listingId), "status=" + target);
         return Map.of("listingId", listingId, "status", target);
+    }
+
+    /** P1 为商品追加图库图片（与上传接口配合：先传后挂） */
+    @ResaleTransactional
+    public Map<String, Object> attachListingImage(Long listingId, String imageUrl) {
+        ResaleListingEntity listing = requireListing(listingId);
+        if (imageUrl == null || imageUrl.isBlank() || imageUrl.length() > 255) {
+            throw new BizException("图片地址不合法", ErrorCode.PARAM_INVALID);
+        }
+        com.suno.mall.entity.ProductImageEntity image = new com.suno.mall.entity.ProductImageEntity();
+        image.setProduct(listing.getProduct());
+        image.setImageUrl(imageUrl.trim());
+        image.setSortOrder((int) productImageRepository.count() + 1);
+        image.setImageType("PRODUCT");
+        image.setCreatedAt(LocalDateTime.now());
+        productImageRepository.save(image);
+        auditLogService.logAction("RESALE_LISTING_IMAGE_ADD", "RESALE_LISTING", String.valueOf(listingId),
+                "imageUrl=" + imageUrl.trim());
+        return Map.of("listingId", listingId, "imageId", image.getId(), "imageUrl", image.getImageUrl());
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)

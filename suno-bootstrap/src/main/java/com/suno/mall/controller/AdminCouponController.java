@@ -44,7 +44,8 @@ public class AdminCouponController {
     @PostMapping("/coupons")
     public ApiResponse<Map<String, Object>> createCoupon(@RequestBody @Valid CreateCouponRequest request) {
         return ApiResponse.ok(couponService.adminCreateCoupon(
-                request.name(), request.minOrderAmount(), request.discountValue(),
+                request.name(), request.couponType() == null ? "FIXED" : request.couponType(),
+                request.minOrderAmount(), request.discountValue(),
                 request.totalCount(), request.perUserLimit(), request.effectiveDays()));
     }
 
@@ -60,7 +61,8 @@ public class AdminCouponController {
 
     public record CreateCouponRequest(
             @NotBlank String name,
-            @NotNull @DecimalMin("0.01") BigDecimal minOrderAmount,
+            String couponType,
+            @NotNull @DecimalMin("0") BigDecimal minOrderAmount,
             @NotNull @DecimalMin("0.01") BigDecimal discountValue,
             @NotNull Integer totalCount,
             @NotNull Integer perUserLimit,

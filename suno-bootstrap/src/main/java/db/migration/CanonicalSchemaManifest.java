@@ -257,7 +257,9 @@ final class CanonicalSchemaManifest {
                         varchar("receiver_name", 64, true), varchar("receiver_phone", 32, true),
                         varchar("receiver_address", 320, true), bigint("coupon_user_id", true),
                         decimal("discount_amount", false, "0.00", "0.00"), decimal("payable_amount", true),
-                        varchar("pay_channel", 32, true), varchar("trade_no", 64, true), timestamp("paid_at", true)
+                        varchar("pay_channel", 32, true), varchar("trade_no", 64, true), timestamp("paid_at", true),
+                        integer("points_used", true), decimal("points_deduct_amount", false, "0.00", "0.00"),
+                        varchar("tracking_no", 64, true)
                 ),
                 uniques(unique("uk_resale_order_order_no", "order_no")),
                 fks(
@@ -374,7 +376,7 @@ final class CanonicalSchemaManifest {
                         id(), bigint("user_id", false), bigint("coupon_id", false),
                         varchar("status", 16, false, "'UNUSED'", "'UNUSED'"),
                         timestamp("used_at", true), bigint("order_id", true), timestamp("expire_at", false),
-                        timestamp("created_at", false)
+                        timestamp("created_at", false), timestamp("expire_reminded_at", true)
                 ),
                 uniques(),
                 fks(

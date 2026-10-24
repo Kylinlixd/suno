@@ -39,6 +39,7 @@ public class ResaleListingService {
     private final ResaleFavoriteRepository resaleFavoriteRepository;
     private final UserAccountRepository userAccountRepository;
     private final CategoryRepository categoryRepository;
+    private final com.suno.mall.dao.ProductImageRepository productImageRepository;
     private final ResaleReviewService resaleReviewService;
     private final AuditLogService auditLogService;
 
@@ -48,6 +49,7 @@ public class ResaleListingService {
             ResaleFavoriteRepository resaleFavoriteRepository,
             UserAccountRepository userAccountRepository,
             CategoryRepository categoryRepository,
+            com.suno.mall.dao.ProductImageRepository productImageRepository,
             ResaleReviewService resaleReviewService,
             AuditLogService auditLogService
     ) {
@@ -56,6 +58,7 @@ public class ResaleListingService {
         this.resaleFavoriteRepository = resaleFavoriteRepository;
         this.userAccountRepository = userAccountRepository;
         this.categoryRepository = categoryRepository;
+        this.productImageRepository = productImageRepository;
         this.resaleReviewService = resaleReviewService;
         this.auditLogService = auditLogService;
     }
@@ -144,6 +147,11 @@ public class ResaleListingService {
         Map<String, Object> detail = new HashMap<>(toListingSummary(listing));
         detail.put("status", listing.getStatus());
         detail.put("createdAt", listing.getCreatedAt());
+        java.util.List<String> gallery = new java.util.ArrayList<>();
+        gallery.add(listing.getProduct().getImageUrl());
+        productImageRepository.findByProduct_IdOrderBySortOrderAscIdAsc(listing.getProduct().getId())
+                .forEach(image -> gallery.add(image.getImageUrl()));
+        detail.put("images", gallery.stream().distinct().toList());
         Map<String, Object> reviewSummary = resaleReviewService.listResaleReviews(listingId);
         detail.put("reviewCount", reviewSummary.getOrDefault("reviewCount", 0));
         detail.put("avgRating", reviewSummary.getOrDefault("avgRating", 0));

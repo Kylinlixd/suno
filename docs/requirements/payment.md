@@ -919,3 +919,34 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 2；未接入支付宝对账单下载（bill.downloadurl）比对，渠道侧金额/退款差异需人工核对审计。
+
+## PAY-S005 支付宝查单补偿调度器
+
+异步通知丢失兜底：定期（默认 5 分钟，`payment.alipay.query-compensation-fixed-delay-ms`）对超过 5 分钟仍 `UNPAID/WAIT_PAY` 的订单调用 `alipay.trade.query`，查得 `TRADE_SUCCESS/FINISHED` 的订单以 `alipay-query:{trade_no}` 幂等落账并回填渠道信息。渠道未启用时跳过。实现测试：`ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence`（共享补偿前置校验路径）。
+
+### Requirement flow {#pay-s005}
+```mermaid
+flowchart TD
+  T[定时触发] --> Q[超时 UNPAID 订单] --> G[trade.query]
+  G -->|TRADE_SUCCESS| P[幂等落账 + 渠道回填]
+  G -->|未支付/关闭| S[跳过]
+```
+### Current development flow {#pay-s005-dev}
+```mermaid
+sequenceDiagram
+  participant S as AlipayCompensationScheduler#compensateMissedNotifies
+  participant A as RecycleApplicationService#compensateAlipayPayments
+  participant C as AlipayOpenApiClient#tradeQuery
+  S->>A: 触发（enabled 才执行）
+  A->>C: 逐单查单
+  A-->>S: 补偿落账数量
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  S[Scheduler] --> H[Compensation handler]
+  H --> P[Channel query port]
+  P --> E[PaymentApplied v1]
+```
+### Gaps
+- targetPhase: 2；网关响应解析为保守包含匹配，未做完整 JSON 解析与响应验签；渠道关闭时静默跳过无告警。

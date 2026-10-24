@@ -56,7 +56,7 @@ class FlywayH2MigrationTest {
             Class<?> entityType = Class.forName(candidate.getBeanClassName());
             names.add(entityType.getAnnotation(Table.class).name().toLowerCase(Locale.ROOT));
         }
-        assertThat(names).hasSize(29);
+        assertThat(names).hasSize(30);
         return names;
     }
 

@@ -5,6 +5,7 @@ import com.suno.mall.service.AuthApplicationService;
 import com.suno.mall.service.RefundService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.math.BigDecimal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
@@ -40,7 +41,7 @@ public class RefundController {
             @PathVariable String orderNo,
             @RequestBody @Valid RefundApplyRequest request
     ) {
-        return ApiResponse.ok(refundService.applyRefund(orderNo, authApplicationService.requireUserId(jwt), request.reason()));
+        return ApiResponse.ok(refundService.applyRefund(orderNo, authApplicationService.requireUserId(jwt), request.reason(), request.amount()));
     }
 
     @GetMapping("/refunds")
@@ -60,6 +61,6 @@ public class RefundController {
         return ApiResponse.ok(refundService.cancelRefund(refundId, authApplicationService.requireUserId(jwt)));
     }
 
-    public record RefundApplyRequest(@NotBlank String reason) {
+    public record RefundApplyRequest(@NotBlank String reason, BigDecimal amount) {
     }
 }

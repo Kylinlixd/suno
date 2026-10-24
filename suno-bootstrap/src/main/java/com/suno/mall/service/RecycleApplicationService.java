@@ -135,6 +135,51 @@ public class RecycleApplicationService {
         return resaleOrderService.createResaleOrder(buyerUserId, listingId, addressId, couponUserId);
     }
 
+    /** P1 结算下单：地址 + 券 + 积分抵现 */
+    @RecycleTransactional
+    public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId, Long addressId, Long couponUserId, boolean usePoints) {
+        return resaleOrderService.createResaleOrder(buyerUserId, listingId, addressId, couponUserId, usePoints);
+    }
+
+    /** P1 发货携带物流单号 */
+    @RecycleTransactional
+    public Map<String, Object> deliverResaleOrder(String orderNo, String trackingNo) {
+        return resaleOrderService.deliverResaleOrder(orderNo, trackingNo, AuditContext.empty());
+    }
+
+    /**
+     * PAY-S005 查单补偿：扫描超过 5 分钟仍 UNPAID/WAIT_PAY 的订单，
+     * 向网关查单；TRADE_SUCCESS 视为通知丢失，幂等落账并回填渠道。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 60)
+    public int compensateAlipayPayments(com.suno.mall.payment.AlipayOpenApiClient client) throws Exception {
+        var candidates = resaleOrderService.findStaleUnpaidOrders(5, 50);
+        int compensated = 0;
+        for (Map<String, Object> candidate : candidates) {
+            String orderNo = String.valueOf(candidate.get("orderNo"));
+            var response = client.tradeQuery(orderNo);
+            String raw = String.valueOf(response.getOrDefault("raw", ""));
+            if (raw.contains("\"trade_status\":\"TRADE_SUCCESS\"") || raw.contains("\"trade_status\":\"TRADE_FINISHED\"")) {
+                String tradeNo = extractJsonString(raw, "trade_no");
+                resaleOrderService.markResaleOrderPaidWithIdempotency(orderNo, "alipay-query:" + tradeNo);
+                resaleOrderService.attachPaymentChannel(orderNo, "ALIPAY", tradeNo);
+                compensated++;
+            }
+        }
+        return compensated;
+    }
+
+    private static String extractJsonString(String json, String key) {
+        int index = json.indexOf("\"" + key + "\"");
+        if (index < 0) {
+            return "unknown";
+        }
+        int colon = json.indexOf(':', index);
+        int start = json.indexOf('"', colon);
+        int end = json.indexOf('"', start + 1);
+        return start >= 0 && end > start ? json.substring(start + 1, end) : "unknown";
+    }
+
     @RecycleTransactional
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         return resaleOrderService.markResaleOrderPaid(orderNo);
@@ -175,6 +220,10 @@ public class RecycleApplicationService {
     @RecycleTransactional
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
         return resaleOrderService.deliverResaleOrder(orderNo, auditContext);
+    }
+
+    public Map<String, Object> deliverResaleOrder(String orderNo, String trackingNo, AuditContext auditContext) {
+        return resaleOrderService.deliverResaleOrder(orderNo, trackingNo, auditContext);
     }
 
     @RecycleTransactional

@@ -74,6 +74,28 @@
     - AuthRegisterWebTest#registersUserThenLoginWorksAndRejectsDuplicates
     - AuthRegisterWebTest#rejectsWeakPasswordAndBlankUsername
 - <<: *identity_http
+  id: IDN-009
+  method: POST
+  path: /api/auth/sms/send
+  requirementAnchor: idn-009
+  developmentAnchor: idn-009-dev
+  implementationStatus: implemented
+  currentSymbols: [AuthController#sendSmsCode, SmsCodeService#send]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#smsCodeLoginConsumesCodeAndAutoRegisters
+- <<: *identity_http
+  id: IDN-010
+  method: POST
+  path: /api/auth/sms/login
+  requirementAnchor: idn-010
+  developmentAnchor: idn-010-dev
+  implementationStatus: implemented
+  currentSymbols: [AuthController#smsLogin, SmsCodeService#loginBySms, AuthApplicationService#loginOrRegisterByPhone]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#smsCodeLoginConsumesCodeAndAutoRegisters
+- <<: *identity_http
   id: IDN-101
   method: GET
   path: /api/admin/auth/sessions
@@ -820,6 +842,32 @@
   implementedTests:
     - RefundNotificationWebTest#refundApplyListCancelRoundTrip
 - <<: *marketplace_http
+  id: MKT-070
+  method: POST
+  path: /api/uploads
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-070
+  developmentAnchor: mkt-070-dev
+  implementationStatus: implemented
+  currentSymbols: [UploadController#upload, StaticResourceConfig#addResourceHandlers]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#uploadServesFileAndGalleryAttachedToDetail
+- <<: *marketplace_http
+  id: MKT-071
+  method: POST
+  path: /api/admin/recycle/listings/{listingId}/images
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-071
+  developmentAnchor: mkt-071-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#attachImage, AdminCatalogService#attachListingImage]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#uploadServesFileAndGalleryAttachedToDetail
+- <<: *marketplace_http
   id: MKT-100
   method: POST
   path: /api/admin/recycle/listings/publish
@@ -968,6 +1016,32 @@
   plannedTests: []
   implementedTests:
     - AdminConsoleWebTest#pagesOrdersAndShowsDetailWithReceiver
+- <<: *marketplace_http
+  id: MKT-122
+  method: GET
+  path: /api/admin/recycle/refunds
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-122
+  developmentAnchor: mkt-122-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminRefundController#pageRefunds, RefundService#adminPageRefunds]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#partialRefundKeepsOrderPaidWhileFullRefundClosesIt
+- <<: *marketplace_http
+  id: MKT-123
+  method: POST
+  path: /api/admin/recycle/refunds/{refundId}/process
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-123
+  developmentAnchor: mkt-123-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminRefundController#processRefund, RefundService#processRefund]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#partialRefundKeepsOrderPaidWhileFullRefundClosesIt
 - <<: *marketplace_http
   id: MKT-130
   method: GET
@@ -1315,6 +1389,17 @@
     - ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence
   scheduledMethod: PaymentReconciliationScheduler#reconcilePayments
   scheduleProperty: payment.reconciliation.fixed-delay-ms
+- <<: *payment_scheduler
+  id: PAY-S005
+  requirementAnchor: pay-s005
+  developmentAnchor: pay-s005-dev
+  implementationStatus: implemented
+  currentSymbols: [AlipayCompensationScheduler#compensateMissedNotifies, RecycleApplicationService#compensateAlipayPayments, AlipayOpenApiClient#tradeQuery]
+  plannedTests: []
+  implementedTests:
+    - ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence
+  scheduledMethod: AlipayCompensationScheduler#compensateMissedNotifies
+  scheduleProperty: payment.alipay.query-compensation-fixed-delay-ms
 - &marketplace_scheduler
   id: MKT-S001
   kind: SCHEDULER
@@ -1345,6 +1430,17 @@
   currentSymbols: [ResaleOrderScheduler#autoConfirmDeliveredOrders, RecycleApplicationService#autoConfirmDeliveredOrders, ResaleOrderService#autoConfirmDeliveredOrders]
   scheduledMethod: ResaleOrderScheduler#autoConfirmDeliveredOrders
   scheduleProperty: mall.order.auto-confirm-receipt-fixed-delay-ms
+- <<: *marketplace_scheduler
+  id: MKT-S003
+  requirementAnchor: mkt-s003
+  developmentAnchor: mkt-s003-dev
+  implementationStatus: implemented
+  currentSymbols: [CouponExpireReminderScheduler#remindExpiringCoupons]
+  plannedTests: []
+  implementedTests:
+    - GrowthFeaturesWebTest#couponExpireReminderPushesOnce
+  scheduledMethod: CouponExpireReminderScheduler#remindExpiringCoupons
+  scheduleProperty: mall.coupon.expire-reminder-fixed-delay-ms
 - &operations_scheduler
   id: OPS-S001
   kind: SCHEDULER

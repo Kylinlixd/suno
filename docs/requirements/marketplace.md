@@ -1,6 +1,6 @@
 # 商城、订单、收藏与评价需求流
 
-本文件覆盖 Task 12 的 53 个 Marketplace HTTP、2 个调度器与 6 个公共事件。当前实现处于 Phase 0：请求常携带 userId，商城服务通过 `RecycleApplicationService` 进入遗留服务；这不是资源所有权或管理员授权的目标边界。每节的实现测试均为现有目录校验 `DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`，计划测试均为 **Phase 3**（M1 新增的 MKT-020 搜索/分页、MKT-038、MKT-039 已有实现测试）。
+本文件覆盖 Task 12 的 57 个 Marketplace HTTP、3 个调度器与 6 个公共事件。当前实现处于 Phase 0：请求常携带 userId，商城服务通过 `RecycleApplicationService` 进入遗留服务；这不是资源所有权或管理员授权的目标边界。每节的实现测试均为现有目录校验 `DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`，计划测试均为 **Phase 3**（M1 新增的 MKT-020 搜索/分页、MKT-038、MKT-039 已有实现测试）。
 
 ## 订单状态机与共享不变量
 
@@ -1850,3 +1850,136 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 3；当前没有 outbox、eventId、发布重试或审核消费者幂等边界。
+
+## MKT-070 图片上传
+
+已认证用户上传 jpg/png/webp 图片（≤5MB，扩展名白名单），保存至 `mall.upload.dir`（默认 ./data/uploads），返回 `/files/{name}` 访问地址；静态目录只读对外。生产可等价替换为对象存储（保持同一路径契约）。实现测试：`GrowthFeaturesWebTest#uploadServesFileAndGalleryAttachedToDetail`。
+
+### Requirement flow {#mkt-070}
+```mermaid
+flowchart TD
+  A[multipart 文件] --> V[扩展名白名单 + 5MB] -->|非法| E[PARAM_INVALID]
+  V --> W[UUID 落盘] --> R[返回 /files URL]
+```
+### Current development flow {#mkt-070-dev}
+```mermaid
+sequenceDiagram
+  participant C as UploadController#upload
+  participant R as StaticResourceConfig#addResourceHandlers
+  C->>C: 校验并保存
+  C-->>C: url=/files/{uuid}.ext
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Upload handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；本地磁盘存储无冗余/CDN，未做内容级病毒扫描。
+
+## MKT-071 管理员追加商品图
+
+管理员为 listing 追加图库图片（与 MKT-070 配合：先上传后挂载），写入 `suno_product_image`；详情接口返回去重后的 images 数组（主图+图库）。实现测试：`GrowthFeaturesWebTest#uploadServesFileAndGalleryAttachedToDetail`。
+
+### Requirement flow {#mkt-071}
+```mermaid
+flowchart TD
+  A[ADMIN + listingId + imageUrl] --> V[商品存在/URL 合法] --> W[写图库 + 审计]
+```
+### Current development flow {#mkt-071-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#attachImage
+  participant S as AdminCatalogService#attachListingImage
+  C->>S: listingId、imageUrl
+  S-->>C: imageId
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Admin image attach handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；无排序/删除图库图片的管理接口。
+
+## MKT-122 管理员售后分页
+
+管理员分页查看全部售后单（可选状态过滤），含关联订单号、支付渠道/网关交易号与订单应付金额。实现测试：`GrowthFeaturesWebTest#partialRefundKeepsOrderPaidWhileFullRefundClosesIt`。
+
+### Requirement flow {#mkt-122}
+```mermaid
+flowchart TD
+  A[ADMIN + status] --> Q[倒序分页] --> R[含订单/渠道摘要]
+```
+### Current development flow {#mkt-122-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminRefundController#pageRefunds
+  participant S as RefundService#adminPageRefunds
+  C->>S: status、page、size
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Admin refund page handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；全量内存分页，量级大后需 SQL 分页。
+
+## MKT-123 管理员处置售后申请
+
+处置 PENDING 售后单：全额（金额≥订单应付）复用整单退款状态机（回库存、退积分、通知）；部分退款结算退款单（ALIPAY 渠道且网关启用时先调 `alipay.trade.refund`，失败中止），订单保持 PAID 并推送 `REFUND_PROCESSED` 通知，写审计。实现测试：`GrowthFeaturesWebTest#partialRefundKeepsOrderPaidWhileFullRefundClosesIt`。
+
+### Requirement flow {#mkt-123}
+```mermaid
+flowchart TD
+  A[ADMIN + refundId] --> V{PENDING}
+  V -->|否| E[REFUND_STATUS_CONFLICT]
+  V --> M{金额 ≥ 应付}
+  M -->|是| F[整单退款状态机]
+  M -->|否| G[渠道打款] --> W[结算 + 通知]
+```
+### Current development flow {#mkt-123-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminRefundController#processRefund
+  participant S as RefundService#processRefund
+  C->>S: refundId
+  S-->>C: mode=FULL/PARTIAL
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Admin refund process handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；支付宝退款响应未做验签与退款查询复核。
+
+## MKT-S003 优惠券到期提醒调度器
+
+每小时扫描 `UNUSED`、3 天内过期且未提醒过的券（`expire_reminded_at` 去重），推送 `COUPON_EXPIRING` 站内通知后落提醒标记。实现测试：`GrowthFeaturesWebTest#couponExpireReminderPushesOnce`。
+
+### Requirement flow {#mkt-s003}
+```mermaid
+flowchart TD
+  T[定时触发] --> Q[3 天内到期且未提醒] --> N[推送提醒通知] --> M[落 reminded 标记]
+```
+### Current development flow {#mkt-s003-dev}
+```mermaid
+sequenceDiagram
+  participant S as CouponExpireReminderScheduler#remindExpiringCoupons
+  participant R as CouponUserRepository#findExpiringUnreminded
+  participant N as NotificationService#push
+  S->>R: now、now+3d
+  S->>N: 逐张推送
+  S-->>S: reminded 标记
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  S[Scheduler] --> H[Reminder handler]
+  H --> P[Outbox CouponExpiring v1]
+```
+### Gaps
+- targetPhase: 3；仅站内信通道，未接短信/推送；扫描无分批上限。

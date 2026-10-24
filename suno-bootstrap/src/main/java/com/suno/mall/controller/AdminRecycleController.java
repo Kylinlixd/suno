@@ -105,6 +105,7 @@ public class AdminRecycleController {
     public ApiResponse<Map<String, Object>> deliverResaleOrder(@RequestBody DeliverResaleOrderRequest request) {
         return ApiResponse.ok(recycleApplicationService.deliverResaleOrder(
                 request.orderNo(),
+                request.trackingNo(),
                 toAuditContext(request.requestId(), request.changeSummary())
         ));
     }
@@ -333,6 +334,7 @@ public class AdminRecycleController {
 
     public record DeliverResaleOrderRequest(
             @NotBlank String orderNo,
+            String trackingNo,
             String requestId,
             Map<String, Object> changeSummary
     ) {

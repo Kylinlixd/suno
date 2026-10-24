@@ -194,6 +194,40 @@ public class AuthApplicationService {
     }
 
     /**
+     * P1 短信验证码登录：单事务内查找或创建账户并签发令牌。
+     * 用户创建必须与令牌写入同事务（REQUIRES_NEW 内看不到未提交的新用户，会产生 FK 违例）。
+     */
+    @AuthTransactional
+    public Map<String, Object> loginOrRegisterByPhone(String phone, String deviceId) {
+        UserAccountEntity user = userAccountRepository.findByUsername(phone).orElseGet(() -> {
+            UserAccountEntity created = new UserAccountEntity();
+            created.setUsername(phone);
+            created.setPasswordHash(passwordEncoder.encode("sms-" + UUID.randomUUID()));
+            created.setRoleCode("USER");
+            created.setAccountStatus("ACTIVE");
+            created.setLevel("NORMAL");
+            created.setPoints(0);
+            return userAccountRepository.save(created);
+        });
+        if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
+            throw new BizException("账号不可用", ErrorCode.AUTH_ACCOUNT_DISABLED);
+        }
+        String normalizedDeviceId = normalizeDeviceId(deviceId);
+        Map<String, Object> result = buildAndPersistTokens(user.getId(), user.getUsername(), user.getRoleCode(), normalizedDeviceId);
+        logAction(ACTION_LOGIN_SUCCESS, user.getUsername(), "deviceId=" + normalizedDeviceId + ", via=sms");
+        return result;
+    }
+
+    /** P1 短信登录等内部路径：为既有账户直接签发令牌（含登录审计） */
+    @AuthTransactional
+    public Map<String, Object> issueTokensForUser(UserAccountEntity user, String deviceId) {
+        String normalizedDeviceId = normalizeDeviceId(deviceId);
+        Map<String, Object> result = buildAndPersistTokens(user.getId(), user.getUsername(), user.getRoleCode(), normalizedDeviceId);
+        logAction(ACTION_LOGIN_SUCCESS, user.getUsername(), "deviceId=" + normalizedDeviceId + ", via=sms");
+        return result;
+    }
+
+    /**
      * 从认证主体解析当前用户 ID。买家侧订单接口必须使用该值，
      * 不能信任请求体或查询参数中的 buyerUserId。
      */

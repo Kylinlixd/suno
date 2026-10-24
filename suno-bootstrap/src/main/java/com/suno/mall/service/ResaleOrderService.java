@@ -69,6 +69,7 @@ public class ResaleOrderService {
     private final CouponService couponService;
     private final CartService cartService;
     private final NotificationService notificationService;
+    private final com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository;
     private final AuditLogService auditLogService;
 
     public ResaleOrderService(
@@ -82,6 +83,7 @@ public class ResaleOrderService {
             CouponService couponService,
             CartService cartService,
             NotificationService notificationService,
+            com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository,
             AuditLogService auditLogService
     ) {
         this.userAccountRepository = userAccountRepository;
@@ -94,13 +96,18 @@ public class ResaleOrderService {
         this.couponService = couponService;
         this.cartService = cartService;
         this.notificationService = notificationService;
+        this.pointsLedgerRepository = pointsLedgerRepository;
         this.auditLogService = auditLogService;
     }
 
     @ResaleTransactional
     @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
-        return createResaleOrder(buyerUserId, listingId, null, null);
+        return createResaleOrder(buyerUserId, listingId, null, null, false);
+    }
+
+    public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId, Long addressId, Long couponUserId) {
+        return createResaleOrder(buyerUserId, listingId, addressId, couponUserId, false);
     }
 
     /**
@@ -110,7 +117,7 @@ public class ResaleOrderService {
     @ResaleTransactional
     @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId,
-                                                 @Nullable Long addressId, @Nullable Long couponUserId) {
+                                                 @Nullable Long addressId, @Nullable Long couponUserId, boolean usePoints) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
                 .orElseThrow(() -> new BizException("买家不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
         ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
@@ -156,10 +163,14 @@ public class ResaleOrderService {
             order.setPayableAmount((BigDecimal) redeemed.get("payableAmount"));
             resaleOrderRepository.save(order);
         }
+        if (usePoints) {
+            applyPointsDeduction(buyer, order);
+        }
         cartService.removeListingFromCart(buyerUserId, listingId);
         auditLogService.logAction("RESALE_ORDER_CREATE", "RESALE_ORDER", orderNo,
                 "listingId=" + listingId + ",buyerUserId=" + buyerUserId
-                        + ",discountAmount=" + order.getDiscountAmount());
+                        + ",discountAmount=" + order.getDiscountAmount()
+                        + ",pointsDeductAmount=" + order.getPointsDeductAmount());
         notificationService.push(buyerUserId, "ORDER_CREATED", "订单已创建",
                 "订单 " + orderNo + " 已创建，应付 ¥" + order.getPayableAmount() + "，请尽快完成支付。",
                 order.getId(), "RESALE_ORDER");
@@ -170,9 +181,56 @@ public class ResaleOrderService {
         result.put("amount", order.getAmount());
         result.put("discountAmount", order.getDiscountAmount());
         result.put("payableAmount", order.getPayableAmount());
+        result.put("pointsUsed", order.getPointsUsed());
+        result.put("pointsDeductAmount", order.getPointsDeductAmount());
         result.put("payStatus", order.getPayStatus());
         result.put("fulfillStatus", order.getFulfillStatus());
         return result;
+    }
+
+    /** P1 积分抵现：100 积分 = ¥1，最多抵扣应付的 20%，消耗需为 100 的整数倍；同事务写积分流水。 */
+    private void applyPointsDeduction(UserAccountEntity buyer, ResaleOrderEntity order) {
+        int pointsPerYuan = 100;
+        var cap = order.getPayableAmount()
+                .multiply(new BigDecimal("0.20"))
+                .setScale(0, java.math.RoundingMode.DOWN);
+        int maxPoints = cap.intValue() * pointsPerYuan;
+        int usable = Math.min(buyer.getPoints() == null ? 0 : buyer.getPoints(), maxPoints);
+        usable = usable / pointsPerYuan * pointsPerYuan;
+        if (usable < pointsPerYuan) {
+            return;
+        }
+        BigDecimal deduct = BigDecimal.valueOf(usable / pointsPerYuan).setScale(2);
+        if (deduct.compareTo(order.getPayableAmount()) >= 0) {
+            return;
+        }
+        buyer.setPoints(buyer.getPoints() - usable);
+        userAccountRepository.save(buyer);
+        order.setPointsUsed(usable);
+        order.setPointsDeductAmount(deduct);
+        order.setPayableAmount(order.getPayableAmount().subtract(deduct));
+        resaleOrderRepository.save(order);
+        writePointsLedger(buyer, -usable, "ORDER_USE_POINTS:" + order.getOrderNo());
+    }
+
+    /** 取消/退款时按订单积分占用回退（幂等：仅回退一次由订单状态机保证） */
+    private void returnOrderPoints(ResaleOrderEntity order) {
+        if (order.getPointsUsed() == null || order.getPointsUsed() <= 0) {
+            return;
+        }
+        UserAccountEntity buyer = order.getBuyerUser();
+        buyer.setPoints((buyer.getPoints() == null ? 0 : buyer.getPoints()) + order.getPointsUsed());
+        userAccountRepository.save(buyer);
+        writePointsLedger(buyer, order.getPointsUsed(), "ORDER_RETURN_POINTS:" + order.getOrderNo());
+    }
+
+    private void writePointsLedger(UserAccountEntity user, int delta, String reason) {
+        com.suno.mall.entity.PointsLedgerEntity ledger = new com.suno.mall.entity.PointsLedgerEntity();
+        ledger.setUser(user);
+        ledger.setPointsDelta(delta);
+        ledger.setReason(reason);
+        ledger.setCreatedAt(LocalDateTime.now());
+        pointsLedgerRepository.save(ledger);
     }
 
 
@@ -208,6 +266,16 @@ public class ResaleOrderService {
         return result;
     }
 
+    /** PAY-S005 候选订单：超过 staleMinutes 仍 UNPAID/WAIT_PAY 的订单摘要 */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public java.util.List<Map<String, Object>> findStaleUnpaidOrders(int staleMinutes, int limit) {
+        return resaleOrderRepository.findByPayStatusAndFulfillStatusAndCreatedAtBefore(
+                        "UNPAID", "WAIT_PAY", LocalDateTime.now().minusMinutes(staleMinutes),
+                        PageRequest.of(0, limit)).stream()
+                .map(order -> Map.<String, Object>of("orderNo", order.getOrderNo()))
+                .toList();
+    }
+
     /** M3 真实网关支付成功后回填渠道信息（幂等，仅 PAID 订单） */
     @ResaleTransactional
     public void attachPaymentChannel(String orderNo, String payChannel, String tradeNo) {
@@ -237,6 +305,10 @@ public class ResaleOrderService {
     @ResaleTransactional
     @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> deliverResaleOrder(String orderNo, AuditContext auditContext) {
+        return deliverResaleOrder(orderNo, null, auditContext);
+    }
+
+    public Map<String, Object> deliverResaleOrder(String orderNo, @Nullable String trackingNo, AuditContext auditContext) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
         if (!"PAID".equals(order.getPayStatus())) {
@@ -250,10 +322,15 @@ public class ResaleOrderService {
         if (updated == 0) {
             throw new BizException("当前履约状态不可发货", ErrorCode.ORDER_STATUS_CONFLICT);
         }
+        if (trackingNo != null && !trackingNo.isBlank()) {
+            order.setTrackingNo(trackingNo.trim());
+            resaleOrderRepository.save(order);
+        }
         auditLogService.logAction("RESALE_ORDER_DELIVER", "RESALE_ORDER", orderNo,
                 "fulfillStatus=DELIVERED" + auditLogService.buildAuditContextSuffix(auditContext));
         notificationService.push(order.getBuyerUser().getId(), "ORDER_DELIVERED", "商品已发货",
-                "订单 " + orderNo + " 已发货，请注意查收。", order.getId(), "RESALE_ORDER");
+                "订单 " + orderNo + " 已发货" + (order.getTrackingNo() == null ? "" : "（物流单号 " + order.getTrackingNo() + "）") + "，请注意查收。",
+                order.getId(), "RESALE_ORDER");
         return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "DELIVERED");
     }
 
@@ -307,6 +384,7 @@ public class ResaleOrderService {
         }
         releaseListingStock(order.getListing().getId());
         couponService.releaseForOrder(order.getId());
+        returnOrderPoints(order);
         auditLogService.logAction("RESALE_ORDER_CANCEL", "RESALE_ORDER", orderNo, "fulfillStatus=CANCELLED,buyerUserId=" + buyerUserId);
         notificationService.push(buyerUserId, "ORDER_CANCELLED", "订单已取消",
                 "订单 " + orderNo + " 已取消，库存与优惠券已退回。", order.getId(), "RESALE_ORDER");
@@ -329,6 +407,7 @@ public class ResaleOrderService {
             throw new BizException("订单状态已变更，退款失败", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         releaseListingStock(order.getListing().getId());
+        returnOrderPoints(order);
         // 买家发起的 PENDING 售后单随退款完成一并结案
         refundOrderRepository.findFirstByResaleOrderIdAndStatusOrderByCreatedAtDesc(order.getId(), "PENDING")
                 .ifPresent(refund -> {
@@ -575,6 +654,7 @@ public class ResaleOrderService {
                 }
                 releaseListingStock(order.getListing().getId());
                 couponService.releaseForOrder(order.getId());
+                returnOrderPoints(order);
                 auditLogService.logAction("RESALE_ORDER_AUTO_CLOSE", "RESALE_ORDER", order.getOrderNo(), "expireMinutes=" + expireMinutes);
                 notificationService.push(order.getBuyerUser().getId(), "ORDER_AUTO_CLOSED", "订单超时未支付已关闭",
                         "订单 " + order.getOrderNo() + " 超时未支付已自动关闭，库存与优惠券已退回。", order.getId(), "RESALE_ORDER");

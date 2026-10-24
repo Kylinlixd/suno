@@ -175,14 +175,24 @@ public class CouponService {
         return mine;
     }
 
-    /** 满减券抵扣：达到门槛抵 discountValue，否则拒绝；抵扣不超过订单金额 */
+    /**
+     * 券抵扣：达到门槛后按类型计算——
+     * FIXED：抵 discountValue；PERCENT：discountValue 为折扣百分比（1-99，抵扣比例部分）。
+     * 抵扣不超过订单金额。
+     */
     private BigDecimal computeDiscount(CouponEntity coupon, BigDecimal orderAmount) {
         BigDecimal threshold = coupon.getMinOrderAmount() == null ? BigDecimal.ZERO : coupon.getMinOrderAmount();
         if (orderAmount.compareTo(threshold) < 0) {
             throw new BizException("订单金额未满足用券门槛", ErrorCode.COUPON_MIN_AMOUNT_NOT_MET);
         }
-        BigDecimal discount = coupon.getDiscountValue().min(orderAmount);
-        return discount.max(BigDecimal.ZERO);
+        BigDecimal discount;
+        if ("PERCENT".equals(coupon.getCouponType())) {
+            discount = orderAmount.multiply(coupon.getDiscountValue())
+                    .divide(new BigDecimal("100"), 2, java.math.RoundingMode.DOWN);
+        } else {
+            discount = coupon.getDiscountValue();
+        }
+        return discount.min(orderAmount).max(BigDecimal.ZERO);
     }
 
     // ==================== M3 管理端 ====================
@@ -202,19 +212,23 @@ public class CouponService {
     }
 
     @ResaleTransactional
-    public Map<String, Object> adminCreateCoupon(String name, BigDecimal minOrderAmount, BigDecimal discountValue,
-                                                 int totalCount, int perUserLimit, int effectiveDays) {
+    public Map<String, Object> adminCreateCoupon(String name, String couponType, BigDecimal minOrderAmount,
+                                                 BigDecimal discountValue, int totalCount, int perUserLimit, int effectiveDays) {
+        boolean percent = "PERCENT".equals(couponType);
         if (name == null || name.isBlank() || discountValue == null
                 || discountValue.compareTo(BigDecimal.ZERO) <= 0 || totalCount <= 0
                 || perUserLimit <= 0 || effectiveDays <= 0 || effectiveDays > 365) {
             throw new BizException("优惠券参数不合法", ErrorCode.PARAM_INVALID);
         }
-        if (minOrderAmount != null && minOrderAmount.compareTo(discountValue) < 0) {
+        if (percent && discountValue.compareTo(new BigDecimal("99")) > 0) {
+            throw new BizException("折扣百分比不能超过 99", ErrorCode.PARAM_INVALID);
+        }
+        if (!percent && minOrderAmount != null && minOrderAmount.compareTo(discountValue) < 0) {
             throw new BizException("用券门槛不能低于抵扣金额", ErrorCode.PARAM_INVALID);
         }
         CouponEntity coupon = new CouponEntity();
         coupon.setName(name.trim());
-        coupon.setCouponType("FIXED");
+        coupon.setCouponType(percent ? "PERCENT" : "FIXED");
         coupon.setDiscountValue(discountValue);
         coupon.setMinOrderAmount(minOrderAmount);
         coupon.setTotalCount(totalCount);
