@@ -1011,3 +1011,130 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 5；全量拉取内存聚合，数据量大后应落预聚合表/物化视图。
+
+## OPS-070 提交客服工单
+
+已认证用户提交工单（QUESTION/COMPLAINT/AFTER_SALE/OTHER，内容≥5 字），可关联本人订单（归属校验 `ORDER_NOT_OWNER`）。实现测试：`PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer`。
+
+### Requirement flow {#ops-070}
+```mermaid
+flowchart TD
+  J[本人 + type/content/orderNo?] --> V[类型/内容/订单归属校验] --> W[创建 OPEN 工单]
+```
+### Current development flow {#ops-070-dev}
+```mermaid
+sequenceDiagram
+  participant C as SupportController#createTicket
+  participant S as SupportTicketService#create
+  C->>S: JWT subject、工单字段
+  S-->>C: ticketNo、OPEN
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Ticket create handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 5；无图片附件与 SLA 承诺。
+
+## OPS-071 我的工单列表
+
+已认证用户倒序分页查看本人工单（含回复与状态）。实现测试：`PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer`。
+
+### Requirement flow {#ops-071}
+```mermaid
+flowchart TD
+  J[本人] --> Q[倒序分页] --> R[含回复状态]
+```
+### Current development flow {#ops-071-dev}
+```mermaid
+sequenceDiagram
+  participant C as SupportController#myTickets
+  participant S as SupportTicketService#listMine
+  C->>S: JWT subject
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[My-ticket query handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 5；无未读回复标记。
+
+## OPS-072 管理端工单列表
+
+运营角色（ADMIN/OPERATOR）按状态过滤查看全部工单。实现测试：`PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer`。
+
+### Requirement flow {#ops-072}
+```mermaid
+flowchart TD
+  A[ADMIN/OPERATOR + status?] --> Q[全量分页] --> R[工单列表]
+```
+### Current development flow {#ops-072-dev}
+```mermaid
+sequenceDiagram
+  participant C as SupportController#adminTickets
+  participant S as SupportTicketService#adminPage
+  C->>S: status
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Admin ticket page handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 5；内存分页，无指派/优先级。
+
+## OPS-073 管理端回复工单
+
+运营回复工单（可选 close=true 关闭），状态 OPEN→PROCESSING/CLOSED，回复推送 `TICKET_REPLIED` 通知，写审计。实现测试：`PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer`。
+
+### Requirement flow {#ops-073}
+```mermaid
+flowchart TD
+  A[运营 + reply + close?] --> V{非 CLOSED}
+  V --> W[写回复 + 状态推进]
+  W --> N[通知买家] --> L[审计]
+```
+### Current development flow {#ops-073-dev}
+```mermaid
+sequenceDiagram
+  participant C as SupportController#adminReply
+  participant S as SupportTicketService#adminReply
+  C->>S: ticketId、reply、close
+  S-->>C: 更新后工单
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Ticket reply handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 5；无多轮会话（单回复字段）。
+
+## OPS-S002 事件派发调度器
+
+消费 `suno_event_outbox` 的 PENDING 条目（每轮 ≤100），投递到结构化日志后标记 PUBLISHED（至少一次投递，接 MQ/Webhook 时替换投递点一处）。实现测试：`PlatformBatchWebTest#orderAndPaymentPublishOutboxEventsAndDispatcherMarksPublished`。
+
+### Requirement flow {#ops-s002}
+```mermaid
+flowchart TD
+  T[定时触发] --> Q[取 PENDING ≤100] --> D[投递] --> M[标记 PUBLISHED]
+```
+### Current development flow {#ops-s002-dev}
+```mermaid
+sequenceDiagram
+  participant S as EventOutboxDispatcher#dispatchPending
+  participant O as JpaEventOutbox#publish
+  Note over O: 业务事务内写入
+  S->>S: 日志投递 + markPublished
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  S[Scheduler] --> P[Outbox port] --> Q[MQ/Webhook sink]
+```
+### Gaps
+- targetPhase: 5；投递目标为日志（无外部订阅方）；无死信与退避。

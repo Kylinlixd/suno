@@ -1367,6 +1367,58 @@
   plannedTests: []
   implementedTests:
     - AdminConsoleWebTest#reportOverviewAggregatesAndTrends
+- <<: *operations_http
+  id: OPS-070
+  method: POST
+  path: /api/support/tickets
+  actor: customer
+  permission: authenticated
+  requirementAnchor: ops-070
+  developmentAnchor: ops-070-dev
+  implementationStatus: implemented
+  currentSymbols: [SupportController#createTicket, SupportTicketService#create]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer
+- <<: *operations_http
+  id: OPS-071
+  method: GET
+  path: /api/support/tickets/my
+  actor: customer
+  permission: authenticated
+  requirementAnchor: ops-071
+  developmentAnchor: ops-071-dev
+  implementationStatus: implemented
+  currentSymbols: [SupportController#myTickets, SupportTicketService#listMine]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer
+- <<: *operations_http
+  id: OPS-072
+  method: GET
+  path: /api/admin/support/tickets
+  actor: administrator
+  permission: administrator
+  requirementAnchor: ops-072
+  developmentAnchor: ops-072-dev
+  implementationStatus: implemented
+  currentSymbols: [SupportController#adminTickets, SupportTicketService#adminPage]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer
+- <<: *operations_http
+  id: OPS-073
+  method: POST
+  path: /api/admin/support/tickets/{ticketId}/reply
+  actor: administrator
+  permission: administrator
+  requirementAnchor: ops-073
+  developmentAnchor: ops-073-dev
+  implementationStatus: implemented
+  currentSymbols: [SupportController#adminReply, SupportTicketService#adminReply]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#supportTicketRoundTripNotifiesBuyer
 - &payment_scheduler
   id: PAY-S001
   kind: SCHEDULER
@@ -1485,6 +1537,17 @@
     - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
   scheduledMethod: SecurityEventService#scheduledCleanupSecurityExportTasks
   scheduleProperty: security.auth.export-task.cleanup-fixed-delay-ms
+- <<: *operations_scheduler
+  id: OPS-S002
+  requirementAnchor: ops-s002
+  developmentAnchor: ops-s002-dev
+  implementationStatus: implemented
+  currentSymbols: [EventOutboxDispatcher#dispatchPending, JpaEventOutbox#publish]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#orderAndPaymentPublishOutboxEventsAndDispatcherMarksPublished
+  scheduledMethod: EventOutboxDispatcher#dispatchPending
+  scheduleProperty: operations.event-outbox.dispatch-fixed-delay-ms
   plannedTests:
     - test: OperationsSchedulerTest#documentsOperationsScheduler
       targetPhase: 1
@@ -1553,9 +1616,13 @@
 - <<: *payment_event
   id: PAY-E002
   eventType: PaymentApplied
+  implementationStatus: implemented
   requirementAnchor: pay-e002
   developmentAnchor: pay-e002-dev
-  currentSymbols: [RecycleApplicationService#markResaleOrderPaidWithIdempotency]
+  currentSymbols: [ResaleOrderService#markResaleOrderPaidWithIdempotency, PaymentApplied#orderNo]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#orderAndPaymentPublishOutboxEventsAndDispatcherMarksPublished
 - <<: *payment_event
   id: PAY-E003
   eventType: PaymentRejected
@@ -1652,9 +1719,13 @@
 - <<: *marketplace_event
   id: MKT-E002
   eventType: MarketplaceOrderCreated
+  implementationStatus: implemented
   requirementAnchor: mkt-e002
   developmentAnchor: mkt-e002-dev
-  currentSymbols: [ResaleOrderService#createResaleOrder]
+  currentSymbols: [ResaleOrderService#createResaleOrder, MarketplaceOrderCreated#orderNo]
+  plannedTests: []
+  implementedTests:
+    - PlatformBatchWebTest#orderAndPaymentPublishOutboxEventsAndDispatcherMarksPublished
 - <<: *marketplace_event
   id: MKT-E003
   eventType: MarketplacePaymentAccepted

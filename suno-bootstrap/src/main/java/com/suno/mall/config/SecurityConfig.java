@@ -63,13 +63,23 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payment/callback").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payment/alipay/notify").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // 顺序敏感：先细分后兜底
+                        .requestMatchers("/api/admin/auth/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/payment/**").hasAnyRole("ADMIN", "FINANCE")
+                        .requestMatchers("/api/admin/recycle/refunds/**").hasAnyRole("ADMIN", "FINANCE")
+                        .requestMatchers("/api/admin/recycle/resale-orders/refund").hasAnyRole("ADMIN", "FINANCE")
+                        .requestMatchers("/api/admin/reports/**").hasAnyRole("ADMIN", "FINANCE")
+                        .requestMatchers("/api/admin/recycle/listings/**", "/api/admin/recycle/orders/**",
+                                "/api/admin/coupons/**", "/api/admin/support/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OPERATOR", "FINANCE")
                         .requestMatchers(
                                 "/api/recycle/**",
                                 "/api/mall/**",
                                 "/api/addresses/**",
                                 "/api/cart/**",
                                 "/api/notifications/**",
+                                "/api/support/**",
                                 "/api/auth/me",
                                 "/api/auth/logout",
                                 "/api/auth/sessions",

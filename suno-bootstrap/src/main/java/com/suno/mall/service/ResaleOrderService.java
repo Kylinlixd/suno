@@ -71,6 +71,7 @@ public class ResaleOrderService {
     private final NotificationService notificationService;
     private final com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository;
     private final MemberLevelService memberLevelService;
+    private final com.suno.mall.core.event.EventOutbox eventOutbox;
     private final AuditLogService auditLogService;
 
     public ResaleOrderService(
@@ -86,6 +87,7 @@ public class ResaleOrderService {
             NotificationService notificationService,
             com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository,
             MemberLevelService memberLevelService,
+            com.suno.mall.core.event.EventOutbox eventOutbox,
             AuditLogService auditLogService
     ) {
         this.userAccountRepository = userAccountRepository;
@@ -100,6 +102,7 @@ public class ResaleOrderService {
         this.notificationService = notificationService;
         this.pointsLedgerRepository = pointsLedgerRepository;
         this.memberLevelService = memberLevelService;
+        this.eventOutbox = eventOutbox;
         this.auditLogService = auditLogService;
     }
 
@@ -177,6 +180,8 @@ public class ResaleOrderService {
         notificationService.push(buyerUserId, "ORDER_CREATED", "订单已创建",
                 "订单 " + orderNo + " 已创建，应付 ¥" + order.getPayableAmount() + "，请尽快完成支付。",
                 order.getId(), "RESALE_ORDER");
+        eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceOrderCreated(
+                orderNo, buyerUserId, String.valueOf(order.getPayableAmount())));
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", order.getOrderNo());
@@ -302,6 +307,8 @@ public class ResaleOrderService {
         record.setPayStatusSnapshot(String.valueOf(paidResult.get("payStatus")));
         record.setCreatedAt(LocalDateTime.now());
         paymentIdempotencyRepository.save(record);
+        eventOutbox.publish(new com.suno.mall.payment.api.event.PaymentApplied(
+                orderNo, idempotencyKey, String.valueOf(paidResult.get("payStatus"))));
         return Map.of("orderNo", paidResult.get("orderNo"), "payStatus", paidResult.get("payStatus"),
                 "fulfillStatus", paidResult.get("fulfillStatus"), "idempotentReplay", false);
     }

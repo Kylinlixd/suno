@@ -188,6 +188,10 @@ OPS-051|GET|/api/notifications/unread-count|Operations
 OPS-052|POST|/api/notifications/{notificationId}/read|Operations
 OPS-053|POST|/api/notifications/read-all|Operations
 OPS-060|GET|/api/admin/reports/overview|Operations
+OPS-070|POST|/api/support/tickets|Operations
+OPS-071|GET|/api/support/tickets/my|Operations
+OPS-072|GET|/api/admin/support/tickets|Operations
+OPS-073|POST|/api/admin/support/tickets/{ticketId}/reply|Operations
 """);
     private static final Map<String, String> EXPECTED_SCHEDULERS = expected("""
 PAY-S001|PaymentNonceCleanupScheduler#cleanupExpiredNonces|payment.callback.nonce-cleanup-fixed-delay-ms|Payment
@@ -199,6 +203,7 @@ MKT-S001|ResaleOrderScheduler#autoCloseExpiredUnpaidOrders|mall.order.auto-close
 MKT-S002|ResaleOrderScheduler#autoConfirmDeliveredOrders|mall.order.auto-confirm-receipt-fixed-delay-ms|Marketplace
 MKT-S003|CouponExpireReminderScheduler#remindExpiringCoupons|mall.coupon.expire-reminder-fixed-delay-ms|Marketplace
 OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.export-task.cleanup-fixed-delay-ms|Operations
+OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-fixed-delay-ms|Operations
 """);
 
     @Autowired
@@ -208,14 +213,14 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(170, catalog.size());
+        assertEquals(175, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
                 () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
-        assertEquals(138, http.size());
+        assertEquals(142, http.size());
         assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
@@ -229,7 +234,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
         assertEquals(http.size(), catalogRoutes.size(), "each route has exactly one owner");
 
         List<Map<String, Object>> schedulers = ofKind(catalog, "SCHEDULER");
-        assertEquals(9, schedulers.size());
+        assertEquals(10, schedulers.size());
         assertEquals(EXPECTED_SCHEDULERS, contractMap(schedulers, "scheduledMethod", "scheduleProperty"),
                 "scheduler ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_SCHEDULERS.keySet()), schedulers.stream().map(entry -> string(entry, "id")).toList());
@@ -245,7 +250,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 35L, 10, 31L, 11, 11L, 12, 68L, 13, 25L), catalog.stream()
+        assertEquals(Map.of(9, 36L, 10, 31L, 11, 11L, 12, 68L, 13, 29L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 

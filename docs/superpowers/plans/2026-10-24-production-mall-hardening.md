@@ -199,6 +199,16 @@
 >
 > 尚未纳入（保持后续立项）：admin 角色细分（OPERATOR/FINANCE）、客服工单、outbox 事件化、模块回迁、搜索索引化（数据量触发）。
 
+### 平台批次（2026-10-25，最终批次）
+
+> **状态：已完成（2026-10-25）**。四项结构性收尾全部落地，目录 175 条、120 测试全绿：
+> 1. **admin 角色细分**：ADMIN（全部）/ OPERATOR（回收审核、商品、订单、优惠券、工单）/ FINANCE（支付、退款处置、对账、报表），SecurityConfig 顺序敏感的细分匹配器 + `PlatformBatchWebTest#roleSplitEnforcesFinanceAndOperatorBoundaries` 边界测试锁定；
+> 2. **客服工单**：V5001 表 + OPS-070~073（买家提交/我的工单/管理端列表/回复），回复推送 `TICKET_REPLIED` 通知并写审计，可关联本人订单（归属校验）；
+> 3. **outbox 事件化（首个真实切片）**：`suno_event_outbox` 表 + `JpaEventOutbox`（与业务同事务写入）+ `EventOutboxDispatcher`（OPS-S002，至少一次投递到结构化日志，接 MQ 时替换投递点一处）；**MKT-E002 MarketplaceOrderCreated** 与 **PAY-E002 PaymentApplied** 两个公开事件从 absent 变 implemented（事件类落在 suno-marketplace / suno-payment 模块 api.event 包，含 @UseCaseId/@EventVersion）；
+> 4. **模块回迁（首片）**：支付宝适配器五类（Properties/Configuration/SignatureService/PagePayService/OpenApiClient）从 bootstrap 迁入 **suno-payment 模块** `com.suno.mall.payment`，通过既有 ModuleBoundary 规则（payment 包依赖白名单）与 ArchUnit 守护——identity/recycle/marketplace 主体回迁仍为独立立项，以本片验证迁移路径可行。
+>
+> 未做（有意）：**搜索索引化**——现有关键词搜索为内存 LIKE，MySQL FULLTEXT 迁移无法在 H2 测试基线兼容表达，且仅在有真实数据规模后才有收益；触发条件（商品 > 数千或搜索 P95 劣化）与方案（FULLTEXT/ES + 读模型）已在此记录。
+
 ## 5. 风险与关键决策点（需确认）
 
 | # | 决策点 | 选项与建议 |

@@ -69,6 +69,9 @@ public class ResaleOrderServiceTest {
     private NotificationService notificationService;
 
     @Mock
+    private com.suno.mall.core.event.EventOutbox eventOutbox;
+
+    @Mock
     private AuditLogService auditLogService;
 
     @InjectMocks
