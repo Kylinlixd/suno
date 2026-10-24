@@ -48,11 +48,46 @@ public final class ErrorCode {
     public static final String AUTH_REFRESH_REPLAY_BLOCKED = "AUTH_REFRESH_REPLAY_BLOCKED";
     /** Token 已被撤销（黑名单） */
     public static final String AUTH_TOKEN_REVOKED = "AUTH_TOKEN_REVOKED";
+    /** 用户名已被注册 */
+    public static final String AUTH_USERNAME_EXISTS = "AUTH_USERNAME_EXISTS";
+    /** 用户名格式不合法 */
+    public static final String AUTH_USERNAME_INVALID = "AUTH_USERNAME_INVALID";
+    /** 密码强度不达标 */
+    public static final String AUTH_PASSWORD_INVALID = "AUTH_PASSWORD_INVALID";
 
     // ==================== 订单相关 ====================
 
-    /** 订单不存在 */
+    /** 商品不存在 */
     public static final String ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
+    /** 二销商品不存在（列表项维度） */
+    public static final String LISTING_NOT_FOUND = "LISTING_NOT_FOUND";
+    /** 分类不存在 */
+    public static final String CATEGORY_NOT_FOUND = "CATEGORY_NOT_FOUND";
+
+    // ==================== M2 交易配套 ====================
+
+    /** 收货地址不存在或不属于当前用户 */
+    public static final String ADDRESS_NOT_FOUND = "ADDRESS_NOT_FOUND";
+    /** 购物车条目不存在 */
+    public static final String CART_ITEM_NOT_FOUND = "CART_ITEM_NOT_FOUND";
+    /** 优惠券不存在或已停用 */
+    public static final String COUPON_NOT_FOUND = "COUPON_NOT_FOUND";
+    /** 优惠券已领完 */
+    public static final String COUPON_OUT_OF_STOCK = "COUPON_OUT_OF_STOCK";
+    /** 超过单人领取上限 */
+    public static final String COUPON_CLAIM_LIMIT = "COUPON_CLAIM_LIMIT";
+    /** 券不可用（非本人/已用/过期） */
+    public static final String COUPON_NOT_REDEEMABLE = "COUPON_NOT_REDEEMABLE";
+    /** 订单金额未达用券门槛 */
+    public static final String COUPON_MIN_AMOUNT_NOT_MET = "COUPON_MIN_AMOUNT_NOT_MET";
+    /** 售后单不存在 */
+    public static final String REFUND_NOT_FOUND = "REFUND_NOT_FOUND";
+    /** 售后单状态不允许该操作 */
+    public static final String REFUND_STATUS_CONFLICT = "REFUND_STATUS_CONFLICT";
+    /** 该订单已有进行中的售后 */
+    public static final String REFUND_ALREADY_OPEN = "REFUND_ALREADY_OPEN";
+    /** 通知不存在 */
+    public static final String NOTIFICATION_NOT_FOUND = "NOTIFICATION_NOT_FOUND";
     /** 订单状态不允许该操作 */
     public static final String ORDER_STATUS_CONFLICT = "ORDER_STATUS_CONFLICT";
     /** 下单冲突（乐观锁） */

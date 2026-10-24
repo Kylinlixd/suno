@@ -6,3 +6,4 @@
 - [Database migrations](development/migrations.md) — Flyway schema authority and migration practice.
 - [Testing](development/testing.md) — test layers and commands.
 - [Requirements](requirements/README.md) — route and event requirements catalog.
+- [Production hardening plan](superpowers/plans/2026-10-24-production-mall-hardening.md) — 2026-10 全量业务审计结论与 M1-M4 生产化路线图。

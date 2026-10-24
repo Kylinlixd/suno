@@ -25,6 +25,7 @@ final class CanonicalSchemaManifest {
                 marketplaceListing(),
                 marketplaceFavorite(),
                 marketplaceOrder(),
+                marketplaceCartItem(),
                 marketplaceReview(),
                 marketplaceReviewVote(),
                 marketplaceReviewReport(),
@@ -121,12 +122,15 @@ final class CanonicalSchemaManifest {
                         id(), varchar("sn_code", 64, false), varchar("brand", 64, false),
                         varchar("model", 64, false), date("production_date", false),
                         varchar("image_url", 255, false), integer("wear_score", false),
-                        varchar("recycle_grade", 32, false), decimal("estimated_recycle_price", false)
+                        varchar("recycle_grade", 32, false), decimal("estimated_recycle_price", false),
+                        bigint("category_id", true)
                 ),
-                uniques(unique("uk_product_sn_code", "sn_code")), fks(),
+                uniques(unique("uk_product_sn_code", "sn_code")),
+                fks(fk("fk_product_category", "category_id", "suno_category", "id")),
                 indexes(
                         index("idx_product_brand_model", "brand", "model"),
-                        index("idx_product_recycle_grade", "recycle_grade")
+                        index("idx_product_recycle_grade", "recycle_grade"),
+                        index("idx_product_category_id", "category_id")
                 )
         );
     }
@@ -249,12 +253,17 @@ final class CanonicalSchemaManifest {
                         id(), varchar("order_no", 64, false), bigint("buyer_user_id", false),
                         bigint("listing_id", false), decimal("amount", false),
                         varchar("pay_status", 32, false), varchar("fulfill_status", 32, false),
-                        timestamp("created_at", false)
+                        timestamp("created_at", false),
+                        varchar("receiver_name", 64, true), varchar("receiver_phone", 32, true),
+                        varchar("receiver_address", 320, true), bigint("coupon_user_id", true),
+                        decimal("discount_amount", false, "0.00", "0.00"), decimal("payable_amount", true),
+                        varchar("pay_channel", 32, true), varchar("trade_no", 64, true), timestamp("paid_at", true)
                 ),
                 uniques(unique("uk_resale_order_order_no", "order_no")),
                 fks(
                         fk("fk_resale_order_buyer", "buyer_user_id", "suno_user_account", "id"),
-                        fk("fk_resale_order_listing", "listing_id", "suno_resale_listing", "id")
+                        fk("fk_resale_order_listing", "listing_id", "suno_resale_listing", "id"),
+                        fk("fk_resale_order_coupon_user", "coupon_user_id", "suno_coupon_user", "id")
                 ),
                 indexes(
                         index("idx_resale_order_buyer_user_id", "buyer_user_id"),
@@ -263,6 +272,20 @@ final class CanonicalSchemaManifest {
                         index("idx_resale_order_created_at", "created_at"),
                         index("idx_resale_order_status_buyer_user_id", "pay_status", "buyer_user_id")
                 )
+        );
+    }
+
+    private static TableSpec marketplaceCartItem() {
+        return table("suno_cart_item",
+                cols(
+                        id(), bigint("user_id", false), bigint("listing_id", false), timestamp("created_at", false)
+                ),
+                uniques(unique("uk_cart_user_listing", "user_id", "listing_id")),
+                fks(
+                        fk("fk_cart_user", "user_id", "suno_user_account", "id"),
+                        fk("fk_cart_listing", "listing_id", "suno_resale_listing", "id")
+                ),
+                indexes(index("idx_cart_user_id", "user_id"))
         );
     }
 
@@ -595,6 +618,11 @@ final class CanonicalSchemaManifest {
     private static ColumnSpec decimal(String name, boolean nullable) {
         return new ColumnSpec(name, "DECIMAL(12, 2)", nullable, false, null, null,
                 Set.of(Types.DECIMAL, Types.NUMERIC), 0, 12, 2);
+    }
+
+    private static ColumnSpec decimal(String name, boolean nullable, String defaultExpression, String backfillExpression) {
+        return new ColumnSpec(name, "DECIMAL(12, 2)", nullable, false, defaultExpression,
+                backfillExpression, Set.of(Types.DECIMAL, Types.NUMERIC), 0, 12, 2);
     }
 
     private static ColumnSpec timestamp(String name, boolean nullable) {

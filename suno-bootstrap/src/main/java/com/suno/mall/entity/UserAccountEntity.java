@@ -2,15 +2,31 @@ package com.suno.mall.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.TableGenerator;
 import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "suno_user_account")
 public class UserAccountEntity {
 
+    /**
+     * 基线表为手工主键（种子固定 id）。注册走 TableGenerator 发号
+     * （suno_user_id_generator，H2/MySQL 通用），显式赋值 id 的插入不受影响。
+     */
     @Id
+    @TableGenerator(
+            name = "suno_user_account_id_gen",
+            table = "suno_user_id_generator",
+            pkColumnName = "generator_key",
+            valueColumnName = "next_val",
+            pkColumnValue = "suno_user_account",
+            initialValue = 10001,
+            allocationSize = 50)
+    @GeneratedValue(strategy = GenerationType.TABLE, generator = "suno_user_account_id_gen")
     @Nullable
     private Long id;
 

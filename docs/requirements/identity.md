@@ -218,6 +218,41 @@ flowchart TD
 ### Gaps
 - targetPhase: 1；当前重放分支的撤销和审计会随 `BizException` 回滚，需用独立持久化边界/outbox 保证阻断事实和安全事件可持久化；同时没有公开刷新/安全事件边界。
 
+## IDN-008 注册
+
+匿名用户提交 username、password、可选 deviceId 自助注册。用户名规则为 3-64 个非空白字符（去除首尾空白后），密码须为 8-64 个非空白字符；密码以委托编码器（默认 `{bcrypt}`）落库，绝不存明文。用户名唯一冲突为 `AUTH_USERNAME_EXISTS`，格式不合法为 `AUTH_USERNAME_INVALID` / `AUTH_PASSWORD_INVALID`。注册成功即按登录同路径签发 access/refresh token 并建立设备会话（撤销同设备旧 refresh token），写 `AUTH_REGISTER_SUCCESS` 审计；新账户固定 `role=USER`、`accountStatus=ACTIVE`、`level=NORMAL`、`points=0`。实现测试：`AuthRegisterWebTest#registersUserThenLoginWorksAndRejectsDuplicates`、`AuthRegisterWebTest#rejectsWeakPasswordAndBlankUsername`。
+
+### Requirement flow {#idn-008}
+```mermaid
+flowchart TD
+  A[匿名请求] --> V[校验用户名/密码规则]
+  V -->|不合法| E1[AUTH_USERNAME_INVALID 或 AUTH_PASSWORD_INVALID]
+  V --> U[检查用户名唯一]
+  U -->|已存在| E2[AUTH_USERNAME_EXISTS]
+  U -->|可用| C[创建 USER 账户并编码密码]
+  C --> T[签发令牌并建立设备会话]
+  T --> L[记录注册审计]
+  L --> R[返回令牌]
+```
+### Current development flow {#idn-008-dev}
+```mermaid
+sequenceDiagram
+  participant C as AuthController#register
+  participant A as AuthApplicationService#register
+  C->>A: @AuthTransactional 校验、建户、编码密码
+  A->>A: normalizeUsername 规则化用户名
+  A-->>C: 令牌或 AUTH_* 业务错误
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Register command handler]
+  H --> P[Account write port]
+  P --> E[UserRegistered v1]
+```
+### Gaps
+- targetPhase: 1；注册已可用但与登录一样直接编排账户写入与令牌签发，尚无命令处理器、账户写端口或注册公开事件；未接入注册频控（属 M4 限流范围）。
+
 ## IDN-101 管理员查询用户会话
 
 管理员以 username 查询目标用户未撤销 refresh 会话；路由由 ADMIN 角色保护。当前查询调用 `AUTH_ADMIN_SESSION_QUERY` 审计写入逻辑，但该调用加入 READ_COMMITTED 只读事务，本文不将其表述为独立持久化边界；不存在账户不会预先校验而是返回空会话集合。非管理员为 `AUTH_FORBIDDEN`。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`IdentityUseCaseWebTest#documentsIdentityUseCase`。
@@ -313,6 +348,136 @@ flowchart TD
 ### Gaps
 - targetPhase: 1；当前管理员动作未形成端口化的跨用户会话用例。
 
+## IDN-020 我的地址列表
+
+已认证用户查看本人收货地址，默认地址在前、其余按 id 倒序；只能读到本人地址。实现测试：`AddressWebTest#createsListsAndSetsSingleDefaultAddress`、`AddressWebTest#isolatesAddressesBetweenUsers`。
+
+### Requirement flow {#idn-020}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> Q[查询本人地址] --> R[默认在前返回]
+```
+### Current development flow {#idn-020-dev}
+```mermaid
+sequenceDiagram
+  participant C as AddressController#listAddresses
+  participant S as UserAddressService#listByUser
+  C->>S: JWT subject
+  S-->>C: 地址列表
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Address query handler] --> P[Address read port]
+```
+### Gaps
+- targetPhase: 1；地址簿读取与账户域同库，尚未拆独立读端口。
+
+## IDN-021 新增收货地址
+
+已认证用户创建收货地址；收货人/电话/省市区/详细地址必填，电话须 5-20 位数字（可带 + 前缀），`isDefault=true` 时同时设为默认（默认唯一）。实现测试：`AddressWebTest#createsListsAndSetsSingleDefaultAddress`、`AddressWebTest#rejectsBlankReceiverFields`。
+
+### Requirement flow {#idn-021}
+```mermaid
+flowchart TD
+  J[本人 + 地址字段] --> V[字段与电话格式校验]
+  V -->|不合法| E[PARAM_INVALID]
+  V --> W[写入地址] --> D{设为默认?}
+  D -->|是| S[清旧默认并设新默认]
+```
+### Current development flow {#idn-021-dev}
+```mermaid
+sequenceDiagram
+  participant C as AddressController#createAddress
+  participant S as UserAddressService#create
+  C->>S: JWT subject + 地址字段
+  S-->>C: addressId
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Create-address command] --> P[Address write port]
+```
+### Gaps
+- targetPhase: 1；地址数量上限未限制（生产应加每用户上限与风控）。
+
+## IDN-022 修改收货地址
+
+已认证用户修改本人地址字段（不改变默认态）；他人地址按不存在处理为 `ADDRESS_NOT_FOUND`。实现测试：`AddressWebTest#createsListsAndSetsSingleDefaultAddress`、`AddressWebTest#isolatesAddressesBetweenUsers`。
+
+### Requirement flow {#idn-022}
+```mermaid
+flowchart TD
+  J[本人 + addressId + 字段] --> V[归属与格式校验]
+  V -->|非本人/不存在| E[ADDRESS_NOT_FOUND]
+  V --> W[更新地址]
+```
+### Current development flow {#idn-022-dev}
+```mermaid
+sequenceDiagram
+  participant C as AddressController#updateAddress
+  participant S as UserAddressService#update
+  C->>S: JWT subject、addressId、字段
+  S-->>C: 更新后地址
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Update-address command] --> P[Address write port]
+```
+### Gaps
+- targetPhase: 1；无地址变更审计与修改历史。
+
+## IDN-023 删除收货地址
+
+已认证用户删除本人地址（`ADDRESS_NOT_FOUND` 校验归属）；已下订单持有的是地址快照，不受删除影响。实现测试：`AddressWebTest#createsListsAndSetsSingleDefaultAddress`。
+
+### Requirement flow {#idn-023}
+```mermaid
+flowchart TD
+  J[本人 + addressId] --> V[归属校验] --> W[删除地址] --> R[deleted=true]
+```
+### Current development flow {#idn-023-dev}
+```mermaid
+sequenceDiagram
+  participant C as AddressController#deleteAddress
+  participant S as UserAddressService#delete
+  C->>S: JWT subject、addressId
+  S-->>C: deleted=true
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Delete-address command] --> P[Address write port]
+```
+### Gaps
+- targetPhase: 1；删除默认地址后不自动迁移默认态。
+
+## IDN-024 设为默认地址
+
+已认证用户把本人某地址设为默认：清掉旧默认保证一人一默认。实现测试：`AddressWebTest#createsListsAndSetsSingleDefaultAddress`。
+
+### Requirement flow {#idn-024}
+```mermaid
+flowchart TD
+  J[本人 + addressId] --> V[归属校验] --> C[清除旧默认] --> S[设新默认]
+```
+### Current development flow {#idn-024-dev}
+```mermaid
+sequenceDiagram
+  participant C as AddressController#setDefaultAddress
+  participant S as UserAddressService#setDefault
+  C->>S: JWT subject、addressId
+  S-->>C: isDefault=true
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Set-default command] --> P[Address write port]
+```
+### Gaps
+- targetPhase: 1；默认态切换未发布领域事件。
+
 ## IDN-E001 UserAuthenticated v1
 
 系统在认证成功后应发布版本 1 的 `UserAuthenticated`，供内部订阅方消费；权限为 internal，投递失败应可重试。当前登录会写令牌/会话和登录审计，但没有该事件发布或提交后投递事务。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 1）：`IdentityEventContractTest#documentsIdentityEvent`。
@@ -405,3 +570,58 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 1；IDN-E004 为 absent，审计记录尚未成为版本化公共安全事件。
+
+## IDN-110 管理员用户分页
+
+管理员按用户名关键词/status 分页查看用户（角色/状态/等级/积分）。实现测试：`AdminConsoleWebTest#bansUserAndBlocksLogin`。
+
+### Requirement flow {#idn-110}
+```mermaid
+flowchart TD
+  A[ADMIN + keyword/status] --> Q[Specification 分页] --> R[零基分页]
+```
+### Current development flow {#idn-110-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminUserController#pageUsers
+  participant S as AdminUserService#pageUsers
+  C->>S: 过滤与分页
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin user page handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；用户查询与账户域同库，尚无独立管理读模型。
+
+## IDN-111 管理员封禁/解封用户
+
+管理员把用户置为 BANNED（同时撤销其全部会话，登录立即失败）或恢复 ACTIVE；仅允许 ACTIVE/BANNED，ADMIN 账户不可封禁（`AUTH_FORBIDDEN`），写审计。实现测试：`AdminConsoleWebTest#bansUserAndBlocksLogin`。
+
+### Requirement flow {#idn-111}
+```mermaid
+flowchart TD
+  A[ADMIN + userId + status] --> V{非 ADMIN 账户}
+  V -->|是| E[AUTH_FORBIDDEN]
+  V -->|否| U[更新状态]
+  U -->|BANNED| R[撤销全部会话]
+```
+### Current development flow {#idn-111-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminUserController#setUserStatus
+  participant S as AdminUserService#setUserStatus
+  participant A as AuthSessionService#adminRevokeUserAllSessions
+  C->>S: userId、status
+  S->>A: BANNED 时撤销会话
+  S-->>C: accountStatus
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin user status handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；封禁不发布公开事件，已签发 access token 靠会话撤销+黑名单兜底。

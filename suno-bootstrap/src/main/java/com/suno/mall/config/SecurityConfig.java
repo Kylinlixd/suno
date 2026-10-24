@@ -52,14 +52,21 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").hasRole("ADMIN")
                         .requestMatchers("/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/mall/listings/**", "/api/mall/categories").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payment/callback").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payment/alipay/notify").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(
                                 "/api/recycle/**",
                                 "/api/mall/**",
+                                "/api/addresses/**",
+                                "/api/cart/**",
+                                "/api/notifications/**",
                                 "/api/auth/me",
                                 "/api/auth/logout",
                                 "/api/auth/sessions",

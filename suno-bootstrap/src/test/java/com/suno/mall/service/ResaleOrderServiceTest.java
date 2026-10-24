@@ -54,6 +54,21 @@ public class ResaleOrderServiceTest {
     private PaymentIdempotencyRepository paymentIdempotencyRepository;
 
     @Mock
+    private com.suno.mall.dao.UserAddressRepository userAddressRepository;
+
+    @Mock
+    private com.suno.mall.dao.RefundOrderRepository refundOrderRepository;
+
+    @Mock
+    private CouponService couponService;
+
+    @Mock
+    private CartService cartService;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
     private AuditLogService auditLogService;
 
     @InjectMocks

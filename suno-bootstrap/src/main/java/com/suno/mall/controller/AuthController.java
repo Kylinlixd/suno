@@ -74,7 +74,23 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/register")
+    public ApiResponse<Map<String, Object>> register(@RequestBody RegisterRequest request) {
+        return ApiResponse.ok(authApplicationService.register(
+                request.username(),
+                request.password(),
+                request.deviceId()
+        ));
+    }
+
     public record LoginRequest(
+            @NotBlank String username,
+            @NotBlank String password,
+            String deviceId
+    ) {
+    }
+
+    public record RegisterRequest(
             @NotBlank String username,
             @NotBlank String password,
             String deviceId

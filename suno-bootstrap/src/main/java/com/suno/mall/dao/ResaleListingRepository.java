@@ -32,6 +32,14 @@ public interface ResaleListingRepository extends JpaRepository<ResaleListingEnti
     @Query("SELECT l FROM ResaleListingEntity l LEFT JOIN FETCH l.product LEFT JOIN FETCH l.recycleOrder")
     List<ResaleListingEntity> findAllWithDetails();
 
+    /** M3 管理端：全量商品分页（含商品详情） */
+    @Query("SELECT l FROM ResaleListingEntity l LEFT JOIN FETCH l.product LEFT JOIN FETCH l.recycleOrder")
+    org.springframework.data.domain.Page<ResaleListingEntity> findAllWithDetails(org.springframework.data.domain.Pageable pageable);
+
+    /** M3 管理端：按状态分页（含商品详情） */
+    @Query("SELECT l FROM ResaleListingEntity l LEFT JOIN FETCH l.product LEFT JOIN FETCH l.recycleOrder WHERE l.status = :status")
+    org.springframework.data.domain.Page<ResaleListingEntity> findByStatusWithDetailsPaged(@Param("status") String status, org.springframework.data.domain.Pageable pageable);
+
     /**
      * 原子预留一件库存，库存不足或已下架时返回 0。
      * 同步递增 version，避免与仍使用实体乐观锁的库存操作互相覆盖。

@@ -12,7 +12,23 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface ResaleOrderRepository extends JpaRepository<ResaleOrderEntity, Long> {
+public interface ResaleOrderRepository extends JpaRepository<ResaleOrderEntity, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<ResaleOrderEntity> {
+
+    /**
+     * M3 管理端订单分页：可选 pay/fulfill 过滤与订单号/买家用户名关键词。
+     */
+    @Query("""
+            SELECT o FROM ResaleOrderEntity o
+            LEFT JOIN FETCH o.buyerUser LEFT JOIN FETCH o.listing
+            WHERE (:payStatus IS NULL OR o.payStatus = :payStatus)
+              AND (:fulfillStatus IS NULL OR o.fulfillStatus = :fulfillStatus)
+              AND (:keyword IS NULL OR LOWER(o.orderNo) LIKE :keyword OR LOWER(o.buyerUser.username) LIKE :keyword)
+            """)
+    org.springframework.data.domain.Page<ResaleOrderEntity> adminPage(
+            @Param("payStatus") String payStatus,
+            @Param("fulfillStatus") String fulfillStatus,
+            @Param("keyword") String keyword,
+            org.springframework.data.domain.Pageable pageable);
 
     Optional<ResaleOrderEntity> findByOrderNo(String orderNo);
 
@@ -108,4 +124,16 @@ public interface ResaleOrderRepository extends JpaRepository<ResaleOrderEntity, 
             WHERE o.orderNo = :orderNo AND o.payStatus = 'PAID'
             """)
     int refundIfPaid(@Param("orderNo") String orderNo);
+
+    /**
+     * M3 支付渠道回填：仅 PAID 订单可回填，幂等（重复通知覆盖同一渠道信息）。
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE ResaleOrderEntity o
+            SET o.payChannel = :payChannel, o.tradeNo = :tradeNo, o.paidAt = :paidAt
+            WHERE o.orderNo = :orderNo AND o.payStatus = 'PAID'
+            """)
+    int attachChannelInfo(@Param("orderNo") String orderNo, @Param("payChannel") String payChannel,
+                          @Param("tradeNo") String tradeNo, @Param("paidAt") java.time.LocalDateTime paidAt);
 }

@@ -1,10 +1,14 @@
 
 package com.suno.mall.service;
 
+import com.suno.mall.common.BizException;
+import com.suno.mall.common.ErrorCode;
+import com.suno.mall.entity.CategoryEntity;
 import com.suno.mall.entity.RecycleOrderEntity;
 import com.suno.mall.entity.ResaleFavoriteEntity;
 import com.suno.mall.entity.ResaleListingEntity;
 import com.suno.mall.entity.UserAccountEntity;
+import com.suno.mall.dao.CategoryRepository;
 import com.suno.mall.dao.RecycleOrderRepository;
 import com.suno.mall.dao.ResaleFavoriteRepository;
 import com.suno.mall.dao.ResaleListingRepository;
@@ -15,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,6 +38,8 @@ public class ResaleListingService {
     private final ResaleListingRepository resaleListingRepository;
     private final ResaleFavoriteRepository resaleFavoriteRepository;
     private final UserAccountRepository userAccountRepository;
+    private final CategoryRepository categoryRepository;
+    private final ResaleReviewService resaleReviewService;
     private final AuditLogService auditLogService;
 
     public ResaleListingService(
@@ -40,12 +47,16 @@ public class ResaleListingService {
             ResaleListingRepository resaleListingRepository,
             ResaleFavoriteRepository resaleFavoriteRepository,
             UserAccountRepository userAccountRepository,
+            CategoryRepository categoryRepository,
+            ResaleReviewService resaleReviewService,
             AuditLogService auditLogService
     ) {
         this.recycleOrderRepository = recycleOrderRepository;
         this.resaleListingRepository = resaleListingRepository;
         this.resaleFavoriteRepository = resaleFavoriteRepository;
         this.userAccountRepository = userAccountRepository;
+        this.categoryRepository = categoryRepository;
+        this.resaleReviewService = resaleReviewService;
         this.auditLogService = auditLogService;
     }
 
@@ -84,24 +95,118 @@ public class ResaleListingService {
     public List<Map<String, Object>> listResaleListings(
             String grade, String sortBy, String sortOrder, Integer minStock
     ) {
-        List<ResaleListingEntity> listings = resaleListingRepository.findByStatusWithDetails(LISTING_STATUS_ON_SHELF).stream()
+        return filterListings(null, null, grade, minStock).stream()
+                .sorted(buildListingComparator(sortBy, sortOrder))
+                .map(this::toListingSummary)
+                .toList();
+    }
+
+    /**
+     * M1 商品搜索：关键词（品牌/型号/SN 模糊匹配）+ 分类 + 成色过滤，内存分页。
+     * 返回零基分页信封：content/totalElements/totalPages/page/size。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> searchResaleListings(
+            String keyword, Long categoryId, String grade, String sortBy, String sortOrder,
+            Integer minStock, Integer page, Integer size
+    ) {
+        if (categoryId != null) {
+            categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new BizException("分类不存在: " + categoryId, ErrorCode.CATEGORY_NOT_FOUND));
+        }
+        int safePage = page == null || page < 0 ? 0 : page;
+        int safeSize = size == null || size < 1 ? 20 : Math.min(size, 100);
+        List<ResaleListingEntity> filtered = filterListings(normalizeKeyword(keyword), categoryId, grade, minStock);
+        List<ResaleListingEntity> sorted = filtered.stream()
+                .sorted(buildListingComparator(sortBy, sortOrder))
+                .toList();
+        int fromIndex = Math.min(safePage * safeSize, sorted.size());
+        int toIndex = Math.min(fromIndex + safeSize, sorted.size());
+        List<Map<String, Object>> content = sorted.subList(fromIndex, toIndex).stream()
+                .map(this::toListingSummary)
+                .toList();
+        Map<String, Object> result = new HashMap<>();
+        result.put("content", content);
+        result.put("totalElements", sorted.size());
+        result.put("totalPages", (sorted.size() + safeSize - 1) / safeSize);
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        return result;
+    }
+
+    /**
+     * M1 单商品详情：在售与售罄均可见，包含商品图、分类、成色与评价摘要。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> getListingDetail(Long listingId) {
+        ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
+                .orElseThrow(() -> new BizException("商品不存在: " + listingId, ErrorCode.LISTING_NOT_FOUND));
+        Map<String, Object> detail = new HashMap<>(toListingSummary(listing));
+        detail.put("status", listing.getStatus());
+        detail.put("createdAt", listing.getCreatedAt());
+        Map<String, Object> reviewSummary = resaleReviewService.listResaleReviews(listingId);
+        detail.put("reviewCount", reviewSummary.getOrDefault("reviewCount", 0));
+        detail.put("avgRating", reviewSummary.getOrDefault("avgRating", 0));
+        return detail;
+    }
+
+    /**
+     * M1 分类目录：仅返回启用分类，按 sortOrder 排序。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public List<Map<String, Object>> listCategories() {
+        return categoryRepository.findByStatusOrderBySortOrderAscIdAsc("ENABLED").stream()
+                .map(ResaleListingService::toCategorySummary)
+                .toList();
+    }
+
+    private static Map<String, Object> toCategorySummary(CategoryEntity category) {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("categoryId", category.getId());
+        summary.put("name", category.getName());
+        summary.put("parentId", category.getParentId());
+        summary.put("sortOrder", category.getSortOrder());
+        return summary;
+    }
+
+    private List<ResaleListingEntity> filterListings(String keyword, Long categoryId, String grade, Integer minStock) {
+        return resaleListingRepository.findByStatusWithDetails(LISTING_STATUS_ON_SHELF).stream()
                 .filter(item -> grade == null || grade.isBlank() || grade.equalsIgnoreCase(item.getProduct().getRecycleGrade()))
                 .filter(item -> minStock == null || item.getStock() >= minStock)
+                .filter(item -> categoryId == null || categoryId.equals(item.getProduct().getCategoryId()))
+                .filter(item -> keyword == null
+                        || item.getProduct().getBrand().toLowerCase(Locale.ROOT).contains(keyword)
+                        || item.getProduct().getModel().toLowerCase(Locale.ROOT).contains(keyword)
+                        || item.getProduct().getSnCode().toLowerCase(Locale.ROOT).contains(keyword))
                 .toList();
-        Comparator<ResaleListingEntity> comparator = buildListingComparator(sortBy);
-        String safeSortOrder = sortOrder == null ? "asc" : sortOrder.toLowerCase(Locale.ROOT);
-        if ("desc".equals(safeSortOrder)) {
-            comparator = comparator.reversed();
+    }
+
+    private static String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
         }
-        return listings.stream().sorted(comparator).map(item -> Map.<String, Object>ofEntries(
-                Map.entry("listingId", item.getId()),
-                Map.entry("brand", item.getProduct().getBrand()),
-                Map.entry("model", item.getProduct().getModel()),
-                Map.entry("grade", item.getProduct().getRecycleGrade()),
-                Map.entry("salePrice", item.getSalePrice()),
-                Map.entry("stock", item.getStock()),
-                Map.entry("favoriteCount", resaleFavoriteRepository.countByListing_Id(item.getId()))
-        )).toList();
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    private Map<String, Object> toListingSummary(ResaleListingEntity item) {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("listingId", item.getId());
+        summary.put("brand", item.getProduct().getBrand());
+        summary.put("model", item.getProduct().getModel());
+        summary.put("grade", item.getProduct().getRecycleGrade());
+        summary.put("salePrice", item.getSalePrice());
+        summary.put("stock", item.getStock());
+        summary.put("image", item.getProduct().getImageUrl());
+        summary.put("favoriteCount", resaleFavoriteRepository.countByListing_Id(item.getId()));
+        Long categoryId = item.getProduct().getCategoryId();
+        if (categoryId != null) {
+            summary.put("categoryId", categoryId);
+            categoryRepository.findById(categoryId)
+                    .map(CategoryEntity::getName)
+                    .ifPresent(name -> summary.put("categoryName", name));
+        }
+        return summary;
     }
 
     @ResaleTransactional
@@ -224,6 +329,12 @@ public class ResaleListingService {
                 Map.entry("status", item.getStatus()),
                 Map.entry("soldAt", item.getUpdatedAt())
         )).toList();
+    }
+
+    private Comparator<ResaleListingEntity> buildListingComparator(String sortBy, String sortOrder) {
+        Comparator<ResaleListingEntity> comparator = buildListingComparator(sortBy);
+        String safeSortOrder = sortOrder == null ? "asc" : sortOrder.toLowerCase(Locale.ROOT);
+        return "desc".equals(safeSortOrder) ? comparator.reversed() : comparator;
     }
 
     private Comparator<ResaleListingEntity> buildListingComparator(String sortBy) {

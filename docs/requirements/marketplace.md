@@ -1,6 +1,6 @@
 # 商城、订单、收藏与评价需求流
 
-本文件覆盖 Task 12 的 33 个 Marketplace HTTP、2 个调度器与 6 个公共事件。当前实现处于 Phase 0：请求常携带 userId，商城服务通过 `RecycleApplicationService` 进入遗留服务；这不是资源所有权或管理员授权的目标边界。每节的实现测试均为现有目录校验 `DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`，计划测试均为 **Phase 3**。
+本文件覆盖 Task 12 的 53 个 Marketplace HTTP、2 个调度器与 6 个公共事件。当前实现处于 Phase 0：请求常携带 userId，商城服务通过 `RecycleApplicationService` 进入遗留服务；这不是资源所有权或管理员授权的目标边界。每节的实现测试均为现有目录校验 `DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`，计划测试均为 **Phase 3**（M1 新增的 MKT-020 搜索/分页、MKT-038、MKT-039 已有实现测试）。
 
 ## 订单状态机与共享不变量
 
@@ -255,21 +255,24 @@ flowchart TD
 
 ## MKT-020 商城 listing 列表
 
-商城端按筛选浏览可售 listing。当前读取遗留服务；目标以 Marketplace 读模型提供分页和库存一致快照。实现测试：`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+匿名即可浏览可售 listing（与生产级商城“先逛后登录”一致；下单/收藏/评价仍要求认证），支持 keyword（品牌/型号/SN 大小写不敏感包含匹配）、categoryId（分类存在性校验，`CATEGORY_NOT_FOUND`）、grade、minStock 过滤与 sortBy/sortOrder 排序，返回零基分页信封（content/totalElements/totalPages/page/size，size 默认 20、上限 100）。读取仍经遗留服务在内存中过滤分页；目标以 Marketplace 读模型提供分页和库存一致快照。实现测试：`ListingCatalogWebTest#filtersListingsByKeywordCategoryAndGrade`、`ListingCatalogWebTest#paginatesListingSearchWithZeroBasedPages`、`ListingCatalogWebTest#anonymousCanBrowseCatalog`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-020}
 ```mermaid
 flowchart TD
-  C[商城筛选] --> Q[读取可售 listing 投影] --> R[分页响应]
+  C[匿名筛选 keyword/category/grade/排序/分页] --> V[分类存在性校验]
+  V -->|未知分类| E[CATEGORY_NOT_FOUND]
+  V --> Q[读取可售 listing 投影] --> R[零基分页响应]
 ```
 ### Current development flow {#mkt-020-dev}
 ```mermaid
 sequenceDiagram
   participant C as ResaleMallController#listListings
-  participant A as RecycleApplicationService#listResaleListings
-  participant S as ResaleListingService#listResaleListings
-  C->>A: 筛选条件
-  A->>S: 委托读取
+  participant A as RecycleApplicationService#searchResaleListings
+  participant S as ResaleListingService#searchResaleListings
+  C->>A: 筛选与分页参数
+  A->>S: REQUIRED、READ_COMMITTED 只读
+  S-->>C: content/totalElements/totalPages/page/size
 ```
 ### Target architecture flow
 ```mermaid
@@ -277,7 +280,7 @@ flowchart TD
   C[Mall adapter] --> Q[Marketplace listing read model] --> R[Versioned page]
 ```
 ### Gaps
-- targetPhase: 3；当前依赖遗留应用服务，没有 Marketplace 读模型或分页版本。
+- targetPhase: 3；关键词与分类过滤在应用内存中执行，尚无 Marketplace 读模型、数据库侧索引化搜索或分页版本。
 
 ## MKT-021 买家订单列表
 
@@ -369,7 +372,7 @@ flowchart TD
 
 ## MKT-024 创建商城订单
 
-买家为在售 listing 下单。目标在短事务内以乐观版本预留一件库存、写 `UNPAID/WAIT_PAY` 订单和 outbox；库存不足/并发冲突稳定失败。订单与库存预留唯一关联，后续只由一次释放动作恢复库存。当前买家身份取自 JWT，库存以 `stock = stock - 1` 的条件更新原子预留并同步递增 `version`，随后写订单和审计；尚无预留台账与 outbox。实现测试：`ResaleOrderServiceTest#testCreateResaleOrder`、`DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
+买家为在售 listing 下单，可选携带 `addressId`（收货地址快照，`ADDRESS_NOT_FOUND` 校验所有权）与 `couponUserId`（满减券，与下单同一事务核销：非本人/已用/过期为 `COUPON_NOT_REDEEMABLE`，门槛不足为 `COUPON_MIN_AMOUNT_NOT_MET` 并整体回滚，抵扣后 `payableAmount = amount - discountAmount`）。下单成功会移除购物车中该商品并写 `ORDER_CREATED` 通知；取消/超时关闭回滚券为 UNUSED。目标在短事务内以乐观版本预留一件库存、写 `UNPAID/WAIT_PAY` 订单和 outbox；库存不足/并发冲突稳定失败。当前买家身份取自 JWT，库存以条件更新原子预留并同步递增 `version`，随后写订单、审计与通知；尚无预留台账与 outbox。实现测试：`ResaleOrderServiceTest#testCreateResaleOrder`、`TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder`、`TradeAccessoriesWebTest#rejectsCouponBelowThresholdAndRollsBackOrder`、`TradeAccessoriesWebTest#orderWithoutAddressKeepsLegacyCompatibility`；计划测试（Phase 3）：`MarketplaceUseCaseWebTest#documentsMarketplaceUseCase`。
 
 ### Requirement flow {#mkt-024}
 ```mermaid
@@ -828,6 +831,537 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 3；当前举报人由请求指定，缺少认证绑定和可重试事件 outbox。
+
+## MKT-038 商城 listing 详情
+
+匿名即可按 listingId 读取单品详情（登录仅在下单/收藏时要求），在售与售罄均可见：价格、库存、成色、商品图、分类（categoryId/categoryName）、收藏数、状态与评价摘要（reviewCount/avgRating，沿用评价可见性策略）。不存在为 `LISTING_NOT_FOUND`。实现测试：`ListingCatalogWebTest#returnsListingDetailWithReviewSummary`、`ListingCatalogWebTest#rejectsUnknownListingDetail`。
+
+### Requirement flow {#mkt-038}
+```mermaid
+flowchart TD
+  C[匿名 listingId] --> Q[读取 listing 与商品/分类/评价摘要]
+  Q -->|不存在| E[LISTING_NOT_FOUND]
+  Q --> R[返回详情（在售与售罄均可见）]
+```
+### Current development flow {#mkt-038-dev}
+```mermaid
+sequenceDiagram
+  participant C as ResaleMallController#getListingDetail
+  participant A as RecycleApplicationService#getResaleListingDetail
+  participant S as ResaleListingService#getListingDetail
+  C->>A: listingId
+  A->>S: REQUIRED、READ_COMMITTED 只读，JOIN FETCH
+  S-->>C: 详情 + 评价摘要 或 LISTING_NOT_FOUND
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Mall adapter] --> H[Listing detail query handler]
+  H --> P[Marketplace read port]
+```
+### Gaps
+- targetPhase: 3；详情已可用，但仍聚合遗留服务与评价服务，尚无 Marketplace 读端口或多级缓存策略。
+
+## MKT-039 商城分类目录
+
+匿名即可读取启用分类目录，按 sortOrder 升序（同序按 id），每条含 categoryId/name/parentId/sortOrder。分类种子由 V2001 迁移提供；商品经 `suno_product.category_id` 关联分类，创建商品时按品牌/型号关键词归类并在无匹配时回落到首个启用分类。实现测试：`ListingCatalogWebTest#listsEnabledCategoriesInSortOrder`。
+
+### Requirement flow {#mkt-039}
+```mermaid
+flowchart TD
+  C[匿名请求] --> Q[读取启用分类] --> R[按 sortOrder 排序返回]
+```
+### Current development flow {#mkt-039-dev}
+```mermaid
+sequenceDiagram
+  participant C as ResaleMallController#listCategories
+  participant A as RecycleApplicationService#listCategories
+  participant S as ResaleListingService#listCategories
+  C->>A: 无参数
+  A->>S: REQUIRED、READ_COMMITTED 只读
+  S-->>C: 启用分类列表
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Mall adapter] --> H[Category catalog query handler]
+  H --> P[Category read port]
+```
+### Gaps
+- targetPhase: 3；目录读取已可用，尚无分类管理接口（创建/排序/停用）与缓存失效策略；SN 规则库接入前归类依赖关键词启发式。
+
+## MKT-040 我的购物车
+
+已认证用户查看本人购物车（含商品摘要与 `orderable` 可结算标记，下架/售罄商品仅置灰展示）。购物车不锁库存，结算时以下单接口的原子预留为准。实现测试：`TradeAccessoriesWebTest#cartRoundTripIsIdempotentPerListing`。
+
+### Requirement flow {#mkt-040}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> Q[读取本人购物车 JOIN FETCH 商品]
+  Q --> R[条目摘要 + orderable 标记]
+```
+### Current development flow {#mkt-040-dev}
+```mermaid
+sequenceDiagram
+  participant C as CartController#listCart
+  participant S as CartService#listCart
+  C->>S: JWT subject
+  S-->>C: content/totalElements
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Cart read handler] --> P[Cart read port]
+```
+### Gaps
+- targetPhase: 3；购物车为单件模型（数量恒 1），无合并结算/跨店分组等扩展读模型。
+
+## MKT-041 加入购物车
+
+已认证用户把在售且有库存的 listing 加入购物车，(user, listing) 唯一约束保证幂等重复加购返回 `idempotentReplay=true`；下架/售罄为 `ORDER_LISTING_UNAVAILABLE`。实现测试：`TradeAccessoriesWebTest#cartRoundTripIsIdempotentPerListing`。
+
+### Requirement flow {#mkt-041}
+```mermaid
+flowchart TD
+  J[本人 + listingId] --> V{ON_SHELF 且库存>0}
+  V -->|否| E[ORDER_LISTING_UNAVAILABLE]
+  V -->|是| U[已存在? 返回幂等]
+  U -->|否| I[写入购物车]
+```
+### Current development flow {#mkt-041-dev}
+```mermaid
+sequenceDiagram
+  participant C as CartController#addToCart
+  participant S as CartService#addToCart
+  C->>S: JWT subject、listingId
+  S-->>C: cartItemId、idempotentReplay
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Add-to-cart command] --> P[Cart write port]
+```
+### Gaps
+- targetPhase: 3；尚无数量/规格扩展与购物车过期清理策略。
+
+## MKT-042 移除购物车条目
+
+已认证用户删除本人购物车条目，非本人条目为 `CART_ITEM_NOT_FOUND`。实现测试：`TradeAccessoriesWebTest#cartRoundTripIsIdempotentPerListing`。
+
+### Requirement flow {#mkt-042}
+```mermaid
+flowchart TD
+  J[本人 + cartItemId] --> D[校验归属并删除] --> R[removed=true]
+  D -->|不存在| E[CART_ITEM_NOT_FOUND]
+```
+### Current development flow {#mkt-042-dev}
+```mermaid
+sequenceDiagram
+  participant C as CartController#removeFromCart
+  participant S as CartService#removeFromCart
+  C->>S: JWT subject、cartItemId
+  S-->>C: removed=true
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Remove-cart command] --> P[Cart write port]
+```
+### Gaps
+- targetPhase: 3；批量移除与选中态未提供。
+
+## MKT-050 可领优惠券列表
+
+已认证用户查看 ACTIVE、在领取期内且有剩余的满减券，按截止时间升序。实现测试：`TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder`。
+
+### Requirement flow {#mkt-050}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> F[status=ACTIVE 且 endTime>now 且 remaining>0]
+  F --> R[按 endTime 升序返回]
+```
+### Current development flow {#mkt-050-dev}
+```mermaid
+sequenceDiagram
+  participant C as CouponController#listClaimable
+  participant S as CouponService#listClaimable
+  C->>S: 认证校验
+  S-->>C: 可领券摘要列表
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Claimable-coupon query] --> P[Marketing read port]
+```
+### Gaps
+- targetPhase: 3；营销域（券模板/活动）仍与 Marketplace 共库，未拆读模型。
+
+## MKT-051 领取优惠券
+
+已认证用户领取一张券：条件更新原子扣减 `remaining_count`，随后校验单人上限并写入 `suno_coupon_user`（UNUSED，过期时间为券截止时间）；超限为 `COUPON_CLAIM_LIMIT`、领完为 `COUPON_OUT_OF_STOCK`、写入失败回补券库存。实现测试：`TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder`。
+
+### Requirement flow {#mkt-051}
+```mermaid
+flowchart TD
+  J[本人 + couponId] --> A[条件更新扣减 remaining_count]
+  A -->|0 行| E1[COUPON_OUT_OF_STOCK]
+  A -->|成功| L{已领数量 >= per_user_limit}
+  L -->|是| E2[COUPON_CLAIM_LIMIT 并回补库存]
+  L -->|否| W[写入券持有记录 UNUSED]
+```
+### Current development flow {#mkt-051-dev}
+```mermaid
+sequenceDiagram
+  participant C as CouponController#claim
+  participant S as CouponService#claim
+  C->>S: JWT subject、couponId
+  S-->>C: couponUserId 或业务错误（库存原子扣减，失败回补）
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Claim command] --> P[Coupon stock port]
+  P --> E[CouponClaimed v1]
+```
+### Gaps
+- targetPhase: 3；领取无频控，且尚未发布券领取公开事件。
+
+## MKT-052 我的优惠券
+
+已认证用户分页查看本人券（可按 status=UNUSED/USED 过滤，按过期时间升序）。实现测试：`TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder`。
+
+### Requirement flow {#mkt-052}
+```mermaid
+flowchart TD
+  J[本人 + status?] --> Q[分页查询券持有记录 JOIN 券模板] --> R[零基分页]
+```
+### Current development flow {#mkt-052-dev}
+```mermaid
+sequenceDiagram
+  participant C as CouponController#listMine
+  participant S as CouponService#listMine
+  C->>S: JWT subject、status、page、size
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[My-coupon query] --> P[Coupon read port]
+```
+### Gaps
+- targetPhase: 3；即将过期提醒与券退款回补展示未提供。
+
+## MKT-060 申请售后
+
+已支付且未退款的本人订单可申请售后（原因至少 5 字）；同一订单同时只允许一个 PENDING/PROCESSING 售后单（`REFUND_ALREADY_OPEN`），退款额为订单应付金额，提交后写 `REFUND_APPLIED` 通知。实现测试：`RefundNotificationWebTest#refundApplyListCancelRoundTrip`、`RefundNotificationWebTest#adminRefundSettlesPendingRefundOrder`。
+
+### Requirement flow {#mkt-060}
+```mermaid
+flowchart TD
+  J[本人 + orderNo + reason] --> O{PAID 且未退款}
+  O -->|否| E1[ORDER_STATUS_CONFLICT]
+  O -->|是| R{无进行中售后单}
+  R -->|有| E2[REFUND_ALREADY_OPEN]
+  R -->|无| W[创建 PENDING 退款单 + 通知]
+```
+### Current development flow {#mkt-060-dev}
+```mermaid
+sequenceDiagram
+  participant C as RefundController#applyRefund
+  participant S as RefundService#applyRefund
+  C->>S: JWT subject、orderNo、reason
+  S-->>C: refundNo、amount、PENDING
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Refund request command] --> P[Refund port]
+  P --> E[RefundRequested v1]
+```
+### Gaps
+- targetPhase: 3；仅整单退款，无部分退款/换货类型；售后单公开事件未发布。
+
+## MKT-061 我的售后列表
+
+已认证用户分页查看本人售后单（含关联订单号、金额、状态、申请/处理时间）。实现测试：`RefundNotificationWebTest#refundApplyListCancelRoundTrip`。
+
+### Requirement flow {#mkt-061}
+```mermaid
+flowchart TD
+  J[本人] --> Q[倒序分页查询本人退款单] --> R[零基分页]
+```
+### Current development flow {#mkt-061-dev}
+```mermaid
+sequenceDiagram
+  participant C as RefundController#listMyRefunds
+  participant S as RefundService#listMyRefunds
+  C->>S: JWT subject、page、size
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[My-refund query] --> P[Refund read port]
+```
+### Gaps
+- targetPhase: 3；售后进度时间线（申请→处理）未展开为独立轨迹。
+
+## MKT-062 撤销售后申请
+
+待处理（PENDING）售后单可由申请人撤销（`REFUND_STATUS_CONFLICT` 其他状态），撤销后可重新申请。实现测试：`RefundNotificationWebTest#refundApplyListCancelRoundTrip`。
+
+### Requirement flow {#mkt-062}
+```mermaid
+flowchart TD
+  J[本人 + refundId] --> V{PENDING}
+  V -->|否| E[REFUND_STATUS_CONFLICT]
+  V -->|是| W[置 CANCELLED + processedAt]
+```
+### Current development flow {#mkt-062-dev}
+```mermaid
+sequenceDiagram
+  participant C as RefundController#cancelRefund
+  participant S as RefundService#cancelRefund
+  C->>S: JWT subject、refundId
+  S-->>C: status=CANCELLED
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Cancel-refund command] --> P[Refund write port]
+```
+### Gaps
+- targetPhase: 3；撤销不回补任何库存/券（申请本身不占用资源），无撤销通知。
+
+## MKT-104 管理员商品分页
+
+管理员分页查看全部 listing（可选 status 过滤），含品牌/型号/成色/价格/库存/状态。实现测试：`AdminConsoleWebTest#managesListingsPriceAndShelf`。
+
+### Requirement flow {#mkt-104}
+```mermaid
+flowchart TD
+  A[ADMIN] --> Q[分页查询 listing] --> R[零基分页响应]
+```
+### Current development flow {#mkt-104-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#pageListings
+  participant S as AdminCatalogService#pageListings
+  C->>S: status、page、size
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin listing page handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；分页查询在应用侧 JOIN FETCH，无独立管理读模型。
+
+## MKT-105 管理员改价
+
+管理员调整在售商品价格（>0），记录前后价格审计；进行中订单金额不受影响（下单时已快照）。实现测试：`AdminConsoleWebTest#managesListingsPriceAndShelf`。
+
+### Requirement flow {#mkt-105}
+```mermaid
+flowchart TD
+  A[ADMIN + listingId + salePrice] --> V[商品存在与价格校验] --> U[更新价格] --> L[审计 from/to]
+```
+### Current development flow {#mkt-105-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#adjustPrice
+  participant S as AdminCatalogService#adjustPrice
+  C->>S: listingId、salePrice
+  S-->>C: salePrice、previousPrice
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin price handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；改价无审批流，越权与频控依赖路由 RBAC。
+
+## MKT-106 管理员下架
+
+ON_SHELF 商品下架为 OFF_SHELF（幂等重放返回 idempotentReplay），写审计；在途订单不受影响。实现测试：`AdminConsoleWebTest#managesListingsPriceAndShelf`。
+
+### Requirement flow {#mkt-106}
+```mermaid
+flowchart TD
+  A[ADMIN + listingId] --> V{ON_SHELF} -->|否| E[ORDER_STATUS_CONFLICT]
+  V -->|是| U[置 OFF_SHELF + 审计]
+```
+### Current development flow {#mkt-106-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#offShelf
+  participant S as AdminCatalogService#changeShelf
+  C->>S: listingId
+  S-->>C: status=OFF_SHELF
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin off-shelf handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；下架不自动通知收藏用户。
+
+## MKT-107 管理员上架
+
+OFF_SHELF 商品重新上架，库存为 0 时拒绝（`ORDER_STOCK_INSUFFICIENT`）；写审计。实现测试：`AdminConsoleWebTest#managesListingsPriceAndShelf`。
+
+### Requirement flow {#mkt-107}
+```mermaid
+flowchart TD
+  A[ADMIN + listingId] --> V{库存>0} -->|否| E[ORDER_STOCK_INSUFFICIENT]
+  V -->|是| U[置 ON_SHELF + 审计]
+```
+### Current development flow {#mkt-107-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#onShelf
+  participant S as AdminCatalogService#changeShelf
+  C->>S: listingId
+  S-->>C: status=ON_SHELF
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin on-shelf handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；上架不触发重新估价或审核。
+
+## MKT-120 管理员订单分页
+
+管理员按 payStatus/fulfillStatus/关键词（订单号或买家用户名，大小写不敏感）分页查看全量订单。实现测试：`AdminConsoleWebTest#pagesOrdersAndShowsDetailWithReceiver`。
+
+### Requirement flow {#mkt-120}
+```mermaid
+flowchart TD
+  A[ADMIN + 过滤] --> Q[全量订单分页] --> R[含买家/商品摘要]
+```
+### Current development flow {#mkt-120-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#pageOrders
+  participant S as AdminCatalogService#pageOrders
+  C->>S: 过滤与分页
+  S-->>C: content/totalElements/...
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin order page handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；关键词 LIKE 查询未建全文索引，数据量大后需演进。
+
+## MKT-121 管理员订单详情
+
+管理员按 orderNo 查看订单全量信息：买家、商品、金额（amount/discount/payable）、状态、收货快照、支付渠道/trade_no/paid_at。实现测试：`AdminConsoleWebTest#pagesOrdersAndShowsDetailWithReceiver`。
+
+### Requirement flow {#mkt-121}
+```mermaid
+flowchart TD
+  A[ADMIN + orderNo] --> D[订单详情 + 收货/支付信息] --> R[返回]
+  D -->|不存在| E[ORDER_NOT_FOUND]
+```
+### Current development flow {#mkt-121-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCatalogController#orderDetail
+  participant S as AdminCatalogService#orderDetail
+  C->>S: orderNo
+  S-->>C: 订单全量详情
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin order detail handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；详情不含操作轨迹时间线（与买家侧 track 共用即可）。
+
+## MKT-130 管理员优惠券列表
+
+管理员查看券模板（可选 status 过滤），含总量/剩余/领取限制/有效期。实现测试：`AdminConsoleWebTest#managesCouponLifecycle`。
+
+### Requirement flow {#mkt-130}
+```mermaid
+flowchart TD
+  A[ADMIN] --> Q[券模板列表] --> R[id 倒序]
+```
+### Current development flow {#mkt-130-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCouponController#listCoupons
+  participant S as CouponService#adminListCoupons
+  C->>S: status
+  S-->>C: 券模板列表
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin coupon list handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；无分页与领取/核销统计报表。
+
+## MKT-131 管理员创建优惠券
+
+管理员创建满减券（门槛≥抵扣额、天数 1-365），初始 remaining=total、状态 ACTIVE。实现测试：`AdminConsoleWebTest#managesCouponLifecycle`。
+
+### Requirement flow {#mkt-131}
+```mermaid
+flowchart TD
+  A[ADMIN + 券参数] --> V[参数合法性] -->|非法| E[PARAM_INVALID]
+  V --> W[写模板 ACTIVE + remaining=total]
+```
+### Current development flow {#mkt-131-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCouponController#createCoupon
+  participant S as CouponService#adminCreateCoupon
+  C->>S: 券参数
+  S-->>C: couponId、status=ACTIVE
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin coupon create handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；无定向发放与多类型券（折扣/运费）。
+
+## MKT-132 管理员停用优惠券
+
+停用 ACTIVE 券（幂等），停用后不可再领取；已领取的券在有效期内仍可用。实现测试：`AdminConsoleWebTest#managesCouponLifecycle`。
+
+### Requirement flow {#mkt-132}
+```mermaid
+flowchart TD
+  A[ADMIN + couponId] --> V{ACTIVE} -->|否| I[幂等返回]
+  V -->|是| U[置 DISABLED]
+```
+### Current development flow {#mkt-132-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCouponController#disableCoupon
+  participant S as CouponService#adminDisableCoupon
+  C->>S: couponId
+  S-->>C: status=DISABLED
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Admin coupon disable handler] --> P[Domain port]
+```
+### Gaps
+- targetPhase: 3；停用不级联作废已发放的券。
 
 ## MKT-100 管理员发布 listing
 

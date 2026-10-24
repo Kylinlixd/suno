@@ -43,6 +43,7 @@ public class AuthApplicationService {
 
     private static final String TARGET_TYPE_AUTH_SESSION = "AUTH_SESSION";
     private static final String ACTION_LOGIN_SUCCESS = "AUTH_LOGIN_SUCCESS";
+    private static final String ACTION_REGISTER_SUCCESS = "AUTH_REGISTER_SUCCESS";
     private static final String ACTION_REFRESH_SUCCESS = "AUTH_REFRESH_SUCCESS";
     private static final String ACTION_REFRESH_REPLAY_BLOCKED = "AUTH_REFRESH_REPLAY_BLOCKED";
     private static final String ACTION_LOGOUT = "AUTH_LOGOUT";
@@ -55,6 +56,7 @@ public class AuthApplicationService {
     private final JwtEncoder jwtEncoder;
     private final AuthSessionService authSessionService;
     private final SecurityEventService securityEventService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Value("${security.auth.jwt.expire-minutes:120}")
     private long accessTokenExpireMinutes;
@@ -70,7 +72,8 @@ public class AuthApplicationService {
             AuthenticationManager authenticationManager,
             JwtEncoder jwtEncoder,
             AuthSessionService authSessionService,
-            SecurityEventService securityEventService
+            SecurityEventService securityEventService,
+            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder
     ) {
         this.userAccountRepository = userAccountRepository;
         this.authRefreshTokenRepository = authRefreshTokenRepository;
@@ -80,6 +83,54 @@ public class AuthApplicationService {
         this.jwtEncoder = jwtEncoder;
         this.authSessionService = authSessionService;
         this.securityEventService = securityEventService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @AuthTransactional
+    public Map<String, Object> register(String username, String password, String deviceId) {
+        String normalizedUsername = normalizeUsername(username);
+        if (normalizedUsername == null) {
+            throw new BizException("用户名须为 3-64 位字符且不含空白", ErrorCode.AUTH_USERNAME_INVALID);
+        }
+        if (password == null || password.length() < 8 || password.length() > 64 || password.chars().anyMatch(Character::isWhitespace)) {
+            throw new BizException("密码须为 8-64 位字符且不含空白", ErrorCode.AUTH_PASSWORD_INVALID);
+        }
+        if (userAccountRepository.existsByUsername(normalizedUsername)) {
+            throw new BizException("用户名已被注册", ErrorCode.AUTH_USERNAME_EXISTS);
+        }
+        UserAccountEntity user = new UserAccountEntity();
+        user.setUsername(normalizedUsername);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setRoleCode("USER");
+        user.setAccountStatus("ACTIVE");
+        user.setLevel("NORMAL");
+        user.setPoints(0);
+        user = userAccountRepository.save(user);
+        String normalizedDeviceId = normalizeDeviceId(deviceId);
+        Map<String, Object> result = buildAndPersistTokens(user.getId(), user.getUsername(), user.getRoleCode(), normalizedDeviceId);
+        logAction(
+                ACTION_REGISTER_SUCCESS,
+                user.getUsername(),
+                "deviceId=" + normalizedDeviceId + ", role=" + user.getRoleCode()
+        );
+        return result;
+    }
+
+    /**
+     * 注册用户名规则：3-64 个非空白字符。返回 null 表示不合法。
+     */
+    private String normalizeUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        String trimmed = username.trim();
+        if (trimmed.length() < 3 || trimmed.length() > 64) {
+            return null;
+        }
+        if (trimmed.chars().anyMatch(Character::isWhitespace)) {
+            return null;
+        }
+        return trimmed;
     }
 
     @AuthTransactional

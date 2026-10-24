@@ -15,9 +15,11 @@ import com.suno.mall.dao.PointsLedgerRepository;
 import com.suno.mall.dao.ProductRepository;
 import com.suno.mall.dao.RecycleOrderRepository;
 import com.suno.mall.dao.UserAccountRepository;
+import com.suno.mall.dao.CategoryRepository;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import java.time.LocalDateTime;
@@ -46,6 +48,7 @@ public class RecycleOrderService {
     private final RecycleOrderRepository recycleOrderRepository;
     private final LogisticsTrackRepository logisticsTrackRepository;
     private final PointsLedgerRepository pointsLedgerRepository;
+    private final CategoryRepository categoryRepository;
     private final AuditLogService auditLogService;
 
     public RecycleOrderService(
@@ -59,6 +62,7 @@ public class RecycleOrderService {
             RecycleOrderRepository recycleOrderRepository,
             LogisticsTrackRepository logisticsTrackRepository,
             PointsLedgerRepository pointsLedgerRepository,
+            CategoryRepository categoryRepository,
             AuditLogService auditLogService
     ) {
         this.aiAuditService = aiAuditService;
@@ -71,6 +75,7 @@ public class RecycleOrderService {
         this.recycleOrderRepository = recycleOrderRepository;
         this.logisticsTrackRepository = logisticsTrackRepository;
         this.pointsLedgerRepository = pointsLedgerRepository;
+        this.categoryRepository = categoryRepository;
         this.auditLogService = auditLogService;
     }
 
@@ -98,6 +103,7 @@ public class RecycleOrderService {
         product.setWearScore(draft.wearScore());
         product.setRecycleGrade(valuation.gradeLevel().name());
         product.setEstimatedRecyclePrice(valuation.estimatedPrice());
+        product.setCategoryId(resolveCategoryId(draft.brand(), draft.model()));
         productRepository.save(product);
 
         RecycleOrderEntity order = new RecycleOrderEntity();
@@ -150,6 +156,69 @@ public class RecycleOrderService {
                 "estimatedPrice", order.getEstimatedPrice(),
                 "createdAt", order.getCreatedAt()
         )).toList();
+    }
+
+    /**
+     * M1 用户回收历史：按创建时间倒序分页，含商品摘要（品牌/型号/图片）。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> listUserRecycleOrders(Long userId, Integer page, Integer size) {
+        userAccountRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));
+        int safePage = page == null || page < 0 ? 0 : page;
+        int safeSize = size == null || size < 1 ? 20 : Math.min(size, 100);
+        var pageable = org.springframework.data.domain.PageRequest.of(
+                safePage, safeSize, org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        var orders = recycleOrderRepository.findPageByUser_Id(userId, pageable);
+        List<Map<String, Object>> content = orders.getContent().stream().map(order -> {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("orderNo", order.getOrderNo());
+            item.put("status", order.getStatus());
+            item.put("grade", order.getGrade());
+            item.put("estimatedPrice", order.getEstimatedPrice());
+            item.put("createdAt", order.getCreatedAt());
+            item.put("brand", order.getProduct().getBrand());
+            item.put("model", order.getProduct().getModel());
+            item.put("image", order.getProduct().getImageUrl());
+            return item;
+        }).toList();
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("content", content);
+        result.put("totalElements", orders.getTotalElements());
+        result.put("totalPages", orders.getTotalPages());
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        return result;
+    }
+
+    /**
+     * M1 用户积分流水：倒序分页，附当前积分余额。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> listUserPointsLedger(Long userId, Integer page, Integer size) {
+        UserAccountEntity user = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + userId));
+        int safePage = page == null || page < 0 ? 0 : page;
+        int safeSize = size == null || size < 1 ? 20 : Math.min(size, 100);
+        var pageable = org.springframework.data.domain.PageRequest.of(safePage, safeSize);
+        var ledger = pointsLedgerRepository.findPageByUser_Id(userId, pageable);
+        List<Map<String, Object>> content = ledger.getContent().stream().map(entry -> {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("id", entry.getId());
+            item.put("pointsDelta", entry.getPointsDelta());
+            item.put("reason", entry.getReason());
+            item.put("createdAt", entry.getCreatedAt());
+            return item;
+        }).toList();
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("content", content);
+        result.put("totalElements", ledger.getTotalElements());
+        result.put("totalPages", ledger.getTotalPages());
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        result.put("balance", user.getPoints());
+        return result;
     }
 
     @RecycleTransactional
@@ -232,4 +301,51 @@ public class RecycleOrderService {
         user.setPoints(user.getPoints() + points);
         userAccountRepository.save(user);
     }
+
+    /**
+     * 按品牌/型号关键词匹配分类目录；无匹配时回落到排序最前的启用分类，
+     * 保证二手商品始终归属一个可浏览分类。目录未初始化时返回 null（商品暂不分类）。
+     */
+    private Long resolveCategoryId(String brand, String model) {
+        String keyword = ((brand == null ? "" : brand) + " " + (model == null ? "" : model)).toLowerCase();
+        String matched = CATEGORY_KEYWORDS.entrySet().stream()
+                .filter(entry -> keyword.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+        if (matched != null) {
+            var category = categoryRepository.findByNameAndStatus(matched, CATEGORY_STATUS_ENABLED);
+            if (category.isPresent()) {
+                return category.get().getId();
+            }
+        }
+        return categoryRepository.findFirstByStatusOrderBySortOrderAscIdAsc(CATEGORY_STATUS_ENABLED)
+                .map(com.suno.mall.entity.CategoryEntity::getId)
+                .orElse(null);
+    }
+
+    private static final String CATEGORY_STATUS_ENABLED = "ENABLED";
+
+    /** SN 解析尚未接入真实规则库前，以品牌/型号关键词做粗粒度分类。 */
+    private static final Map<String, String> CATEGORY_KEYWORDS = Map.ofEntries(
+            Map.entry("phone", "手机"),
+            Map.entry("手机", "手机"),
+            Map.entry("iphone", "手机"),
+            Map.entry("galaxy", "手机"),
+            Map.entry("macbook", "电脑"),
+            Map.entry("laptop", "电脑"),
+            Map.entry("notebook", "电脑"),
+            Map.entry("电脑", "电脑"),
+            Map.entry("笔记本", "电脑"),
+            Map.entry("ipad", "平板"),
+            Map.entry("tablet", "平板"),
+            Map.entry("平板", "平板"),
+            Map.entry("watch", "智能穿戴"),
+            Map.entry("手表", "智能穿戴"),
+            Map.entry("耳机", "影音数码"),
+            Map.entry("earbuds", "影音数码"),
+            Map.entry("headphone", "影音数码"),
+            Map.entry("camera", "影音数码"),
+            Map.entry("音箱", "影音数码")
+    );
 }

@@ -1,6 +1,6 @@
 # 回收、估值、物流与积分需求流
 
-本文件覆盖 Phase 4 的 4 个 Recycle HTTP 契约和 5 个公开事件契约。当前实现中的第三方图片审核、SN 解析和物流调用发生在 `@RecycleTransactional` 的事务内；这是当前事实，不是目标设计。所有积分金额、回收次数、估值规则版本和公开事件均应由服务端确定并可审计。当前没有已实现的 Recycle 用例或事件契约测试；下文每节单列 **计划测试（Phase 4）**。
+本文件覆盖 Phase 4 的 6 个 Recycle HTTP 契约和 5 个公开事件契约。当前实现中的第三方图片审核、SN 解析和物流调用发生在 `@RecycleTransactional` 的事务内；这是当前事实，不是目标设计。所有积分金额、回收次数、估值规则版本和公开事件均应由服务端确定并可审计。REC-001/REC-002 尚无已实现用例测试（计划测试 Phase 4）；REC-003/REC-004 已有实现测试。
 
 ## REC-001 创建回收订单
 
@@ -99,6 +99,68 @@ flowchart LR
 ### Gaps
 - targetPhase: 4；当前查询方法没有事务/外部调用边界、超时、重试或提供方错误转换；实际 provider 可抛配置或网络异常。
 - targetPhase: 4；当前把字符串状态直接覆盖本地记录，未验证状态枚举、来源时间或快照版本。
+
+## REC-003 我的回收历史
+
+已认证用户从 JWT subject 查询本人回收单历史，按创建时间倒序、零基分页（page/size，size 上限 100），每条含 orderNo、status、grade、estimatedPrice、createdAt 与商品摘要（brand/model/image）。userId 一律取自 JWT，不信任请求参数，只能读到本人数据。当前为 READ_COMMITTED 只读事务，JOIN FETCH 预取商品避免 N+1。实现测试：`RecycleHistoryWebTest#listsMyRecycleOrdersWithProductSummary`、`RecycleHistoryWebTest#isolatesRecycleHistoryBetweenUsers`。
+
+### Requirement flow {#rec-003}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> I[解析本人 userId]
+  I --> Q[按创建时间倒序分页查询本人回收单]
+  Q --> R[返回含商品摘要的分页结果]
+  J -->|无效| E[AUTH_UNAUTHORIZED]
+```
+### Current development flow {#rec-003-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleController#listMyOrders
+  participant A as RecycleApplicationService#listMyRecycleOrders
+  participant S as RecycleOrderService#listUserRecycleOrders
+  C->>A: JWT subject、page、size
+  A->>S: REQUIRED、READ_COMMITTED 只读
+  S-->>C: 回收单分页（含商品摘要）
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[My-recycle-orders query handler]
+  H --> P[Recycle read port]
+```
+### Gaps
+- targetPhase: 4；查询已可用，但与全部 Recycle 读路径一样经遗留应用服务，尚无独立查询处理器与读端口。
+
+## REC-004 我的积分流水
+
+已认证用户从 JWT subject 查询本人积分流水，倒序零基分页（size 上限 100），每条含 pointsDelta、reason、createdAt，响应附当前积分余额 balance。积分金额只能由服务端计算并落 `suno_points_ledger`；本接口纯只读。实现测试：`RecycleHistoryWebTest#listsMyPointsLedgerWithBalance`。
+
+### Requirement flow {#rec-004}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> I[解析本人 userId]
+  I --> Q[倒序分页读取积分流水]
+  Q --> B[读取当前积分余额]
+  B --> R[返回流水与余额]
+```
+### Current development flow {#rec-004-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleController#listMyPointsLedger
+  participant A as RecycleApplicationService#listMyPointsLedger
+  participant S as RecycleOrderService#listUserPointsLedger
+  C->>A: JWT subject、page、size
+  A->>S: REQUIRED、READ_COMMITTED 只读
+  S-->>C: 流水分页 + balance
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Points ledger query handler]
+  H --> P[Points read port]
+```
+### Gaps
+- targetPhase: 4；流水读取已可用，尚无积分读端口；积分入账事件（REC-E004）仍为 absent。
 
 ## REC-101 管理员查询回收订单
 

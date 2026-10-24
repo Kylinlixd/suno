@@ -43,7 +43,20 @@ provider:
     endpoint: ""
     api-key: ${LOGISTICS_API_KEY:}
 
+springdoc:
+  api-docs:
+    enabled: ${OPENAPI_ENABLED:true}
+  swagger-ui:
+    enabled: ${OPENAPI_ENABLED:true}
+  paths-to-match: /api/**
+
 mall:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    limit: ${RATE_LIMIT_LIMIT:60}
+    window-ms: 60000
+  observability:
+    slow-request-ms: 1000
   order:
     auto-close-expire-minutes: 15
     auto-close-fixed-delay-ms: 60000
@@ -68,6 +81,14 @@ mall:
     module-diff-cache-window-seconds: 30
 
 payment:
+  alipay:
+    enabled: ${ALIPAY_ENABLED:false}
+    app-id: ${ALIPAY_APP_ID:}
+    gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
+    private-key: ${ALIPAY_PRIVATE_KEY:}
+    alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+    notify-url: ${ALIPAY_NOTIFY_URL:}
+    return-url: ${ALIPAY_RETURN_URL:}
   callback:
     secret: ${PAYMENT_CALLBACK_SECRET}
     max-skew-seconds: 300

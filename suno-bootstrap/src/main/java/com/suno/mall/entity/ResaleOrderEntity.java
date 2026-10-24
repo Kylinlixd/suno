@@ -46,6 +46,42 @@ public class ResaleOrderEntity {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    // ==================== M2 履约与优惠 ====================
+
+    /** 收货人姓名快照（下单时从地址复制，地址后续修改不影响订单） */
+    @Column(name = "receiver_name", length = 64)
+    private String receiverName;
+
+    @Column(name = "receiver_phone", length = 32)
+    private String receiverPhone;
+
+    /** 收货地址全文快照：省 市 区 详细地址 */
+    @Column(name = "receiver_address", length = 320)
+    private String receiverAddress;
+
+    /** 核销的用户券 id（suno_coupon_user.id） */
+    @Column(name = "coupon_user_id")
+    private Long couponUserId;
+
+    /** 券抵扣金额，无券为 0 */
+    @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    /** 应付金额 = amount - discountAmount */
+    @Column(name = "payable_amount", precision = 12, scale = 2)
+    private BigDecimal payableAmount;
+
+    /** 支付渠道：MOCK / ALIPAY */
+    @Column(name = "pay_channel", length = 32)
+    private String payChannel;
+
+    /** 网关交易号（支付宝 trade_no） */
+    @Column(name = "trade_no", length = 64)
+    private String tradeNo;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
     @Nullable
     public Long getId() {
         return id;
@@ -109,5 +145,77 @@ public class ResaleOrderEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getReceiverName() {
+        return receiverName;
+    }
+
+    public void setReceiverName(String receiverName) {
+        this.receiverName = receiverName;
+    }
+
+    public String getReceiverPhone() {
+        return receiverPhone;
+    }
+
+    public void setReceiverPhone(String receiverPhone) {
+        this.receiverPhone = receiverPhone;
+    }
+
+    public String getReceiverAddress() {
+        return receiverAddress;
+    }
+
+    public void setReceiverAddress(String receiverAddress) {
+        this.receiverAddress = receiverAddress;
+    }
+
+    public Long getCouponUserId() {
+        return couponUserId;
+    }
+
+    public void setCouponUserId(Long couponUserId) {
+        this.couponUserId = couponUserId;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
+    }
+
+    public BigDecimal getPayableAmount() {
+        return payableAmount;
+    }
+
+    public void setPayableAmount(BigDecimal payableAmount) {
+        this.payableAmount = payableAmount;
+    }
+
+    public String getPayChannel() {
+        return payChannel;
+    }
+
+    public void setPayChannel(String payChannel) {
+        this.payChannel = payChannel;
+    }
+
+    public String getTradeNo() {
+        return tradeNo;
+    }
+
+    public void setTradeNo(String tradeNo) {
+        this.tradeNo = tradeNo;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
     }
 }

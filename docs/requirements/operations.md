@@ -805,6 +805,108 @@ flowchart LR
 ### Gaps
 - targetPhase: 5；当前本地缓存没有分布式失效、签名快照或与发布事务一致的版本。
 
+## OPS-050 我的站内通知
+
+已认证用户分页查看本人通知（倒序），响应附未读数；只能读到本人通知。通知由订单/售后等业务事实在事务内写入（创建、支付、发货、完成、取消、退款、售后受理），当前为同步落库，事件化投递是后续目标。实现测试：`RefundNotificationWebTest#orderLifecycleProducesNotifications`。
+
+### Requirement flow {#ops-050}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> Q[倒序分页读取本人通知] --> R[content + unreadCount]
+```
+### Current development flow {#ops-050-dev}
+```mermaid
+sequenceDiagram
+  participant C as NotificationController#listMine
+  participant S as NotificationService#listMine
+  C->>S: JWT subject、page、size
+  S-->>C: content/totalElements/unreadCount
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Notification query handler]
+  H --> P[Notification read port]
+  E[Domain events via outbox] --> P
+```
+### Gaps
+- targetPhase: 5；通知由业务服务同步写入而非订阅 outbox 事件，业务耦合未消除。
+
+## OPS-051 未读通知数
+
+已认证用户查询未读数量，供导航角标轮询。实现测试：`RefundNotificationWebTest#orderLifecycleProducesNotifications`。
+
+### Requirement flow {#ops-051}
+```mermaid
+flowchart TD
+  J[已认证 JWT] --> C[统计未读] --> R[unreadCount]
+```
+### Current development flow {#ops-051-dev}
+```mermaid
+sequenceDiagram
+  participant C as NotificationController#unreadCount
+  participant S as NotificationService#unreadCount
+  C->>S: JWT subject
+  S-->>C: unreadCount
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Unread counter] --> P[Notification read port]
+```
+### Gaps
+- targetPhase: 5；无推送/WebSocket 通道，仅拉取。
+
+## OPS-052 标记通知已读
+
+已认证用户把本人某条通知标记已读（幂等，重复标记 changed=false）；他人通知为 `NOTIFICATION_NOT_FOUND`。实现测试：`RefundNotificationWebTest#orderLifecycleProducesNotifications`。
+
+### Requirement flow {#ops-052}
+```mermaid
+flowchart TD
+  J[本人 + notificationId] --> V[归属校验] --> U[条件更新 is_read=true]
+```
+### Current development flow {#ops-052-dev}
+```mermaid
+sequenceDiagram
+  participant C as NotificationController#markRead
+  participant S as NotificationService#markRead
+  C->>S: JWT subject、notificationId
+  S-->>C: read=true、changed
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Mark-read command] --> P[Notification write port]
+```
+### Gaps
+- targetPhase: 5；无按类型批量已读。
+
+## OPS-053 全部标记已读
+
+已认证用户一键已读，返回标记条数。实现测试：`RefundNotificationWebTest#orderLifecycleProducesNotifications`。
+
+### Requirement flow {#ops-053}
+```mermaid
+flowchart TD
+  J[本人] --> U[条件更新全部未读为已读] --> R[markedRead 数量]
+```
+### Current development flow {#ops-053-dev}
+```mermaid
+sequenceDiagram
+  participant C as NotificationController#markAllRead
+  participant S as NotificationService#markAllRead
+  C->>S: JWT subject
+  S-->>C: markedRead
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Mark-all-read command] --> P[Notification write port]
+```
+### Gaps
+- targetPhase: 5；无通知保留期清理任务。
+
 ## OPS-E001 AuditRequested v1
 
 Operations 在需要异步、可追踪审计时发布 `AuditRequested v1`；事件包含事件 ID、动作、资源、操作者、时间和脱敏明细。实现测试：无；计划测试（Phase 5）：`OperationsEventContractTest#documentsOperationsEvent`。
@@ -882,3 +984,30 @@ flowchart TD
 flowchart TD
   E[ConfigurationPublished#catalogVersion] --> R[公开事件类型已登记]
 ```
+
+## OPS-060 经营报表总览
+
+管理员读取经营总览：订单/支付/完成/退款计数、退款率、GMV（按应付口径）、回收单量与近 N 日（默认 14，上限 90）逐日订单/支付趋势。当前为应用内聚合。实现测试：`AdminConsoleWebTest#reportOverviewAggregatesAndTrends`。
+
+### Requirement flow {#ops-060}
+```mermaid
+flowchart TD
+  A[ADMIN + trendDays] --> T[订单/回收聚合] --> D[逐日趋势分桶]
+  D --> R[总览 + 趋势返回]
+```
+### Current development flow {#ops-060-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCouponController#reportOverview
+  participant S as AdminReportService#overview
+  C->>S: trendDays
+  S-->>C: totals + gmv + trend[]
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Report query handler]
+  H --> P[Pre-aggregated read model]
+```
+### Gaps
+- targetPhase: 5；全量拉取内存聚合，数据量大后应落预聚合表/物化视图。

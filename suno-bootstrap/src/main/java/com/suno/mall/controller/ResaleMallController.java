@@ -44,27 +44,47 @@ public class ResaleMallController {
     private final AuthApplicationService authApplicationService;
     private final PaymentSignatureService paymentSignatureService;
     private final ObjectMapper objectMapper;
+    private final com.suno.mall.payment.AlipayProperties alipayProperties;
 
     public ResaleMallController(
             RecycleApplicationService recycleApplicationService,
             AuthApplicationService authApplicationService,
             PaymentSignatureService paymentSignatureService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            com.suno.mall.payment.AlipayProperties alipayProperties
     ) {
         this.recycleApplicationService = recycleApplicationService;
         this.authApplicationService = authApplicationService;
         this.paymentSignatureService = paymentSignatureService;
         this.objectMapper = objectMapper;
+        this.alipayProperties = alipayProperties;
     }
 
     @GetMapping("/listings")
-    public ApiResponse<List<Map<String, Object>>> listListings(
+    public ApiResponse<Map<String, Object>> listListings(
             @RequestParam(required = false) String grade,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortOrder,
-            @RequestParam(required = false) Integer minStock
+            @RequestParam(required = false) Integer minStock,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) @Min(0) Integer page,
+            @RequestParam(required = false) @Min(1) @Max(100) Integer size
     ) {
-        return ApiResponse.ok(recycleApplicationService.listResaleListings(grade, sortBy, sortOrder, minStock));
+        return ApiResponse.ok(recycleApplicationService.searchResaleListings(
+                keyword, categoryId, grade, sortBy, sortOrder, minStock, page, size));
+    }
+
+    @GetMapping("/listings/{listingId}")
+    public ApiResponse<Map<String, Object>> getListingDetail(
+            @PathVariable @Min(1) Long listingId
+    ) {
+        return ApiResponse.ok(recycleApplicationService.getResaleListingDetail(listingId));
+    }
+
+    @GetMapping("/categories")
+    public ApiResponse<List<Map<String, Object>>> listCategories() {
+        return ApiResponse.ok(recycleApplicationService.listCategories());
     }
 
     @GetMapping("/orders")
@@ -118,14 +138,24 @@ public class ResaleMallController {
     ) {
         return ApiResponse.ok(recycleApplicationService.createResaleOrder(
                 authApplicationService.requireUserId(jwt),
-                request.listingId()
+                request.listingId(),
+                request.addressId(),
+                request.couponUserId()
         ));
     }
 
-    // TODO 支付宝沙箱：此接口仅为联调占位，真实支付改为下单后返回支付宝 form/二维码，
-    // 由 /api/payment/callback 使用支付宝 RSA2 异步通知驱动 markResaleOrderPaidWithIdempotency。
+    // M3：payment.alipay.enabled=true 时返回支付宝收银台跳转参数（RSA2 已签名），
+    // 异步通知由 /api/payment/alipay/notify 驱动落账；否则保留 HMAC Mock 网关联调链路。
     @PostMapping("/orders/pay")
-    public ApiResponse<Map<String, Object>> payOrder(@RequestBody @Valid PayResaleOrderRequest request) {
+    public ApiResponse<Map<String, Object>> payOrder(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid PayResaleOrderRequest request
+    ) {
+        Long buyerUserId = authApplicationService.requireUserId(jwt);
+        if (alipayProperties.isEnabled()) {
+            return ApiResponse.ok(recycleApplicationService.buildAlipayPagePay(
+                    request.orderNo(), buyerUserId));
+        }
         paymentSignatureService.verifyOrThrow(
                 request.orderNo(),
                 request.idempotencyKey(),
@@ -257,7 +287,9 @@ public class ResaleMallController {
     }
 
     public record CreateResaleOrderRequest(
-            @NotNull Long listingId
+            @NotNull Long listingId,
+            Long addressId,
+            Long couponUserId
     ) {
     }
 

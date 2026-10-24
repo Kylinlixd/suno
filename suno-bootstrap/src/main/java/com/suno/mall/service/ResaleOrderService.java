@@ -14,10 +14,14 @@ import com.suno.mall.entity.ResaleOrderEntity;
 import com.suno.mall.entity.ResaleReviewEntity;
 import com.suno.mall.entity.UserAccountEntity;
 import com.suno.mall.dao.PaymentIdempotencyRepository;
+import com.suno.mall.dao.RefundOrderRepository;
 import com.suno.mall.dao.ResaleListingRepository;
 import com.suno.mall.dao.ResaleOrderRepository;
 import com.suno.mall.dao.ResaleReviewRepository;
 import com.suno.mall.dao.UserAccountRepository;
+import com.suno.mall.dao.UserAddressRepository;
+import com.suno.mall.entity.RefundOrderEntity;
+import com.suno.mall.entity.UserAddressEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,6 +64,11 @@ public class ResaleOrderService {
     private final ResaleReviewRepository resaleReviewRepository;
     private final ResaleListingRepository resaleListingRepository;
     private final PaymentIdempotencyRepository paymentIdempotencyRepository;
+    private final UserAddressRepository userAddressRepository;
+    private final RefundOrderRepository refundOrderRepository;
+    private final CouponService couponService;
+    private final CartService cartService;
+    private final NotificationService notificationService;
     private final AuditLogService auditLogService;
 
     public ResaleOrderService(
@@ -68,6 +77,11 @@ public class ResaleOrderService {
             ResaleReviewRepository resaleReviewRepository,
             ResaleListingRepository resaleListingRepository,
             PaymentIdempotencyRepository paymentIdempotencyRepository,
+            UserAddressRepository userAddressRepository,
+            RefundOrderRepository refundOrderRepository,
+            CouponService couponService,
+            CartService cartService,
+            NotificationService notificationService,
             AuditLogService auditLogService
     ) {
         this.userAccountRepository = userAccountRepository;
@@ -75,12 +89,28 @@ public class ResaleOrderService {
         this.resaleReviewRepository = resaleReviewRepository;
         this.resaleListingRepository = resaleListingRepository;
         this.paymentIdempotencyRepository = paymentIdempotencyRepository;
+        this.userAddressRepository = userAddressRepository;
+        this.refundOrderRepository = refundOrderRepository;
+        this.couponService = couponService;
+        this.cartService = cartService;
+        this.notificationService = notificationService;
         this.auditLogService = auditLogService;
     }
 
     @ResaleTransactional
     @CacheEvict(value = "resaleOrder", allEntries = true)
     public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId) {
+        return createResaleOrder(buyerUserId, listingId, null, null);
+    }
+
+    /**
+     * M2 完整下单：可选收货地址（落快照）与优惠券（同事务核销）。
+     * addressId 为空时订单不携带收货信息（兼容旧调用），前端结算流程必须传地址。
+     */
+    @ResaleTransactional
+    @CacheEvict(value = "resaleOrder", allEntries = true)
+    public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId,
+                                                 @Nullable Long addressId, @Nullable Long couponUserId) {
         UserAccountEntity buyer = userAccountRepository.findById(buyerUserId)
                 .orElseThrow(() -> new BizException("买家不存在: " + buyerUserId, ErrorCode.ORDER_NOT_FOUND));
         ResaleListingEntity listing = resaleListingRepository.findWithDetailsById(listingId)
@@ -107,16 +137,42 @@ public class ResaleOrderService {
         order.setPayStatus("UNPAID");
         order.setFulfillStatus("WAIT_PAY");
         order.setCreatedAt(LocalDateTime.now());
+        order.setDiscountAmount(BigDecimal.ZERO);
+        order.setPayableAmount(order.getAmount());
+        if (addressId != null) {
+            UserAddressEntity address = userAddressRepository.findByIdAndUser_Id(addressId, buyerUserId)
+                    .orElseThrow(() -> new BizException("收货地址不存在", ErrorCode.ADDRESS_NOT_FOUND));
+            order.setReceiverName(address.getReceiverName());
+            order.setReceiverPhone(address.getReceiverPhone());
+            order.setReceiverAddress(String.join(" ", address.getProvince(), address.getCity(),
+                    address.getDistrict(), address.getDetailAddress()));
+        }
         resaleOrderRepository.save(order);
-        auditLogService.logAction("RESALE_ORDER_CREATE", "RESALE_ORDER", orderNo, "listingId=" + listingId + ",buyerUserId=" + buyerUserId);
+        if (couponUserId != null) {
+            // 与下单同一事务核销；门槛不足/券不可用时整个下单回滚
+            Map<String, Object> redeemed = couponService.redeem(buyerUserId, couponUserId, order.getAmount(), order.getId());
+            order.setCouponUserId(couponUserId);
+            order.setDiscountAmount((BigDecimal) redeemed.get("discountAmount"));
+            order.setPayableAmount((BigDecimal) redeemed.get("payableAmount"));
+            resaleOrderRepository.save(order);
+        }
+        cartService.removeListingFromCart(buyerUserId, listingId);
+        auditLogService.logAction("RESALE_ORDER_CREATE", "RESALE_ORDER", orderNo,
+                "listingId=" + listingId + ",buyerUserId=" + buyerUserId
+                        + ",discountAmount=" + order.getDiscountAmount());
+        notificationService.push(buyerUserId, "ORDER_CREATED", "订单已创建",
+                "订单 " + orderNo + " 已创建，应付 ¥" + order.getPayableAmount() + "，请尽快完成支付。",
+                order.getId(), "RESALE_ORDER");
 
-        return Map.of(
-                "orderNo", order.getOrderNo(),
-                "listingId", listing.getId(),
-                "amount", order.getAmount(),
-                "payStatus", order.getPayStatus(),
-                "fulfillStatus", order.getFulfillStatus()
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderNo", order.getOrderNo());
+        result.put("listingId", listing.getId());
+        result.put("amount", order.getAmount());
+        result.put("discountAmount", order.getDiscountAmount());
+        result.put("payableAmount", order.getPayableAmount());
+        result.put("payStatus", order.getPayStatus());
+        result.put("fulfillStatus", order.getFulfillStatus());
+        return result;
     }
 
 
@@ -135,7 +191,27 @@ public class ResaleOrderService {
             throw new BizException("订单状态已变更，不可支付", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         auditLogService.logAction("RESALE_ORDER_PAY", "RESALE_ORDER", orderNo, "payStatus=PAID");
+        notificationService.push(order.getBuyerUser().getId(), "ORDER_PAID", "支付成功",
+                "订单 " + orderNo + " 已支付，我们会尽快为你安排发货。", order.getId(), "RESALE_ORDER");
         return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "TO_DELIVER");
+    }
+
+    /** M3 供网关通知校验金额：不含买家信息（通知来自支付宝，无 JWT） */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> getOrderAmountForGateway(String orderNo) {
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
+                .orElseThrow(() -> new BizException("订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
+        Map<String, Object> result = new HashMap<>();
+        result.put("amount", order.getAmount());
+        result.put("payableAmount", order.getPayableAmount() != null ? order.getPayableAmount() : order.getAmount());
+        result.put("payStatus", order.getPayStatus());
+        return result;
+    }
+
+    /** M3 真实网关支付成功后回填渠道信息（幂等，仅 PAID 订单） */
+    @ResaleTransactional
+    public void attachPaymentChannel(String orderNo, String payChannel, String tradeNo) {
+        resaleOrderRepository.attachChannelInfo(orderNo, payChannel, tradeNo, LocalDateTime.now());
     }
 
     @ResaleTransactional
@@ -176,6 +252,8 @@ public class ResaleOrderService {
         }
         auditLogService.logAction("RESALE_ORDER_DELIVER", "RESALE_ORDER", orderNo,
                 "fulfillStatus=DELIVERED" + auditLogService.buildAuditContextSuffix(auditContext));
+        notificationService.push(order.getBuyerUser().getId(), "ORDER_DELIVERED", "商品已发货",
+                "订单 " + orderNo + " 已发货，请注意查收。", order.getId(), "RESALE_ORDER");
         return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "DELIVERED");
     }
 
@@ -202,6 +280,8 @@ public class ResaleOrderService {
             throw new BizException("订单状态已变更，请刷新后重试", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         auditLogService.logAction("RESALE_ORDER_RECEIVE", "RESALE_ORDER", orderNo, "fulfillStatus=COMPLETED,buyerUserId=" + buyerUserId);
+        notificationService.push(buyerUserId, "ORDER_COMPLETED", "订单已完成",
+                "订单 " + orderNo + " 已确认收货，欢迎评价这次的循环之旅。", order.getId(), "RESALE_ORDER");
         return Map.of("orderNo", orderNo, "buyerUserId", buyerUserId, "payStatus", "PAID", "fulfillStatus", "COMPLETED");
     }
 
@@ -226,7 +306,10 @@ public class ResaleOrderService {
             throw new BizException("订单状态已变更，取消失败", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         releaseListingStock(order.getListing().getId());
+        couponService.releaseForOrder(order.getId());
         auditLogService.logAction("RESALE_ORDER_CANCEL", "RESALE_ORDER", orderNo, "fulfillStatus=CANCELLED,buyerUserId=" + buyerUserId);
+        notificationService.push(buyerUserId, "ORDER_CANCELLED", "订单已取消",
+                "订单 " + orderNo + " 已取消，库存与优惠券已退回。", order.getId(), "RESALE_ORDER");
         return Map.of("orderNo", orderNo, "payStatus", "UNPAID", "fulfillStatus", "CANCELLED");
     }
 
@@ -246,8 +329,18 @@ public class ResaleOrderService {
             throw new BizException("订单状态已变更，退款失败", ErrorCode.ORDER_STATUS_CONFLICT);
         }
         releaseListingStock(order.getListing().getId());
+        // 买家发起的 PENDING 售后单随退款完成一并结案
+        refundOrderRepository.findFirstByResaleOrderIdAndStatusOrderByCreatedAtDesc(order.getId(), "PENDING")
+                .ifPresent(refund -> {
+                    refund.setStatus("PROCESSED");
+                    refund.setProcessedAt(LocalDateTime.now());
+                    refund.setRefundChannel("ORIGINAL");
+                    refundOrderRepository.save(refund);
+                });
         auditLogService.logAction("RESALE_ORDER_REFUND", "RESALE_ORDER", orderNo,
                 "payStatus=REFUNDED" + auditLogService.buildAuditContextSuffix(auditContext));
+        notificationService.push(order.getBuyerUser().getId(), "ORDER_REFUNDED", "退款已到账",
+                "订单 " + orderNo + " 已退款 ¥" + order.getPayableAmount() + "，请留意到账信息。", order.getId(), "RESALE_ORDER");
         return Map.of("orderNo", orderNo, "payStatus", "REFUNDED", "fulfillStatus", "REFUNDED");
     }
 
@@ -481,7 +574,10 @@ public class ResaleOrderService {
                     continue;
                 }
                 releaseListingStock(order.getListing().getId());
+                couponService.releaseForOrder(order.getId());
                 auditLogService.logAction("RESALE_ORDER_AUTO_CLOSE", "RESALE_ORDER", order.getOrderNo(), "expireMinutes=" + expireMinutes);
+                notificationService.push(order.getBuyerUser().getId(), "ORDER_AUTO_CLOSED", "订单超时未支付已关闭",
+                        "订单 " + order.getOrderNo() + " 超时未支付已自动关闭，库存与优惠券已退回。", order.getId(), "RESALE_ORDER");
                 closedCount++;
                 roundClosed++;
             }

@@ -57,11 +57,20 @@ IDN-004|POST|/api/auth/sessions/revoke-device|Identity
 IDN-005|POST|/api/auth/sessions/revoke-all|Identity
 IDN-006|POST|/api/auth/logout|Identity
 IDN-007|POST|/api/auth/refresh|Identity
+IDN-008|POST|/api/auth/register|Identity
 IDN-101|GET|/api/admin/auth/sessions|Identity
 IDN-102|POST|/api/admin/auth/sessions/revoke-device|Identity
 IDN-103|POST|/api/admin/auth/sessions/revoke-all|Identity
+IDN-110|GET|/api/admin/users|Identity
+IDN-111|POST|/api/admin/users/{userId}/status|Identity
+IDN-020|GET|/api/addresses|Identity
+IDN-021|POST|/api/addresses|Identity
+IDN-022|PUT|/api/addresses/{addressId}|Identity
+IDN-023|DELETE|/api/addresses/{addressId}|Identity
+IDN-024|POST|/api/addresses/{addressId}/default|Identity
 PAY-001|POST|/api/payment/callback|Payment
 PAY-002|POST|/api/mall/orders/pay|Payment
+PAY-003|POST|/api/payment/alipay/notify|Payment
 PAY-101|GET|/api/admin/payment/callback-logs|Payment
 PAY-102|POST|/api/admin/payment/callback-logs/replay|Payment
 PAY-103|POST|/api/admin/payment/callback-logs/replay/enqueue|Payment
@@ -82,6 +91,8 @@ PAY-117|POST|/api/admin/payment/replay-tasks/requeue|Payment
 PAY-118|POST|/api/admin/payment/replay-tasks/requeue/dead|Payment
 REC-001|POST|/api/recycle/orders|Recycle
 REC-002|GET|/api/recycle/logistics/status|Recycle
+REC-003|GET|/api/recycle/orders/my|Recycle
+REC-004|GET|/api/recycle/points/ledger|Recycle
 REC-101|GET|/api/admin/recycle/orders|Recycle
 REC-102|PATCH|/api/admin/recycle/orders/review|Recycle
 MKT-001|GET|/products/{id}.html|Marketplace
@@ -110,6 +121,17 @@ MKT-034|POST|/api/mall/reviews/reply|Marketplace
 MKT-035|GET|/api/mall/reviews|Marketplace
 MKT-036|POST|/api/mall/reviews/vote-useful|Marketplace
 MKT-037|POST|/api/mall/reviews/report|Marketplace
+MKT-038|GET|/api/mall/listings/{listingId}|Marketplace
+MKT-039|GET|/api/mall/categories|Marketplace
+MKT-040|GET|/api/cart|Marketplace
+MKT-041|POST|/api/cart|Marketplace
+MKT-042|DELETE|/api/cart/{cartItemId}|Marketplace
+MKT-050|GET|/api/mall/coupons|Marketplace
+MKT-051|POST|/api/mall/coupons/{couponId}/claim|Marketplace
+MKT-052|GET|/api/mall/coupons/mine|Marketplace
+MKT-060|POST|/api/mall/orders/{orderNo}/refund-apply|Marketplace
+MKT-061|GET|/api/mall/refunds|Marketplace
+MKT-062|POST|/api/mall/refunds/{refundId}/cancel|Marketplace
 MKT-100|POST|/api/admin/recycle/listings/publish|Marketplace
 MKT-101|POST|/api/admin/recycle/resale-orders/deliver|Marketplace
 MKT-102|POST|/api/admin/recycle/resale-orders/refund|Marketplace
@@ -118,6 +140,15 @@ MKT-110|GET|/api/admin/recycle/review-reports|Marketplace
 MKT-111|GET|/api/admin/recycle/review-reports/{reportId}|Marketplace
 MKT-112|POST|/api/admin/recycle/review-reports/process|Marketplace
 MKT-113|POST|/api/admin/recycle/review-reports/process-batch|Marketplace
+MKT-104|GET|/api/admin/recycle/listings|Marketplace
+MKT-105|POST|/api/admin/recycle/listings/{listingId}/price|Marketplace
+MKT-106|POST|/api/admin/recycle/listings/{listingId}/off-shelf|Marketplace
+MKT-107|POST|/api/admin/recycle/listings/{listingId}/on-shelf|Marketplace
+MKT-120|GET|/api/admin/recycle/resale-orders|Marketplace
+MKT-121|GET|/api/admin/recycle/resale-orders/{orderNo}|Marketplace
+MKT-130|GET|/api/admin/coupons|Marketplace
+MKT-131|POST|/api/admin/coupons|Marketplace
+MKT-132|POST|/api/admin/coupons/{couponId}/disable|Marketplace
 OPS-001|GET|/api/admin/auth/security-events/summary|Operations
 OPS-002|GET|/api/admin/auth/security-events/timeline|Operations
 OPS-003|GET|/api/admin/auth/security-events/risk-users-top|Operations
@@ -144,11 +175,17 @@ OPS-046|GET|/api/admin/recycle/config-center/bundle|Operations
 OPS-047|GET|/api/admin/recycle/config-center/module/{moduleName}|Operations
 OPS-048|GET|/api/admin/recycle/config-center/modules|Operations
 OPS-049|POST|/api/admin/recycle/config-center/module-diff|Operations
+OPS-050|GET|/api/notifications|Operations
+OPS-051|GET|/api/notifications/unread-count|Operations
+OPS-052|POST|/api/notifications/{notificationId}/read|Operations
+OPS-053|POST|/api/notifications/read-all|Operations
+OPS-060|GET|/api/admin/reports/overview|Operations
 """);
     private static final Map<String, String> EXPECTED_SCHEDULERS = expected("""
 PAY-S001|PaymentNonceCleanupScheduler#cleanupExpiredNonces|payment.callback.nonce-cleanup-fixed-delay-ms|Payment
 PAY-S002|PaymentReplayTaskScheduler#consumeReplayTasks|payment.callback.replay-consume-fixed-delay-ms|Payment
 PAY-S003|PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords|payment.callback.replay-auto-handle-idempotency-cleanup-fixed-delay-ms|Payment
+PAY-S004|PaymentReconciliationScheduler#reconcilePayments|payment.reconciliation.fixed-delay-ms|Payment
 MKT-S001|ResaleOrderScheduler#autoCloseExpiredUnpaidOrders|mall.order.auto-close-fixed-delay-ms|Marketplace
 MKT-S002|ResaleOrderScheduler#autoConfirmDeliveredOrders|mall.order.auto-confirm-receipt-fixed-delay-ms|Marketplace
 OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.export-task.cleanup-fixed-delay-ms|Operations
@@ -161,14 +198,14 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(123, catalog.size());
+        assertEquals(160, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
                 () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
-        assertEquals(94, http.size());
+        assertEquals(130, http.size());
         assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
@@ -182,7 +219,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
         assertEquals(http.size(), catalogRoutes.size(), "each route has exactly one owner");
 
         List<Map<String, Object>> schedulers = ofKind(catalog, "SCHEDULER");
-        assertEquals(6, schedulers.size());
+        assertEquals(7, schedulers.size());
         assertEquals(EXPECTED_SCHEDULERS, contractMap(schedulers, "scheduledMethod", "scheduleProperty"),
                 "scheduler ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_SCHEDULERS.keySet()), schedulers.stream().map(entry -> string(entry, "id")).toList());
@@ -198,7 +235,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 25L, 10, 27L, 11, 9L, 12, 42L, 13, 20L), catalog.stream()
+        assertEquals(Map.of(9, 33L, 10, 29L, 11, 11L, 12, 62L, 13, 25L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 
@@ -264,6 +301,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
     private static boolean isDocumentedApplicationEndpoint(Class<?> type) {
         String packageName = type.getPackageName();
         return !packageName.startsWith("org.springframework") && !packageName.startsWith("org.springframework.boot.actuate")
+                && !packageName.startsWith("org.springdoc")
                 && (type.isAnnotationPresent(RestController.class) || type.isAnnotationPresent(Controller.class));
     }
 

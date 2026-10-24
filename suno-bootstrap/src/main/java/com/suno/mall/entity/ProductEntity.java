@@ -41,6 +41,9 @@ public class ProductEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private java.math.BigDecimal estimatedRecyclePrice;
 
+    @Column(name = "category_id")
+    private Long categoryId;
+
     public Long getId() {
         return id;
     }
@@ -111,5 +114,13 @@ public class ProductEntity {
 
     public void setEstimatedRecyclePrice(java.math.BigDecimal estimatedRecyclePrice) {
         this.estimatedRecyclePrice = estimatedRecyclePrice;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 }

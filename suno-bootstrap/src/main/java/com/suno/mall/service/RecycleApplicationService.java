@@ -20,6 +20,7 @@ public class RecycleApplicationService {
     private final PaymentReplayService paymentReplayService;
     private final ConfigCenterService configCenterService;
     private final AuditLogService auditLogService;
+    private final com.suno.mall.payment.AlipayPagePayService alipayPagePayService;
 
     public RecycleApplicationService(
             RecycleOrderService recycleOrderService,
@@ -28,7 +29,8 @@ public class RecycleApplicationService {
             ResaleReviewService resaleReviewService,
             PaymentReplayService paymentReplayService,
             ConfigCenterService configCenterService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            com.suno.mall.payment.AlipayPagePayService alipayPagePayService
     ) {
         this.recycleOrderService = recycleOrderService;
         this.resaleListingService = resaleListingService;
@@ -37,6 +39,7 @@ public class RecycleApplicationService {
         this.paymentReplayService = paymentReplayService;
         this.configCenterService = configCenterService;
         this.auditLogService = auditLogService;
+        this.alipayPagePayService = alipayPagePayService;
     }
 
     // ==================== 回收订单 ====================
@@ -76,6 +79,34 @@ public class RecycleApplicationService {
         return resaleListingService.listResaleListings(grade, sortBy, sortOrder, minStock);
     }
 
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> searchResaleListings(
+            String keyword, Long categoryId, String grade, String sortBy, String sortOrder,
+            Integer minStock, Integer page, Integer size
+    ) {
+        return resaleListingService.searchResaleListings(keyword, categoryId, grade, sortBy, sortOrder, minStock, page, size);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> getResaleListingDetail(Long listingId) {
+        return resaleListingService.getListingDetail(listingId);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public List<Map<String, Object>> listCategories() {
+        return resaleListingService.listCategories();
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> listMyRecycleOrders(Long userId, Integer page, Integer size) {
+        return recycleOrderService.listUserRecycleOrders(userId, page, size);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> listMyPointsLedger(Long userId, Integer page, Integer size) {
+        return recycleOrderService.listUserPointsLedger(userId, page, size);
+    }
+
     @RecycleTransactional
     public Map<String, Object> addFavoriteListing(Long userId, Long listingId) {
         return resaleListingService.addFavoriteListing(userId, listingId);
@@ -98,6 +129,12 @@ public class RecycleApplicationService {
         return resaleOrderService.createResaleOrder(buyerUserId, listingId);
     }
 
+    /** M2 结算下单：携带收货地址与优惠券 */
+    @RecycleTransactional
+    public Map<String, Object> createResaleOrder(Long buyerUserId, Long listingId, Long addressId, Long couponUserId) {
+        return resaleOrderService.createResaleOrder(buyerUserId, listingId, addressId, couponUserId);
+    }
+
     @RecycleTransactional
     public Map<String, Object> markResaleOrderPaid(String orderNo) {
         return resaleOrderService.markResaleOrderPaid(orderNo);
@@ -106,6 +143,28 @@ public class RecycleApplicationService {
     @RecycleTransactional
     public Map<String, Object> markResaleOrderPaidWithIdempotency(String orderNo, String idempotencyKey) {
         return resaleOrderService.markResaleOrderPaidWithIdempotency(orderNo, idempotencyKey);
+    }
+
+    public void attachResaleOrderPaymentChannel(String orderNo, String payChannel, String tradeNo) {
+        resaleOrderService.attachPaymentChannel(orderNo, payChannel, tradeNo);
+    }
+
+    public Map<String, Object> getOrderAmountForGateway(String orderNo) {
+        return resaleOrderService.getOrderAmountForGateway(orderNo);
+    }
+
+    /** M3 拉起支付宝收银台前校验订单归属与待支付状态，再生成已签名跳转参数 */
+    public Map<String, Object> buildAlipayPagePay(String orderNo, Long buyerUserId) {
+        Map<String, Object> detail = resaleOrderService.getBuyerResaleOrderDetail(orderNo, buyerUserId);
+        if (!"UNPAID".equals(String.valueOf(detail.get("payStatus")))) {
+            throw new com.suno.mall.common.BizException("订单不是待支付状态", com.suno.mall.common.ErrorCode.ORDER_STATUS_CONFLICT);
+        }
+        java.math.BigDecimal payable = (java.math.BigDecimal) detail.get("payableAmount");
+        if (payable == null) {
+            payable = (java.math.BigDecimal) detail.get("amount");
+        }
+        String subject = String.valueOf(detail.getOrDefault("productModel", "Suno 二手商品"));
+        return alipayPagePayService.buildPagePay(orderNo, payable, subject);
     }
 
     @RecycleTransactional

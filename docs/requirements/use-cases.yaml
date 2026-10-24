@@ -62,6 +62,18 @@
   developmentAnchor: idn-007-dev
   currentSymbols: [AuthController#refresh, AuthApplicationService#refresh]
 - <<: *identity_http
+  id: IDN-008
+  method: POST
+  path: /api/auth/register
+  requirementAnchor: idn-008
+  developmentAnchor: idn-008-dev
+  implementationStatus: implemented
+  currentSymbols: [AuthController#register, AuthApplicationService#register, AuthApplicationService#normalizeUsername]
+  plannedTests: []
+  implementedTests:
+    - AuthRegisterWebTest#registersUserThenLoginWorksAndRejectsDuplicates
+    - AuthRegisterWebTest#rejectsWeakPasswordAndBlankUsername
+- <<: *identity_http
   id: IDN-101
   method: GET
   path: /api/admin/auth/sessions
@@ -80,6 +92,100 @@
   requirementAnchor: idn-103
   developmentAnchor: idn-103-dev
   currentSymbols: [AdminAuthController#revokeUserAll, AuthApplicationService#adminRevokeUserAllSessions, AuthSessionService#adminRevokeUserAllSessions]
+- <<: *identity_http
+  id: IDN-110
+  method: GET
+  path: /api/admin/users
+  actor: administrator
+  permission: administrator
+  requirementAnchor: idn-110
+  developmentAnchor: idn-110-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminUserController#pageUsers, AdminUserService#pageUsers]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#bansUserAndBlocksLogin
+- <<: *identity_http
+  id: IDN-111
+  method: POST
+  path: /api/admin/users/{userId}/status
+  actor: administrator
+  permission: administrator
+  requirementAnchor: idn-111
+  developmentAnchor: idn-111-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminUserController#setUserStatus, AdminUserService#setUserStatus, AuthSessionService#adminRevokeUserAllSessions]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#bansUserAndBlocksLogin
+- <<: *identity_http
+  id: IDN-020
+  method: GET
+  path: /api/addresses
+  actor: customer
+  permission: authenticated
+  requirementAnchor: idn-020
+  developmentAnchor: idn-020-dev
+  implementationStatus: implemented
+  currentSymbols: [AddressController#listAddresses, UserAddressService#listByUser]
+  plannedTests: []
+  implementedTests:
+    - AddressWebTest#createsListsAndSetsSingleDefaultAddress
+    - AddressWebTest#isolatesAddressesBetweenUsers
+- <<: *identity_http
+  id: IDN-021
+  method: POST
+  path: /api/addresses
+  actor: customer
+  permission: authenticated
+  requirementAnchor: idn-021
+  developmentAnchor: idn-021-dev
+  implementationStatus: implemented
+  currentSymbols: [AddressController#createAddress, UserAddressService#create]
+  plannedTests: []
+  implementedTests:
+    - AddressWebTest#createsListsAndSetsSingleDefaultAddress
+    - AddressWebTest#rejectsBlankReceiverFields
+- <<: *identity_http
+  id: IDN-022
+  method: PUT
+  path: /api/addresses/{addressId}
+  actor: customer
+  permission: authenticated
+  requirementAnchor: idn-022
+  developmentAnchor: idn-022-dev
+  implementationStatus: implemented
+  currentSymbols: [AddressController#updateAddress, UserAddressService#update]
+  plannedTests: []
+  implementedTests:
+    - AddressWebTest#createsListsAndSetsSingleDefaultAddress
+    - AddressWebTest#isolatesAddressesBetweenUsers
+- <<: *identity_http
+  id: IDN-023
+  method: DELETE
+  path: /api/addresses/{addressId}
+  actor: customer
+  permission: authenticated
+  requirementAnchor: idn-023
+  developmentAnchor: idn-023-dev
+  implementationStatus: implemented
+  currentSymbols: [AddressController#deleteAddress, UserAddressService#delete]
+  plannedTests: []
+  implementedTests:
+    - AddressWebTest#createsListsAndSetsSingleDefaultAddress
+- <<: *identity_http
+  id: IDN-024
+  method: POST
+  path: /api/addresses/{addressId}/default
+  actor: customer
+  permission: authenticated
+  requirementAnchor: idn-024
+  developmentAnchor: idn-024-dev
+  implementationStatus: implemented
+  currentSymbols: [AddressController#setDefaultAddress, UserAddressService#setDefault]
+  plannedTests: []
+  implementedTests:
+    - AddressWebTest#createsListsAndSetsSingleDefaultAddress
 - &payment_http
   id: PAY-001
   kind: HTTP
@@ -107,8 +213,20 @@
   path: /api/mall/orders/pay
   requirementAnchor: pay-002
   developmentAnchor: pay-002-dev
-  currentSymbols: [ResaleMallController#payOrder, PaymentSignatureService#verifyOrThrow, RecycleApplicationService#markResaleOrderPaidWithIdempotency]
-  implementedTests: []
+  currentSymbols: [ResaleMallController#payOrder, PaymentSignatureService#verifyOrThrow, RecycleApplicationService#buildAlipayPagePay, AlipayPagePayService#buildPagePay, RecycleApplicationService#markResaleOrderPaidWithIdempotency]
+  implementedTests:
+    - AlipayNotifyWebTest#payOrderReturnsAlipayPagePayWhenEnabled
+- <<: *payment_http
+  id: PAY-003
+  path: /api/payment/alipay/notify
+  requirementAnchor: pay-003
+  developmentAnchor: pay-003-dev
+  implementationStatus: implemented
+  currentSymbols: [AlipayNotifyController#notify, AlipaySignatureService#verify, RecycleApplicationService#markResaleOrderPaidWithIdempotency, RecycleApplicationService#attachResaleOrderPaymentChannel]
+  plannedTests: []
+  implementedTests:
+    - AlipayNotifyWebTest#validNotifyMarksOrderPaidAndReplaysAreIdempotent
+    - AlipayNotifyWebTest#rejectsTamperedSignAndAmountMismatch
 - <<: *payment_http
   id: PAY-101
   method: GET
@@ -277,6 +395,29 @@
     - test: RecycleUseCaseWebTest#getsLogisticsStatusWithProviderFailureContract
       targetPhase: 4
 - <<: *recycle_http
+  id: REC-003
+  method: GET
+  path: /api/recycle/orders/my
+  requirementAnchor: rec-003
+  developmentAnchor: rec-003-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleController#listMyOrders, RecycleApplicationService#listMyRecycleOrders, RecycleOrderService#listUserRecycleOrders]
+  plannedTests: []
+  implementedTests:
+    - RecycleHistoryWebTest#listsMyRecycleOrdersWithProductSummary
+    - RecycleHistoryWebTest#isolatesRecycleHistoryBetweenUsers
+- <<: *recycle_http
+  id: REC-004
+  method: GET
+  path: /api/recycle/points/ledger
+  requirementAnchor: rec-004
+  developmentAnchor: rec-004-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleController#listMyPointsLedger, RecycleApplicationService#listMyPointsLedger, RecycleOrderService#listUserPointsLedger]
+  plannedTests: []
+  implementedTests:
+    - RecycleHistoryWebTest#listsMyPointsLedgerWithBalance
+- <<: *recycle_http
   id: REC-101
   method: GET
   path: /api/admin/recycle/orders
@@ -368,11 +509,15 @@
 - <<: *marketplace_http
   id: MKT-020
   path: /api/mall/listings
-  actor: customer
-  permission: authenticated
+  actor: anonymous
+  permission: public-explicit
   requirementAnchor: mkt-020
   developmentAnchor: mkt-020-dev
-  currentSymbols: [ResaleMallController#listListings, RecycleApplicationService#listResaleListings, ResaleListingService#listResaleListings]
+  currentSymbols: [ResaleMallController#listListings, RecycleApplicationService#searchResaleListings, ResaleListingService#searchResaleListings]
+  implementedTests:
+    - ListingCatalogWebTest#filtersListingsByKeywordCategoryAndGrade
+    - ListingCatalogWebTest#paginatesListingSearchWithZeroBasedPages
+    - ListingCatalogWebTest#anonymousCanBrowseCatalog
 - <<: *marketplace_http
   id: MKT-021
   path: /api/mall/orders
@@ -409,6 +554,9 @@
   implementedTests:
     - ResaleOrderServiceTest#testCreateResaleOrder
     - DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks
+    - TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder
+    - TradeAccessoriesWebTest#rejectsCouponBelowThresholdAndRollsBackOrder
+    - TradeAccessoriesWebTest#orderWithoutAddressKeepsLegacyCompatibility
 - <<: *marketplace_http
   id: MKT-025
   method: GET
@@ -527,6 +675,151 @@
   developmentAnchor: mkt-037-dev
   currentSymbols: [ResaleMallController#reportReview, RecycleApplicationService#reportResaleReview, ResaleReviewService#reportResaleReview]
 - <<: *marketplace_http
+  id: MKT-038
+  method: GET
+  path: /api/mall/listings/{listingId}
+  actor: anonymous
+  permission: public-explicit
+  requirementAnchor: mkt-038
+  developmentAnchor: mkt-038-dev
+  implementationStatus: implemented
+  currentSymbols: [ResaleMallController#getListingDetail, RecycleApplicationService#getResaleListingDetail, ResaleListingService#getListingDetail]
+  plannedTests: []
+  implementedTests:
+    - ListingCatalogWebTest#returnsListingDetailWithReviewSummary
+    - ListingCatalogWebTest#rejectsUnknownListingDetail
+- <<: *marketplace_http
+  id: MKT-039
+  method: GET
+  path: /api/mall/categories
+  actor: anonymous
+  permission: public-explicit
+  requirementAnchor: mkt-039
+  developmentAnchor: mkt-039-dev
+  implementationStatus: implemented
+  currentSymbols: [ResaleMallController#listCategories, RecycleApplicationService#listCategories, ResaleListingService#listCategories]
+  plannedTests: []
+  implementedTests:
+    - ListingCatalogWebTest#listsEnabledCategoriesInSortOrder
+- <<: *marketplace_http
+  id: MKT-040
+  method: GET
+  path: /api/cart
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-040
+  developmentAnchor: mkt-040-dev
+  implementationStatus: implemented
+  currentSymbols: [CartController#listCart, CartService#listCart]
+  plannedTests: []
+  implementedTests:
+    - TradeAccessoriesWebTest#cartRoundTripIsIdempotentPerListing
+- <<: *marketplace_http
+  id: MKT-041
+  method: POST
+  path: /api/cart
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-041
+  developmentAnchor: mkt-041-dev
+  implementationStatus: implemented
+  currentSymbols: [CartController#addToCart, CartService#addToCart]
+  plannedTests: []
+  implementedTests:
+    - TradeAccessoriesWebTest#cartRoundTripIsIdempotentPerListing
+- <<: *marketplace_http
+  id: MKT-042
+  method: DELETE
+  path: /api/cart/{cartItemId}
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-042
+  developmentAnchor: mkt-042-dev
+  implementationStatus: implemented
+  currentSymbols: [CartController#removeFromCart, CartService#removeFromCart]
+  plannedTests: []
+  implementedTests:
+    - TradeAccessoriesWebTest#cartRoundTripIsIdempotentPerListing
+- <<: *marketplace_http
+  id: MKT-050
+  method: GET
+  path: /api/mall/coupons
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-050
+  developmentAnchor: mkt-050-dev
+  implementationStatus: implemented
+  currentSymbols: [CouponController#listClaimable, CouponService#listClaimable]
+  plannedTests: []
+  implementedTests:
+    - TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder
+- <<: *marketplace_http
+  id: MKT-051
+  method: POST
+  path: /api/mall/coupons/{couponId}/claim
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-051
+  developmentAnchor: mkt-051-dev
+  implementationStatus: implemented
+  currentSymbols: [CouponController#claim, CouponService#claim]
+  plannedTests: []
+  implementedTests:
+    - TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder
+- <<: *marketplace_http
+  id: MKT-052
+  method: GET
+  path: /api/mall/coupons/mine
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-052
+  developmentAnchor: mkt-052-dev
+  implementationStatus: implemented
+  currentSymbols: [CouponController#listMine, CouponService#listMine]
+  plannedTests: []
+  implementedTests:
+    - TradeAccessoriesWebTest#couponClaimAppliesPerUserLimitAndRedeemsOnOrder
+- <<: *marketplace_http
+  id: MKT-060
+  method: POST
+  path: /api/mall/orders/{orderNo}/refund-apply
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-060
+  developmentAnchor: mkt-060-dev
+  implementationStatus: implemented
+  currentSymbols: [RefundController#applyRefund, RefundService#applyRefund]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#refundApplyListCancelRoundTrip
+    - RefundNotificationWebTest#adminRefundSettlesPendingRefundOrder
+- <<: *marketplace_http
+  id: MKT-061
+  method: GET
+  path: /api/mall/refunds
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-061
+  developmentAnchor: mkt-061-dev
+  implementationStatus: implemented
+  currentSymbols: [RefundController#listMyRefunds, RefundService#listMyRefunds]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#refundApplyListCancelRoundTrip
+- <<: *marketplace_http
+  id: MKT-062
+  method: POST
+  path: /api/mall/refunds/{refundId}/cancel
+  actor: customer
+  permission: authenticated
+  requirementAnchor: mkt-062
+  developmentAnchor: mkt-062-dev
+  implementationStatus: implemented
+  currentSymbols: [RefundController#cancelRefund, RefundService#cancelRefund]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#refundApplyListCancelRoundTrip
+- <<: *marketplace_http
   id: MKT-100
   method: POST
   path: /api/admin/recycle/listings/publish
@@ -597,6 +890,123 @@
   requirementAnchor: mkt-113
   developmentAnchor: mkt-113-dev
   currentSymbols: [AdminRecycleController#processReviewReportsBatch, RecycleApplicationService#adminBatchProcessReviewReports, ResaleReviewService#adminBatchProcessReviewReports]
+- <<: *marketplace_http
+  id: MKT-104
+  method: GET
+  path: /api/admin/recycle/listings
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-104
+  developmentAnchor: mkt-104-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#pageListings, AdminCatalogService#pageListings]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesListingsPriceAndShelf
+- <<: *marketplace_http
+  id: MKT-105
+  method: POST
+  path: /api/admin/recycle/listings/{listingId}/price
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-105
+  developmentAnchor: mkt-105-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#adjustPrice, AdminCatalogService#adjustPrice]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesListingsPriceAndShelf
+- <<: *marketplace_http
+  id: MKT-106
+  method: POST
+  path: /api/admin/recycle/listings/{listingId}/off-shelf
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-106
+  developmentAnchor: mkt-106-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#offShelf, AdminCatalogService#changeShelf]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesListingsPriceAndShelf
+- <<: *marketplace_http
+  id: MKT-107
+  method: POST
+  path: /api/admin/recycle/listings/{listingId}/on-shelf
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-107
+  developmentAnchor: mkt-107-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#onShelf, AdminCatalogService#changeShelf]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesListingsPriceAndShelf
+- <<: *marketplace_http
+  id: MKT-120
+  method: GET
+  path: /api/admin/recycle/resale-orders
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-120
+  developmentAnchor: mkt-120-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#pageOrders, AdminCatalogService#pageOrders]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#pagesOrdersAndShowsDetailWithReceiver
+- <<: *marketplace_http
+  id: MKT-121
+  method: GET
+  path: /api/admin/recycle/resale-orders/{orderNo}
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-121
+  developmentAnchor: mkt-121-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCatalogController#orderDetail, AdminCatalogService#orderDetail]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#pagesOrdersAndShowsDetailWithReceiver
+- <<: *marketplace_http
+  id: MKT-130
+  method: GET
+  path: /api/admin/coupons
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-130
+  developmentAnchor: mkt-130-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCouponController#listCoupons, CouponService#adminListCoupons]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesCouponLifecycle
+- <<: *marketplace_http
+  id: MKT-131
+  method: POST
+  path: /api/admin/coupons
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-131
+  developmentAnchor: mkt-131-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCouponController#createCoupon, CouponService#adminCreateCoupon]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesCouponLifecycle
+- <<: *marketplace_http
+  id: MKT-132
+  method: POST
+  path: /api/admin/coupons/{couponId}/disable
+  actor: administrator
+  permission: administrator
+  requirementAnchor: mkt-132
+  developmentAnchor: mkt-132-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCouponController#disableCoupon, CouponService#adminDisableCoupon]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#managesCouponLifecycle
 - &operations_security_http
   id: OPS-001
   kind: HTTP
@@ -794,6 +1204,71 @@
   requirementAnchor: ops-049
   developmentAnchor: ops-049-dev
   currentSymbols: [AdminRecycleController#configCenterModuleDiff, RecycleApplicationService#adminConfigCenterModuleDiff, ConfigCenterService#adminConfigCenterModuleDiff]
+- <<: *operations_http
+  id: OPS-050
+  method: GET
+  path: /api/notifications
+  actor: customer
+  permission: authenticated
+  requirementAnchor: ops-050
+  developmentAnchor: ops-050-dev
+  implementationStatus: implemented
+  currentSymbols: [NotificationController#listMine, NotificationService#listMine]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#orderLifecycleProducesNotifications
+- <<: *operations_http
+  id: OPS-051
+  method: GET
+  path: /api/notifications/unread-count
+  actor: customer
+  permission: authenticated
+  requirementAnchor: ops-051
+  developmentAnchor: ops-051-dev
+  implementationStatus: implemented
+  currentSymbols: [NotificationController#unreadCount, NotificationService#unreadCount]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#orderLifecycleProducesNotifications
+- <<: *operations_http
+  id: OPS-052
+  method: POST
+  path: /api/notifications/{notificationId}/read
+  actor: customer
+  permission: authenticated
+  requirementAnchor: ops-052
+  developmentAnchor: ops-052-dev
+  implementationStatus: implemented
+  currentSymbols: [NotificationController#markRead, NotificationService#markRead]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#orderLifecycleProducesNotifications
+- <<: *operations_http
+  id: OPS-053
+  method: POST
+  path: /api/notifications/read-all
+  actor: customer
+  permission: authenticated
+  requirementAnchor: ops-053
+  developmentAnchor: ops-053-dev
+  implementationStatus: implemented
+  currentSymbols: [NotificationController#markAllRead, NotificationService#markAllRead]
+  plannedTests: []
+  implementedTests:
+    - RefundNotificationWebTest#orderLifecycleProducesNotifications
+- <<: *operations_http
+  id: OPS-060
+  method: GET
+  path: /api/admin/reports/overview
+  actor: administrator
+  permission: administrator
+  requirementAnchor: ops-060
+  developmentAnchor: ops-060-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCouponController#reportOverview, AdminReportService#overview]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#reportOverviewAggregatesAndTrends
 - &payment_scheduler
   id: PAY-S001
   kind: SCHEDULER
@@ -829,6 +1304,17 @@
   currentSymbols: [PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords, RecycleApplicationService#cleanupReplayAutoHandleIdempotencyRecords, PaymentReplayService#cleanupReplayAutoHandleIdempotencyRecords]
   scheduledMethod: PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords
   scheduleProperty: payment.callback.replay-auto-handle-idempotency-cleanup-fixed-delay-ms
+- <<: *payment_scheduler
+  id: PAY-S004
+  requirementAnchor: pay-s004
+  developmentAnchor: pay-s004-dev
+  implementationStatus: implemented
+  currentSymbols: [PaymentReconciliationScheduler#reconcilePayments, PaymentReconciliationService#reconcile]
+  plannedTests: []
+  implementedTests:
+    - ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence
+  scheduledMethod: PaymentReconciliationScheduler#reconcilePayments
+  scheduleProperty: payment.reconciliation.fixed-delay-ms
 - &marketplace_scheduler
   id: MKT-S001
   kind: SCHEDULER

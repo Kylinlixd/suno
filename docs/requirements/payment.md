@@ -852,3 +852,70 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 2；DEAD 只是任务表状态，尚无版本化死信事件、可靠投递和稳定人工处置 ack。
+
+## PAY-003 支付宝异步通知
+
+支付宝网关以 form-encoded POST 通知支付结果：参数按字典序规范化（剔除 sign/sign_type/空值）后 RSA2 验签，校验 app_id、trade_status（TRADE_SUCCESS/FINISHED 落账，其他确认不落账）与 total_amount 与订单应付金额一致，随后以 `alipay:{trade_no}` 幂等键驱动 `markResaleOrderPaidWithIdempotency` 并回填订单渠道信息（pay_channel=ALIPAY、trade_no、paid_at）。验签失败/金额不符返回纯文本 `failure`；成功与重放均返回 `success`。实现测试：`AlipayNotifyWebTest#validNotifyMarksOrderPaidAndReplaysAreIdempotent`、`AlipayNotifyWebTest#rejectsTamperedSignAndAmountMismatch`。渠道由 `payment.alipay.enabled` 开关（启用时 `/api/mall/orders/pay` 返回已签名收银台跳转参数，见 `AlipayNotifyWebTest#payOrderReturnsAlipayPagePayWhenEnabled`）；关闭时保留 HMAC Mock 网关用于 dev/test。
+
+### Requirement flow {#pay-003}
+```mermaid
+flowchart TD
+  N[支付宝 form 通知] --> V[RSA2 验签 + app_id]
+  V -->|失败| F1[failure]
+  V -->|通过| S{trade_status}
+  S -->|非成功| OK1[success 不落账]
+  S -->|成功| M{total_amount == 应付}
+  M -->|不符| F2[failure]
+  M -->|一致| P[幂等落账 + 渠道回填]
+  P --> R[success]
+```
+### Current development flow {#pay-003-dev}
+```mermaid
+sequenceDiagram
+  participant N as AlipayNotifyController#notify
+  participant Sig as AlipaySignatureService#verify
+  participant A as RecycleApplicationService#markResaleOrderPaidWithIdempotency
+  N->>Sig: 规范化参数验签
+  N->>A: alipay:tradeNo 幂等落账
+  N->>N: attachResaleOrderPaymentChannel 回填渠道
+  N-->>N: 纯文本 success/failure
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Gateway notify adapter] --> H[Notify verify handler]
+  H --> P[Payment port]
+  P --> E[PaymentApplied v1]
+```
+### Gaps
+- targetPhase: 2；通知先落库后处理的事务性收件箱（防进程崩溃丢通知）依赖支付宝重试+对账任务兜底；主动查单（trade.query）补偿尚未实现。
+
+## PAY-S004 支付对账调度器
+
+定期（默认 6 小时，`payment.reconciliation.fixed-delay-ms`）核对全部 PAID/REFUNDED 订单的支付凭证：mock 网关成功回调日志、真实渠道 trade_no（支付宝通知回填）或幂等账本三者其一；完全无凭证的「裸支付」订单写 `RECONCILE_MISMATCH` 审计告警。实现测试：`ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence`。
+
+### Requirement flow {#pay-s004}
+```mermaid
+flowchart TD
+  T[定时触发] --> Q[扫描 PAID/REFUNDED 订单]
+  Q --> E{存在任一支付凭证}
+  E -->|是| M[matched]
+  E -->|否| W[写 RECONCILE_MISMATCH 审计]
+```
+### Current development flow {#pay-s004-dev}
+```mermaid
+sequenceDiagram
+  participant S as PaymentReconciliationScheduler#reconcilePayments
+  participant R as PaymentReconciliationService#reconcile
+  S->>R: 固定延迟触发
+  R-->>S: checked/mismatched/matched
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  S[Scheduler] --> H[Reconciliation handler]
+  H --> P[Channel statement port]
+  P --> A[Alert channel]
+```
+### Gaps
+- targetPhase: 2；未接入支付宝对账单下载（bill.downloadurl）比对，渠道侧金额/退款差异需人工核对审计。
