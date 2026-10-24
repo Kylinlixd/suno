@@ -70,6 +70,7 @@ public class ResaleOrderService {
     private final CartService cartService;
     private final NotificationService notificationService;
     private final com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository;
+    private final MemberLevelService memberLevelService;
     private final AuditLogService auditLogService;
 
     public ResaleOrderService(
@@ -84,6 +85,7 @@ public class ResaleOrderService {
             CartService cartService,
             NotificationService notificationService,
             com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository,
+            MemberLevelService memberLevelService,
             AuditLogService auditLogService
     ) {
         this.userAccountRepository = userAccountRepository;
@@ -97,6 +99,7 @@ public class ResaleOrderService {
         this.cartService = cartService;
         this.notificationService = notificationService;
         this.pointsLedgerRepository = pointsLedgerRepository;
+        this.memberLevelService = memberLevelService;
         this.auditLogService = auditLogService;
     }
 
@@ -231,6 +234,7 @@ public class ResaleOrderService {
         ledger.setReason(reason);
         ledger.setCreatedAt(LocalDateTime.now());
         pointsLedgerRepository.save(ledger);
+        memberLevelService.recalculate(user);
     }
 
 
@@ -330,7 +334,7 @@ public class ResaleOrderService {
                 "fulfillStatus=DELIVERED" + auditLogService.buildAuditContextSuffix(auditContext));
         notificationService.push(order.getBuyerUser().getId(), "ORDER_DELIVERED", "商品已发货",
                 "订单 " + orderNo + " 已发货" + (order.getTrackingNo() == null ? "" : "（物流单号 " + order.getTrackingNo() + "）") + "，请注意查收。",
-                order.getId(), "RESALE_ORDER");
+                order.getId(), "RESALE_ORDER", order.getBuyerUser().getUsername());
         return Map.of("orderNo", orderNo, "payStatus", "PAID", "fulfillStatus", "DELIVERED");
     }
 
@@ -419,7 +423,8 @@ public class ResaleOrderService {
         auditLogService.logAction("RESALE_ORDER_REFUND", "RESALE_ORDER", orderNo,
                 "payStatus=REFUNDED" + auditLogService.buildAuditContextSuffix(auditContext));
         notificationService.push(order.getBuyerUser().getId(), "ORDER_REFUNDED", "退款已到账",
-                "订单 " + orderNo + " 已退款 ¥" + order.getPayableAmount() + "，请留意到账信息。", order.getId(), "RESALE_ORDER");
+                "订单 " + orderNo + " 已退款 ¥" + order.getPayableAmount() + "，请留意到账信息。",
+                order.getId(), "RESALE_ORDER", order.getBuyerUser().getUsername());
         return Map.of("orderNo", orderNo, "payStatus", "REFUNDED", "fulfillStatus", "REFUNDED");
     }
 

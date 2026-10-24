@@ -220,6 +220,28 @@ public class RefundService {
         return Map.of("refundId", refundId, "status", "PROCESSED", "mode", "PARTIAL");
     }
 
+    /** 管理端退款明细 CSV 导出（可选状态过滤） */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 60)
+    public String exportRefundsCsv(String status) {
+        var rows = refundOrderRepository.findAll(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "createdAt")).stream()
+                .filter(refund -> status == null || status.isBlank() || status.equals(refund.getStatus()))
+                .toList();
+        StringBuilder csv = new StringBuilder("refund_no,order_no,amount,status,channel,created_at,processed_at\n");
+        for (var refund : rows) {
+            String orderNo = resaleOrderRepository.findById(refund.getResaleOrderId())
+                    .map(order -> order.getOrderNo()).orElse("-");
+            csv.append(refund.getRefundNo()).append(',')
+                    .append(orderNo).append(',')
+                    .append(refund.getAmount()).append(',')
+                    .append(refund.getStatus()).append(',')
+                    .append(refund.getRefundChannel() == null ? "-" : refund.getRefundChannel()).append(',')
+                    .append(refund.getCreatedAt()).append(',')
+                    .append(refund.getProcessedAt() == null ? "-" : refund.getProcessedAt()).append('\n');
+        }
+        return csv.toString();
+    }
+
     /** 退款额 = 应付金额（扣除优惠券与积分抵扣后的实付） */
     static java.math.BigDecimal payableAmountOf(ResaleOrderEntity order) {
         java.math.BigDecimal payable = order.getPayableAmount();

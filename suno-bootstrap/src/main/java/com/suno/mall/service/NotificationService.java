@@ -21,14 +21,25 @@ import java.util.Map;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final SmsNotificationChannel smsNotificationChannel;
 
-    public NotificationService(NotificationRepository notificationRepository) {
+    public NotificationService(NotificationRepository notificationRepository,
+                               SmsNotificationChannel smsNotificationChannel) {
         this.notificationRepository = notificationRepository;
+        this.smsNotificationChannel = smsNotificationChannel;
     }
 
-    /** 领域事件入口：调用方在自身事务内写入通知事实 */
+    /** 领域事件入口：调用方事务内写入通知事实；关键事件（退款/发货）可选同步短信 */
     public void push(Long userId, String notificationType, String title, String content,
                      Long relatedId, String relatedType) {
+        push(userId, notificationType, title, content, relatedId, relatedType, null);
+    }
+
+    public void push(Long userId, String notificationType, String title, String content,
+                     Long relatedId, String relatedType, String username) {
+        if (username != null && (notificationType.startsWith("REFUND") || "ORDER_DELIVERED".equals(notificationType))) {
+            smsNotificationChannel.trySend(username, title + "：" + content);
+        }
         NotificationEntity notification = new NotificationEntity();
         notification.setUserId(userId);
         notification.setNotificationType(notificationType);

@@ -49,6 +49,7 @@ public class RecycleOrderService {
     private final LogisticsTrackRepository logisticsTrackRepository;
     private final PointsLedgerRepository pointsLedgerRepository;
     private final CategoryRepository categoryRepository;
+    private final MemberLevelService memberLevelService;
     private final AuditLogService auditLogService;
 
     public RecycleOrderService(
@@ -63,6 +64,7 @@ public class RecycleOrderService {
             LogisticsTrackRepository logisticsTrackRepository,
             PointsLedgerRepository pointsLedgerRepository,
             CategoryRepository categoryRepository,
+            MemberLevelService memberLevelService,
             AuditLogService auditLogService
     ) {
         this.aiAuditService = aiAuditService;
@@ -76,6 +78,7 @@ public class RecycleOrderService {
         this.logisticsTrackRepository = logisticsTrackRepository;
         this.pointsLedgerRepository = pointsLedgerRepository;
         this.categoryRepository = categoryRepository;
+        this.memberLevelService = memberLevelService;
         this.auditLogService = auditLogService;
     }
 
@@ -300,6 +303,7 @@ public class RecycleOrderService {
     private void updateUserPoints(UserAccountEntity user, int points) {
         user.setPoints(user.getPoints() + points);
         userAccountRepository.save(user);
+        memberLevelService.recalculate(user);
     }
 
     /**

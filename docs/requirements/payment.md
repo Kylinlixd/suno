@@ -950,3 +950,28 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 2；网关响应解析为保守包含匹配，未做完整 JSON 解析与响应验签；渠道关闭时静默跳过无告警。
+
+## PAY-119 管理员手动对账
+
+管理员即时触发一次支付对账（与 PAY-S004 同逻辑），返回 checked/mismatched/matched；差异单已写 `RECONCILE_MISMATCH` 审计。实现测试：`MemberFinanceWebTest#refundsCsvExportAndManualReconciliationRequireAdmin`。
+
+### Requirement flow {#pay-119}
+```mermaid
+flowchart TD
+  A[ADMIN] --> R[立即对账] --> S[checked/mismatched/matched]
+```
+### Current development flow {#pay-119-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminPaymentController#runReconciliation
+  participant S as PaymentReconciliationService#reconcile
+  C->>S: 手动触发
+  S-->>C: 对账结果
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Reconciliation handler] --> P[Channel statement port]
+```
+### Gaps
+- targetPhase: 2；与调度器共用应用内聚合实现，未接渠道对账单。

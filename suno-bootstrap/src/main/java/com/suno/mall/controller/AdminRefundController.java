@@ -35,6 +35,15 @@ public class AdminRefundController {
         return ApiResponse.ok(refundService.adminPageRefunds(status, page, size));
     }
 
+    @GetMapping("/export")
+    public org.springframework.http.ResponseEntity<String> exportRefunds(@RequestParam(required = false) String status) {
+        String csv = refundService.exportRefundsCsv(status);
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=refunds.csv")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(csv);
+    }
+
     @PostMapping("/{refundId}/process")
     public ApiResponse<Map<String, Object>> processRefund(@PathVariable Long refundId) {
         return ApiResponse.ok(refundService.processRefund(refundId));

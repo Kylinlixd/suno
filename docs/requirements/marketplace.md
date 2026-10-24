@@ -1,6 +1,6 @@
 # 商城、订单、收藏与评价需求流
 
-本文件覆盖 Task 12 的 57 个 Marketplace HTTP、3 个调度器与 6 个公共事件。当前实现处于 Phase 0：请求常携带 userId，商城服务通过 `RecycleApplicationService` 进入遗留服务；这不是资源所有权或管理员授权的目标边界。每节的实现测试均为现有目录校验 `DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`，计划测试均为 **Phase 3**（M1 新增的 MKT-020 搜索/分页、MKT-038、MKT-039 已有实现测试）。
+本文件覆盖 Task 12 的 58 个 Marketplace HTTP、3 个调度器与 6 个公共事件。当前实现处于 Phase 0：请求常携带 userId，商城服务通过 `RecycleApplicationService` 进入遗留服务；这不是资源所有权或管理员授权的目标边界。每节的实现测试均为现有目录校验 `DocumentationCatalogCoverageTest#catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks`，计划测试均为 **Phase 3**（M1 新增的 MKT-020 搜索/分页、MKT-038、MKT-039 已有实现测试）。
 
 ## 订单状态机与共享不变量
 
@@ -1983,3 +1983,28 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 3；仅站内信通道，未接短信/推送；扫描无分批上限。
+
+## MKT-124 管理端退款明细导出
+
+管理员导出售后明细 CSV（可选状态过滤），含售后单号/订单号/金额/状态/渠道/申请与处理时间，`Content-Disposition: refunds.csv`。实现测试：`MemberFinanceWebTest#refundsCsvExportAndManualReconciliationRequireAdmin`。
+
+### Requirement flow {#mkt-124}
+```mermaid
+flowchart TD
+  A[ADMIN + status?] --> Q[查询售后单] --> C[拼装 CSV] --> R[文件下载]
+```
+### Current development flow {#mkt-124-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminRefundController#exportRefunds
+  participant S as RefundService#exportRefundsCsv
+  C->>S: status
+  S-->>C: text/csv
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Export handler] --> P[Report port]
+```
+### Gaps
+- targetPhase: 3；同步导出无行数上限，超大数据量应改为异步导出任务（复用 export-task 模式）。

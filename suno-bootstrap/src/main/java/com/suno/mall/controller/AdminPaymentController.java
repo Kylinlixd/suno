@@ -22,9 +22,12 @@ import java.time.LocalDateTime;
 public class AdminPaymentController {
 
     private final RecycleApplicationService recycleApplicationService;
+    private final com.suno.mall.service.PaymentReconciliationService reconciliationService;
 
-    public AdminPaymentController(RecycleApplicationService recycleApplicationService) {
+    public AdminPaymentController(RecycleApplicationService recycleApplicationService,
+                                  com.suno.mall.service.PaymentReconciliationService reconciliationService) {
         this.recycleApplicationService = recycleApplicationService;
+        this.reconciliationService = reconciliationService;
     }
 
     @GetMapping("/callback-logs")
@@ -158,6 +161,11 @@ public class AdminPaymentController {
     ) {
         int retainDays = request.retainDays() == null ? 7 : request.retainDays();
         return ApiResponse.ok(recycleApplicationService.cleanupReplayAutoHandleIdempotencyRecords(retainDays));
+    }
+
+    @PostMapping("/reconcile/run")
+    public ApiResponse<Map<String, Object>> runReconciliation() {
+        return ApiResponse.ok(reconciliationService.reconcile());
     }
 
     @PostMapping("/replay-tasks/requeue")

@@ -73,6 +73,7 @@ IDN-024|POST|/api/addresses/{addressId}/default|Identity
 PAY-001|POST|/api/payment/callback|Payment
 PAY-002|POST|/api/mall/orders/pay|Payment
 PAY-003|POST|/api/payment/alipay/notify|Payment
+PAY-119|POST|/api/admin/payment/reconcile/run|Payment
 PAY-101|GET|/api/admin/payment/callback-logs|Payment
 PAY-102|POST|/api/admin/payment/callback-logs/replay|Payment
 PAY-103|POST|/api/admin/payment/callback-logs/replay/enqueue|Payment
@@ -152,6 +153,7 @@ MKT-120|GET|/api/admin/recycle/resale-orders|Marketplace
 MKT-121|GET|/api/admin/recycle/resale-orders/{orderNo}|Marketplace
 MKT-122|GET|/api/admin/recycle/refunds|Marketplace
 MKT-123|POST|/api/admin/recycle/refunds/{refundId}/process|Marketplace
+MKT-124|GET|/api/admin/recycle/refunds/export|Marketplace
 MKT-130|GET|/api/admin/coupons|Marketplace
 MKT-131|POST|/api/admin/coupons|Marketplace
 MKT-132|POST|/api/admin/coupons/{couponId}/disable|Marketplace
@@ -206,14 +208,14 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(168, catalog.size());
+        assertEquals(170, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
                 () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
-        assertEquals(136, http.size());
+        assertEquals(138, http.size());
         assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
@@ -243,7 +245,7 @@ OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 35L, 10, 30L, 11, 11L, 12, 67L, 13, 25L), catalog.stream()
+        assertEquals(Map.of(9, 35L, 10, 31L, 11, 11L, 12, 68L, 13, 25L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 
