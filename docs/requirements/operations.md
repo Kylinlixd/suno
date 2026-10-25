@@ -1163,3 +1163,28 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 5；同步导出，超大数据量应改异步导出任务。
+
+## OPS-S003 通知保留期清理调度器
+
+每日（默认 24h，`operations.notification.cleanup-fixed-delay-ms`）批量删除保留期（90 天）外的已读通知，防止 `suno_notification` 无界增长；未读通知永不清理。实现测试：`ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence`（共享调度器存活路径）。
+
+### Requirement flow {#ops-s003}
+```mermaid
+flowchart TD
+  T[定时触发] --> Q[90 天前已读] --> D[批量删除] --> R[清理条数]
+```
+### Current development flow {#ops-s003-dev}
+```mermaid
+sequenceDiagram
+  participant S as NotificationCleanupScheduler#cleanupExpiredReadNotifications
+  participant R as NotificationRepository#deleteExpiredRead
+  S->>R: cutoff = now - 90d
+  R-->>S: 删除条数
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  S[Scheduler] --> H[Retention handler] --> P[Batch delete port]
+```
+### Gaps
+- targetPhase: 5；保留期固定 90 天未配置化；无分批上限（单事务全量删除）。

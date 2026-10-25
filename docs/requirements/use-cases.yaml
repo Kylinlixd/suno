@@ -1561,6 +1561,18 @@
     - PlatformBatchWebTest#orderAndPaymentPublishOutboxEventsAndDispatcherMarksPublished
   scheduledMethod: EventOutboxDispatcher#dispatchPending
   scheduleProperty: operations.event-outbox.dispatch-fixed-delay-ms
+- <<: *operations_scheduler
+  id: OPS-S003
+  requirementAnchor: ops-s003
+  developmentAnchor: ops-s003-dev
+  implementationStatus: implemented
+  currentSymbols: [NotificationCleanupScheduler#cleanupExpiredReadNotifications]
+  plannedTests: []
+  implementedTests:
+    - ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence
+  scheduledMethod: NotificationCleanupScheduler#cleanupExpiredReadNotifications
+  scheduleProperty: operations.notification.cleanup-fixed-delay-ms
+
   plannedTests:
     - test: OperationsSchedulerTest#documentsOperationsScheduler
       targetPhase: 1

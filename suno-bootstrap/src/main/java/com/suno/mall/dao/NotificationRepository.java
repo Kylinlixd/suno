@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface NotificationRepository extends JpaRepository<NotificationEntity, Long> {
@@ -25,4 +26,9 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
     @Modifying(flushAutomatically = true)
     @Query("UPDATE NotificationEntity n SET n.isRead = true WHERE n.userId = :userId AND n.isRead = false")
     int markAllRead(@Param("userId") Long userId);
+
+    /** OPS-S003：批量删除保留期外的已读通知 */
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM NotificationEntity n WHERE n.isRead = true AND n.createdAt < :cutoff")
+    int deleteExpiredRead(@Param("cutoff") LocalDateTime cutoff);
 }

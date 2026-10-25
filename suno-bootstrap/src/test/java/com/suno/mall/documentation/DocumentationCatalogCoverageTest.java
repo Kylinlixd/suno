@@ -205,6 +205,7 @@ MKT-S002|ResaleOrderScheduler#autoConfirmDeliveredOrders|mall.order.auto-confirm
 MKT-S003|CouponExpireReminderScheduler#remindExpiringCoupons|mall.coupon.expire-reminder-fixed-delay-ms|Marketplace
 OPS-S001|SecurityEventService#scheduledCleanupSecurityExportTasks|security.auth.export-task.cleanup-fixed-delay-ms|Operations
 OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-fixed-delay-ms|Operations
+OPS-S003|NotificationCleanupScheduler#cleanupExpiredReadNotifications|operations.notification.cleanup-fixed-delay-ms|Operations
 """);
 
     @Autowired
@@ -214,7 +215,7 @@ OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(176, catalog.size());
+        assertEquals(177, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
@@ -235,7 +236,7 @@ OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-
         assertEquals(http.size(), catalogRoutes.size(), "each route has exactly one owner");
 
         List<Map<String, Object>> schedulers = ofKind(catalog, "SCHEDULER");
-        assertEquals(10, schedulers.size());
+        assertEquals(11, schedulers.size());
         assertEquals(EXPECTED_SCHEDULERS, contractMap(schedulers, "scheduledMethod", "scheduleProperty"),
                 "scheduler ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_SCHEDULERS.keySet()), schedulers.stream().map(entry -> string(entry, "id")).toList());
@@ -251,7 +252,7 @@ OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 36L, 10, 31L, 11, 11L, 12, 68L, 13, 30L), catalog.stream()
+        assertEquals(Map.of(9, 37L, 10, 31L, 11, 11L, 12, 68L, 13, 30L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 

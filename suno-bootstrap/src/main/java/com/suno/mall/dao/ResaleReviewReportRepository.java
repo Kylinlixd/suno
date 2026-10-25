@@ -3,6 +3,7 @@ package com.suno.mall.dao;
 import com.suno.mall.entity.ResaleReviewReportEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ResaleReviewReportRepository extends JpaRepository<ResaleReviewReportEntity, Long> {
@@ -12,4 +13,10 @@ public interface ResaleReviewReportRepository extends JpaRepository<ResaleReview
     long countByReview_Id(Long reviewId);
 
     List<ResaleReviewReportEntity> findByStatusOrderByCreatedAtDesc(String status);
+
+    // ==================== P3 风控聚合 ====================
+
+    long countByCreatedAtAfter(LocalDateTime threshold);
+
+    long countByCreatedAtAfterAndStatusIgnoreCase(LocalDateTime threshold, String status);
 }

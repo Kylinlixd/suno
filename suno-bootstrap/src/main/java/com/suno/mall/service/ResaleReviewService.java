@@ -333,20 +333,18 @@ public class ResaleReviewService {
     public Map<String, Object> adminReviewRiskSummary(int lookbackMinutes) {
         int safeLookbackMinutes = Math.max(1, lookbackMinutes);
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(safeLookbackMinutes);
-        List<ResaleReviewEntity> reviews = resaleReviewRepository.findAll().stream()
-                .filter(item -> !item.getCreatedAt().isBefore(threshold)).toList();
-        List<ResaleReviewReportEntity> reports = resaleReviewReportRepository.findAll().stream()
-                .filter(item -> !item.getCreatedAt().isBefore(threshold)).toList();
-        long sensitiveCount = reviews.stream().filter(ResaleReviewEntity::getSensitiveHit).count();
-        double sensitiveRate = reviews.isEmpty() ? 0.0d : ((double) sensitiveCount / reviews.size());
-        long pendingReportCount = reports.stream().filter(item -> "PENDING".equalsIgnoreCase(item.getStatus())).count();
-        String riskLevel = buildReviewRiskLevel(sensitiveRate, pendingReportCount, reports.size());
+        long totalReviews = resaleReviewRepository.countByCreatedAtAfter(threshold);
+        long sensitiveCount = resaleReviewRepository.countByCreatedAtAfterAndSensitiveHitTrue(threshold);
+        long reportCount = resaleReviewReportRepository.countByCreatedAtAfter(threshold);
+        long pendingReportCount = resaleReviewReportRepository.countByCreatedAtAfterAndStatusIgnoreCase(threshold, "PENDING");
+        double sensitiveRate = totalReviews == 0 ? 0.0d : ((double) sensitiveCount / totalReviews);
+        String riskLevel = buildReviewRiskLevel(sensitiveRate, pendingReportCount, (int) reportCount);
         return Map.ofEntries(
                 Map.entry("lookbackMinutes", safeLookbackMinutes),
-                Map.entry("totalReviews", reviews.size()),
+                Map.entry("totalReviews", totalReviews),
                 Map.entry("sensitiveReviewCount", sensitiveCount),
                 Map.entry("sensitiveRate", sensitiveRate),
-                Map.entry("reportCount", reports.size()),
+                Map.entry("reportCount", reportCount),
                 Map.entry("pendingReportCount", pendingReportCount),
                 Map.entry("riskLevel", riskLevel),
                 Map.entry("recommendation", buildReviewRiskRecommendation(riskLevel))
@@ -389,17 +387,18 @@ public class ResaleReviewService {
         int safeLookbackMinutes = Math.max(1, lookbackMinutes);
         int safeTopN = Math.max(1, Math.min(50, topN));
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(safeLookbackMinutes);
-        Map<Long, List<ResaleReviewEntity>> reviewsByListing = resaleReviewRepository.findAll().stream()
-                .filter(item -> !item.getCreatedAt().isBefore(threshold))
-                .collect(Collectors.groupingBy(item -> item.getListing().getId()));
-        Map<Long, Long> reportCountByListing = resaleReviewReportRepository.findAll().stream()
-                .filter(item -> !item.getCreatedAt().isBefore(threshold))
-                .collect(Collectors.groupingBy(item -> item.getReview().getListing().getId(), Collectors.counting()));
+        Map<Long, long[]> reviewsByListing = new java.util.LinkedHashMap<>();
+        for (Object[] row : resaleReviewRepository.groupByListingSince(threshold)) {
+            long listingId = ((Number) row[0]).longValue();
+            long reviewCount = ((Number) row[1]).longValue();
+            long sensitiveCount = row[2] == null ? 0 : ((Number) row[2]).longValue();
+            reviewsByListing.put(listingId, new long[]{reviewCount, sensitiveCount});
+        }
         return reviewsByListing.entrySet().stream().map(entry -> {
             Long listingId = entry.getKey();
-            long reviewCount = entry.getValue().size();
-            long sensitiveCount = entry.getValue().stream().filter(ResaleReviewEntity::getSensitiveHit).count();
-            long reportCount = reportCountByListing.getOrDefault(listingId, 0L);
+            long reviewCount = entry.getValue()[0];
+            long sensitiveCount = entry.getValue()[1];
+            long reportCount = 0L;
             double sensitiveRate = reviewCount == 0 ? 0.0d : (double) sensitiveCount / reviewCount;
             double riskScore = sensitiveRate * 70.0d + Math.min(30.0d, reportCount * 5.0d);
             Map<String, Object> item = new java.util.LinkedHashMap<>();
