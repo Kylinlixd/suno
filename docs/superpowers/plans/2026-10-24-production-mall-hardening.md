@@ -213,6 +213,10 @@
 
 > **状态：已完成（2026-10-25）**。① 客服工单前端补齐：storefront `/support` 页（提交 + 我的工单 + 客服回复展示，导航与账户页入口）、admin 工单管理页（状态过滤分页 + 回复/关闭弹窗）；② dev 种子补两张演示券（满 500 减 50 固定券 + 九五折 PERCENT 券），本地开箱即可体验完整结算；③ outbox 事件再落地三个：MKT-E004 库存释放（用户取消/自动关单）、MKT-E005 履约完成（确认收货/自动确认）、REC-E004 回收积分入账——公开事件实现数达 7/23。目录维持 175 条，121 测试全绿。
 
+### 修复批次（2026-10-25）
+
+> **状态：已完成（2026-10-25）**。自审发现并修复一个真实前端缺陷：共享层 `uploadImage` 走会话通道时被通用 `request()` 强设 `Content-Type: application/json`（破坏 multipart 边界）且把已解包的 envelope 当 Response 二次解析——真实模式下回收晒图/评价晒图上传必失败（demo 模式与后端测试均未暴露）。修复为专用 `uploader` 通道（session client 新增 `upload`：直连 fetch + token + 401 刷新一次，绝不设置 Content-Type），并以共享层测试锁定“无 JSON Content-Type + 单次解包”契约。另：再落两个公开事件（**IDN-E001 UserAuthenticated** 密码/注册/短信三入口、**REC-E001 RecycleOrderSubmitted**），公开事件实现数 **9/23**；admin 商品页补挂图入口；小程序补工单页。121 后端测试 + 25 前端测试全绿。
+
 ## 5. 风险与关键决策点（需确认）
 
 | # | 决策点 | 选项与建议 |

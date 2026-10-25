@@ -57,6 +57,7 @@ public class AuthApplicationService {
     private final AuthSessionService authSessionService;
     private final SecurityEventService securityEventService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.suno.mall.core.event.EventOutbox eventOutbox;
 
     @Value("${security.auth.jwt.expire-minutes:120}")
     private long accessTokenExpireMinutes;
@@ -73,7 +74,8 @@ public class AuthApplicationService {
             JwtEncoder jwtEncoder,
             AuthSessionService authSessionService,
             SecurityEventService securityEventService,
-            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder
+            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+            com.suno.mall.core.event.EventOutbox eventOutbox
     ) {
         this.userAccountRepository = userAccountRepository;
         this.authRefreshTokenRepository = authRefreshTokenRepository;
@@ -84,6 +86,7 @@ public class AuthApplicationService {
         this.authSessionService = authSessionService;
         this.securityEventService = securityEventService;
         this.passwordEncoder = passwordEncoder;
+        this.eventOutbox = eventOutbox;
     }
 
     @AuthTransactional
@@ -113,6 +116,8 @@ public class AuthApplicationService {
                 user.getUsername(),
                 "deviceId=" + normalizedDeviceId + ", role=" + user.getRoleCode()
         );
+        eventOutbox.publish(new com.suno.mall.identity.api.event.UserAuthenticated(
+                user.getUsername(), normalizedDeviceId, "REGISTER"));
         return result;
     }
 
@@ -149,6 +154,8 @@ public class AuthApplicationService {
                 usernameResolved,
                 "deviceId=" + normalizedDeviceId + ", role=" + role
         );
+        eventOutbox.publish(new com.suno.mall.identity.api.event.UserAuthenticated(
+                usernameResolved, normalizedDeviceId, "PASSWORD"));
         return result;
     }
 
@@ -215,6 +222,8 @@ public class AuthApplicationService {
         String normalizedDeviceId = normalizeDeviceId(deviceId);
         Map<String, Object> result = buildAndPersistTokens(user.getId(), user.getUsername(), user.getRoleCode(), normalizedDeviceId);
         logAction(ACTION_LOGIN_SUCCESS, user.getUsername(), "deviceId=" + normalizedDeviceId + ", via=sms");
+        eventOutbox.publish(new com.suno.mall.identity.api.event.UserAuthenticated(
+                user.getUsername(), normalizedDeviceId, "SMS"));
         return result;
     }
 
@@ -224,6 +233,8 @@ public class AuthApplicationService {
         String normalizedDeviceId = normalizeDeviceId(deviceId);
         Map<String, Object> result = buildAndPersistTokens(user.getId(), user.getUsername(), user.getRoleCode(), normalizedDeviceId);
         logAction(ACTION_LOGIN_SUCCESS, user.getUsername(), "deviceId=" + normalizedDeviceId + ", via=sms");
+        eventOutbox.publish(new com.suno.mall.identity.api.event.UserAuthenticated(
+                user.getUsername(), normalizedDeviceId, "SMS"));
         return result;
     }
 

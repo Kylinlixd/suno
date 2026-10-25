@@ -133,6 +133,8 @@ public class RecycleOrderService {
         updateUserPoints(user, points);
         eventOutbox.publish(new com.suno.mall.recycle.api.event.RecyclePointsPosted(
                 orderNo, user.getId(), points));
+        eventOutbox.publish(new com.suno.mall.recycle.api.event.RecycleOrderSubmitted(
+                orderNo, user.getId(), wearScore));
 
         return Map.ofEntries(
                 Map.entry("orderNo", orderNo),

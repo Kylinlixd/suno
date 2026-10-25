@@ -500,7 +500,7 @@ flowchart TD
   O --> E[UserAuthenticated v1]
 ```
 ### Gaps
-- targetPhase: 1；IDN-E001 为 absent，缺少事件类型、outbox、发布器和投递测试。
+- targetPhase: 1；已实现：UserAuthenticated v1（suno-identity api.event）在密码登录/注册即登录/短信登录成功后经 JpaEventOutbox 发布（via 区分来源），由 OPS-S002 派发；测试 `OutboxEventsWebTest#lifecycleEventsReachOutbox`。
 
 ## IDN-E002 RefreshSessionRotated v1
 
