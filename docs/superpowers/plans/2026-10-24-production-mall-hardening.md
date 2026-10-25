@@ -225,6 +225,10 @@
 
 > **状态：已完成（2026-10-25）**。自审发现后端从未配置 CORS——真实模式下前台（4173）/后台（4174）跨域调用 8080 会被浏览器全部拦截（demo 模式不走网络，一直未暴露）。新增 `CorsConfig`（白名单来源 `mall.cors.allowed-origins`，生产经 `WEB_ORIGINS` 注入；Bearer 认证故 allowCredentials=false；暴露 ETag/X-Request-Id）并接入 SecurityFilterChain，`CorsWebTest` 锁定"白名单放行/未知来源拒绝"契约。123 后端测试全绿。
 
+### 事件补全批次（2026-10-25）
+
+> **状态：已完成（2026-10-25）**。① **公开事件 16/23**：再落 7 个（MKT-E001 库存预留、MKT-E003 商城侧支付确认、MKT-E006 评价举报、REC-E002 审核完成、REC-E005 上架请求、PAY-E001 回调验签通过、PAY-E003 支付拒绝、IDN-E003 会话撤销），事件类全部落领域模块 api.event 包；② **dev 种子丰富化**：本地启动即有 5 个示例商品（iPhone/Sony/Leica/Aeron/MacBook）、5 条回收单、5 个在售 listing、2 笔订单（已支付已发货+待支付）、商品图库与积分流水——看板首屏即有数据；③ 修复 AuditContext 乱码 javadoc。123 测试全绿。
+
 ## 5. 风险与关键决策点（需确认）
 
 | # | 决策点 | 选项与建议 |

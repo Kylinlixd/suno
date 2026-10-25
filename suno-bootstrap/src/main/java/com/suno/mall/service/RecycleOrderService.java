@@ -243,6 +243,12 @@ public class RecycleOrderService {
         order.setStatus(nextStatus);
         recycleOrderRepository.save(order);
         auditLogService.logAction("RECYCLE_ORDER_TRANSITION", "RECYCLE_ORDER", orderNo, "action=" + action + ",status=" + nextStatus);
+        eventOutbox.publish(new com.suno.mall.recycle.api.event.RecycleAuditCompleted(
+                orderNo, action, order.getStatus(), nextStatus));
+        if ("LIST_ON_SHELF".equals(action)) {
+            eventOutbox.publish(new com.suno.mall.recycle.api.event.ResaleListingRequested(
+                    orderNo, order.getGrade(), order.getEstimatedPrice()));
+        }
         return Map.of(
                 "orderNo", order.getOrderNo(),
                 "grade", order.getGrade(),

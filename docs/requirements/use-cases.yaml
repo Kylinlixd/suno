@@ -1596,9 +1596,13 @@
 - <<: *identity_event
   id: IDN-E003
   eventType: SessionRevoked
+  implementationStatus: implemented
   requirementAnchor: idn-e003
   developmentAnchor: idn-e003-dev
-  currentSymbols: [AuthApplicationService#revokeAllSessions]
+  currentSymbols: [AuthApplicationService#logout, SessionRevoked#username]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
 - <<: *identity_event
   id: IDN-E004
   eventType: SecurityIncidentRaised
@@ -1639,9 +1643,13 @@
 - <<: *payment_event
   id: PAY-E003
   eventType: PaymentRejected
+  implementationStatus: implemented
   requirementAnchor: pay-e003
   developmentAnchor: pay-e003-dev
-  currentSymbols: [PaymentCallbackController#paymentCallback, PaymentSignatureService#verifyOrThrow]
+  currentSymbols: [PaymentCallbackController#paymentCallback, PaymentRejected#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
 - <<: *payment_event
   id: PAY-E004
   eventType: PaymentReplayDeadLettered
@@ -1673,9 +1681,13 @@
 - <<: *recycle_event
   id: REC-E002
   eventType: RecycleAuditCompleted
+  implementationStatus: implemented
   requirementAnchor: rec-e002
   developmentAnchor: rec-e002-dev
-  currentSymbols: [RecycleOrderService#transitionOrder]
+  currentSymbols: [RecycleOrderService#transitionOrder, RecycleAuditCompleted#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
   plannedTests:
     - test: RecycleEventContractTest#publishesRecycleAuditCompletedV1
       targetPhase: 4
@@ -1704,9 +1716,13 @@
 - <<: *recycle_event
   id: REC-E005
   eventType: ResaleListingRequested
+  implementationStatus: implemented
   requirementAnchor: rec-e005
   developmentAnchor: rec-e005-dev
-  currentSymbols: [RecycleOrderService#transitionOrder]
+  currentSymbols: [RecycleOrderService#transitionOrder, ResaleListingRequested#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
   plannedTests:
     - test: RecycleEventContractTest#publishesResaleListingRequestedV1ForMarketplace
       targetPhase: 4
@@ -1746,9 +1762,13 @@
 - <<: *marketplace_event
   id: MKT-E003
   eventType: MarketplacePaymentAccepted
+  implementationStatus: implemented
   requirementAnchor: mkt-e003
   developmentAnchor: mkt-e003-dev
-  currentSymbols: [ResaleOrderService#markResaleOrderPaidWithIdempotency]
+  currentSymbols: [ResaleOrderService#markResaleOrderPaidWithIdempotency, MarketplacePaymentAccepted#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
 - <<: *marketplace_event
   id: MKT-E004
   eventType: MarketplaceStockReleased
@@ -1772,9 +1792,13 @@
 - <<: *marketplace_event
   id: MKT-E006
   eventType: MarketplaceReviewReported
+  implementationStatus: implemented
   requirementAnchor: mkt-e006
   developmentAnchor: mkt-e006-dev
-  currentSymbols: [ResaleReviewService#reportResaleReview]
+  currentSymbols: [ResaleReviewService#reportResaleReview, MarketplaceReviewReported#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
 - &operations_event
   id: OPS-E001
   kind: EVENT

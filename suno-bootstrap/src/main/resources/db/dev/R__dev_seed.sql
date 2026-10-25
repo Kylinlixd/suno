@@ -170,3 +170,113 @@ INSERT INTO suno_coupon
     (name, coupon_type, discount_value, min_order_amount, total_count, remaining_count, per_user_limit, start_time, end_time, status, created_at)
 SELECT '循环生活九五折', 'PERCENT', 5.00, 200.00, 500, 500, 2, CURRENT_TIMESTAMP, DATEADD('MONTH', 2, CURRENT_TIMESTAMP), 'ACTIVE', CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM suno_coupon WHERE name = '循环生活九五折');
+
+-- ==================== P3 演示数据丰富化 ====================
+-- 本地启动即有完整可浏览/可下单/可看板的数据（幂等，已有则跳过）。
+-- 注意：走 SQL 直插，绕过服务端估价/审核逻辑——仅限 dev 种子。
+
+-- 示例商品（复用分类 id 1=手机 4=影音数码）
+INSERT INTO suno_product (sn_code, brand, model, production_date, image_url, wear_score, recycle_grade, estimated_recycle_price, category_id)
+SELECT 'SN-DEMO-P01', 'Apple', 'iPhone 14 Pro', DATE '2023-09-15', 'https://cdn.suno.dev/iphone14pro.jpg', 92, 'GOOD', 5800.00, 1
+WHERE NOT EXISTS (SELECT 1 FROM suno_product WHERE sn_code = 'SN-DEMO-P01');
+
+INSERT INTO suno_product (sn_code, brand, model, production_date, image_url, wear_score, recycle_grade, estimated_recycle_price, category_id)
+SELECT 'SN-DEMO-P02', 'Sony', 'WH-1000XM5', DATE '2023-06-01', 'https://cdn.suno.dev/sony-xm5.jpg', 88, 'GOOD', 1500.00, 4
+WHERE NOT EXISTS (SELECT 1 FROM suno_product WHERE sn_code = 'SN-DEMO-P02');
+
+INSERT INTO suno_product (sn_code, brand, model, production_date, image_url, wear_score, recycle_grade, estimated_recycle_price, category_id)
+SELECT 'SN-DEMO-P03', 'Leica', 'Q2 Monochrom', DATE '2022-11-01', 'https://cdn.suno.dev/leica-q2.jpg', 85, 'MEDIUM', 24800.00, 4
+WHERE NOT EXISTS (SELECT 1 FROM suno_product WHERE sn_code = 'SN-DEMO-P03');
+
+INSERT INTO suno_product (sn_code, brand, model, production_date, image_url, wear_score, recycle_grade, estimated_recycle_price, category_id)
+SELECT 'SN-DEMO-P04', 'Herman Miller', 'Aeron Remastered', DATE '2022-01-15', 'https://cdn.suno.dev/aeron.jpg', 78, 'MEDIUM', 3299.00, 5
+WHERE NOT EXISTS (SELECT 1 FROM suno_product WHERE sn_code = 'SN-DEMO-P04');
+
+INSERT INTO suno_product (sn_code, brand, model, production_date, image_url, wear_score, recycle_grade, estimated_recycle_price, category_id)
+SELECT 'SN-DEMO-P05', 'Apple', 'MacBook Pro 14 M3', DATE '2023-11-01', 'https://cdn.suno.dev/macbook14.jpg', 95, 'GOOD', 12800.00, 2
+WHERE NOT EXISTS (SELECT 1 FROM suno_product WHERE sn_code = 'SN-DEMO-P05');
+
+-- 示例回收单（状态 LISTED → 可发布二销 listing）
+INSERT INTO suno_recycle_order (order_no, user_id, product_id, estimated_price, grade, status, created_at)
+SELECT 'RCY-DEMO-P01', 1001, (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P01'), 5800.00, 'GOOD', 'LISTED', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P01');
+
+INSERT INTO suno_recycle_order (order_no, user_id, product_id, estimated_price, grade, status, created_at)
+SELECT 'RCY-DEMO-P02', 1002, (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P02'), 1500.00, 'GOOD', 'LISTED', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P02');
+
+INSERT INTO suno_recycle_order (order_no, user_id, product_id, estimated_price, grade, status, created_at)
+SELECT 'RCY-DEMO-P03', 1001, (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P03'), 24800.00, 'MEDIUM', 'LISTED', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P03');
+
+INSERT INTO suno_recycle_order (order_no, user_id, product_id, estimated_price, grade, status, created_at)
+SELECT 'RCY-DEMO-P04', 1002, (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P04'), 3299.00, 'MEDIUM', 'LISTED', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P04');
+
+INSERT INTO suno_recycle_order (order_no, user_id, product_id, estimated_price, grade, status, created_at)
+SELECT 'RCY-DEMO-P05', 1001, (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P05'), 12800.00, 'GOOD', 'LISTED', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P05');
+
+-- 示例二销 listing（ON_SHELF 可浏览可下单）
+INSERT INTO suno_resale_listing (recycle_order_id, product_id, sale_price, stock, status, created_at, updated_at, version)
+SELECT (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P01'),
+       (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P01'),
+       6499.00, 1, 'ON_SHELF', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_listing WHERE recycle_order_id = (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P01'));
+
+INSERT INTO suno_resale_listing (recycle_order_id, product_id, sale_price, stock, status, created_at, updated_at, version)
+SELECT (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P02'),
+       (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P02'),
+       1899.00, 1, 'ON_SHELF', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_listing WHERE recycle_order_id = (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P02'));
+
+INSERT INTO suno_resale_listing (recycle_order_id, product_id, sale_price, stock, status, created_at, updated_at, version)
+SELECT (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P03'),
+       (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P03'),
+       26800.00, 1, 'ON_SHELF', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_listing WHERE recycle_order_id = (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P03'));
+
+INSERT INTO suno_resale_listing (recycle_order_id, product_id, sale_price, stock, status, created_at, updated_at, version)
+SELECT (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P04'),
+       (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P04'),
+       3599.00, 2, 'ON_SHELF', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_listing WHERE recycle_order_id = (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P04'));
+
+INSERT INTO suno_resale_listing (recycle_order_id, product_id, sale_price, stock, status, created_at, updated_at, version)
+SELECT (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P05'),
+       (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P05'),
+       13999.00, 1, 'ON_SHELF', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_listing WHERE recycle_order_id = (SELECT id FROM suno_recycle_order WHERE order_no = 'RCY-DEMO-P05'));
+
+-- 示例商品图库（iPhone 多图）
+INSERT INTO suno_product_image (product_id, image_url, sort_order, image_type, created_at)
+SELECT (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P01'), 'https://cdn.suno.dev/iphone14pro-back.jpg', 1, 'PRODUCT', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_product_image WHERE product_id = (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P01') AND image_url = 'https://cdn.suno.dev/iphone14pro-back.jpg');
+
+INSERT INTO suno_product_image (product_id, image_url, sort_order, image_type, created_at)
+SELECT (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P01'), 'https://cdn.suno.dev/iphone14pro-side.jpg', 2, 'PRODUCT', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_product_image WHERE product_id = (SELECT id FROM suno_product WHERE sn_code = 'SN-DEMO-P01') AND image_url = 'https://cdn.suno.dev/iphone14pro-side.jpg');
+
+-- 示例订单（bob 买 iPhone：已支付已发货）
+INSERT INTO suno_resale_order (order_no, buyer_user_id, listing_id, amount, pay_status, fulfill_status, created_at, receiver_name, receiver_phone, receiver_address, discount_amount, payable_amount, pay_channel, paid_at, tracking_no)
+SELECT 'B2C-DEMO0001', 1002,
+       (SELECT l.id FROM suno_resale_listing l JOIN suno_recycle_order r ON l.recycle_order_id = r.id WHERE r.order_no = 'RCY-DEMO-P01'),
+       6499.00, 'PAID', 'DELIVERED', CURRENT_TIMESTAMP,
+       '李循环', '13900139000', '上海市 上海市 浦东新区 世纪大道 100 号', 0, 6499.00, 'MOCK', CURRENT_TIMESTAMP, 'SF1468209381'
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_order WHERE order_no = 'B2C-DEMO0001');
+
+-- 示例订单（bob 买耳机：待支付）
+INSERT INTO suno_resale_order (order_no, buyer_user_id, listing_id, amount, pay_status, fulfill_status, created_at, discount_amount, payable_amount)
+SELECT 'B2C-DEMO0002', 1002,
+       (SELECT l.id FROM suno_resale_listing l JOIN suno_recycle_order r ON l.recycle_order_id = r.id WHERE r.order_no = 'RCY-DEMO-P02'),
+       1899.00, 'UNPAID', 'WAIT_PAY', CURRENT_TIMESTAMP, 0, 1899.00
+WHERE NOT EXISTS (SELECT 1 FROM suno_resale_order WHERE order_no = 'B2C-DEMO0002');
+
+-- 示例积分流水
+INSERT INTO suno_points_ledger (user_id, points_delta, reason, created_at)
+SELECT 1001, 580, 'RECYCLE_ORDER:RCY-DEMO-P01', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_points_ledger WHERE reason = 'RECYCLE_ORDER:RCY-DEMO-P01');
+
+INSERT INTO suno_points_ledger (user_id, points_delta, reason, created_at)
+SELECT 1001, 1280, 'RECYCLE_ORDER:RCY-DEMO-P05', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_points_ledger WHERE reason = 'RECYCLE_ORDER:RCY-DEMO-P05');

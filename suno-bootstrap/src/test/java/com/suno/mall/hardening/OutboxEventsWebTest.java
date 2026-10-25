@@ -100,6 +100,10 @@ class OutboxEventsWebTest {
         assertTrue(published.contains("REC-E004"), "回收积分入账应发布 REC-E004");
         assertTrue(published.contains("REC-E001"), "回收提交应发布 REC-E001");
         assertTrue(published.contains("IDN-E001"), "注册即登录应发布 IDN-E001");
+        assertTrue(published.contains("MKT-E001"), "下单应发布 MKT-E001 库存预留");
+        assertTrue(published.contains("MKT-E003"), "支付应发布 MKT-E003 商城侧确认");
+        assertTrue(published.contains("REC-E002"), "审核应发布 REC-E002");
+        assertTrue(published.contains("REC-E005"), "上架应发布 REC-E005");
         assertTrue(published.contains("MKT-E004"), "取消订单应发布 MKT-E004");
         assertTrue(published.contains("MKT-E005"), "确认收货应发布 MKT-E005");
 

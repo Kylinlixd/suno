@@ -182,6 +182,8 @@ public class ResaleOrderService {
                 order.getId(), "RESALE_ORDER");
         eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceOrderCreated(
                 orderNo, buyerUserId, String.valueOf(order.getPayableAmount())));
+        eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceStockReserved(
+                orderNo, listingId, 1));
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderNo", order.getOrderNo());
@@ -309,6 +311,8 @@ public class ResaleOrderService {
         paymentIdempotencyRepository.save(record);
         eventOutbox.publish(new com.suno.mall.payment.api.event.PaymentApplied(
                 orderNo, idempotencyKey, String.valueOf(paidResult.get("payStatus"))));
+        eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplacePaymentAccepted(
+                orderNo, idempotencyKey));
         return Map.of("orderNo", paidResult.get("orderNo"), "payStatus", paidResult.get("payStatus"),
                 "fulfillStatus", paidResult.get("fulfillStatus"), "idempotentReplay", false);
     }

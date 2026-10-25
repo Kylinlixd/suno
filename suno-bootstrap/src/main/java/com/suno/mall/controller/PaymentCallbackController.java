@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/payment")
 public class PaymentCallbackController {
 
+    private final com.suno.mall.core.event.EventOutbox eventOutbox;
     private final PaymentSignatureService paymentSignatureService;
     private final RecycleApplicationService recycleApplicationService;
 
@@ -33,7 +34,8 @@ public class PaymentCallbackController {
     public PaymentCallbackController(
             PaymentSignatureService paymentSignatureService,
             RecycleApplicationService recycleApplicationService
-    ) {
+    , com.suno.mall.core.event.EventOutbox eventOutbox) {
+        this.eventOutbox = eventOutbox;
         this.paymentSignatureService = paymentSignatureService;
         this.recycleApplicationService = recycleApplicationService;
     }
@@ -60,6 +62,8 @@ public class PaymentCallbackController {
                 responseBody = getResponseBody("IGNORED", "payStatus not success", responseIgnoredText);
                 return buildCallbackResponse(responseBody);
             }
+            eventOutbox.publish(new com.suno.mall.payment.api.event.PaymentCallbackVerified(
+                    request.orderNo(), request.idempotencyKey(), request.payStatus()));
             recycleApplicationService.markResaleOrderPaidWithIdempotency(
                     request.orderNo(),
                     request.idempotencyKey()
@@ -69,6 +73,8 @@ public class PaymentCallbackController {
             return buildCallbackResponse(responseBody);
         } catch (RuntimeException ex) {
             errorMessage = ex.getMessage();
+            eventOutbox.publish(new com.suno.mall.payment.api.event.PaymentRejected(
+                    request.orderNo(), ex.getMessage() == null ? "unknown" : ex.getMessage()));
             responseBody = getResponseBody("FAIL", ex.getMessage(), "fail");
             return buildCallbackResponse(responseBody);
         } finally {

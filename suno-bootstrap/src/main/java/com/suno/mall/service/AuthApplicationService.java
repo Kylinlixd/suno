@@ -284,6 +284,8 @@ public class AuthApplicationService {
         }
         authTokenBlacklistRepository.deleteByExpireAtBefore(LocalDateTime.now());
         logAction(ACTION_LOGOUT, jwt.getSubject(), "hasRefreshToken=" + (refreshToken != null && !refreshToken.isBlank()));
+        eventOutbox.publish(new com.suno.mall.identity.api.event.SessionRevoked(
+                jwt.getSubject(), "self", "LOGOUT"));
         Map<String, Object> result = new HashMap<>();
         result.put("loggedOut", true);
         result.put("blacklisted", jwt.getId() != null);

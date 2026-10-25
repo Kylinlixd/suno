@@ -63,6 +63,7 @@ public class ResaleReviewService {
     private int reviewAppendWindowDays;
     private volatile LocalDateTime reviewStrategyUpdatedAt = LocalDateTime.of(2026, 4, 28, 23, 26, 0);
 
+    private final com.suno.mall.core.event.EventOutbox eventOutbox;
     private final ResaleReviewRepository resaleReviewRepository;
     private final ResaleReviewVoteRepository resaleReviewVoteRepository;
     private final ResaleReviewReportRepository resaleReviewReportRepository;
@@ -79,7 +80,8 @@ public class ResaleReviewService {
             UserAccountRepository userAccountRepository,
             AuditLogService auditLogService,
             ObjectMapper objectMapper
-    ) {
+    , com.suno.mall.core.event.EventOutbox eventOutbox) {
+        this.eventOutbox = eventOutbox;
         this.resaleReviewRepository = resaleReviewRepository;
         this.resaleReviewVoteRepository = resaleReviewVoteRepository;
         this.resaleReviewReportRepository = resaleReviewReportRepository;
