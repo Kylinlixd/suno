@@ -51,6 +51,8 @@ springdoc:
   paths-to-match: /api/**
 
 mall:
+  cors:
+    allowed-origins: ${WEB_ORIGINS:http://localhost:4173,http://localhost:4174}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     limit: ${RATE_LIMIT_LIMIT:60}
