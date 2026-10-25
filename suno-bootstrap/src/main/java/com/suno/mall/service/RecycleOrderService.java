@@ -50,6 +50,7 @@ public class RecycleOrderService {
     private final PointsLedgerRepository pointsLedgerRepository;
     private final CategoryRepository categoryRepository;
     private final MemberLevelService memberLevelService;
+    private final com.suno.mall.core.event.EventOutbox eventOutbox;
     private final AuditLogService auditLogService;
 
     public RecycleOrderService(
@@ -65,6 +66,7 @@ public class RecycleOrderService {
             PointsLedgerRepository pointsLedgerRepository,
             CategoryRepository categoryRepository,
             MemberLevelService memberLevelService,
+            com.suno.mall.core.event.EventOutbox eventOutbox,
             AuditLogService auditLogService
     ) {
         this.aiAuditService = aiAuditService;
@@ -79,6 +81,7 @@ public class RecycleOrderService {
         this.pointsLedgerRepository = pointsLedgerRepository;
         this.categoryRepository = categoryRepository;
         this.memberLevelService = memberLevelService;
+        this.eventOutbox = eventOutbox;
         this.auditLogService = auditLogService;
     }
 
@@ -128,6 +131,8 @@ public class RecycleOrderService {
 
         // 使用独立事务更新用户积分
         updateUserPoints(user, points);
+        eventOutbox.publish(new com.suno.mall.recycle.api.event.RecyclePointsPosted(
+                orderNo, user.getId(), points));
 
         return Map.ofEntries(
                 Map.entry("orderNo", orderNo),

@@ -1678,9 +1678,13 @@
 - <<: *recycle_event
   id: REC-E004
   eventType: RecyclePointsPosted
+  implementationStatus: implemented
   requirementAnchor: rec-e004
   developmentAnchor: rec-e004-dev
-  currentSymbols: [RecycleOrderService#createRecycleOrder, PointsService#calculateRecyclePoints]
+  currentSymbols: [RecycleOrderService#createRecycleOrder, RecyclePointsPosted#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
   plannedTests:
     - test: RecycleEventContractTest#publishesRecyclePointsPostedV1Idempotently
       targetPhase: 4
@@ -1735,15 +1739,23 @@
 - <<: *marketplace_event
   id: MKT-E004
   eventType: MarketplaceStockReleased
+  implementationStatus: implemented
   requirementAnchor: mkt-e004
   developmentAnchor: mkt-e004-dev
-  currentSymbols: [ResaleOrderService#cancelUnpaidResaleOrder]
+  currentSymbols: [ResaleOrderService#cancelUnpaidResaleOrder, MarketplaceStockReleased#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
 - <<: *marketplace_event
   id: MKT-E005
   eventType: MarketplaceFulfillmentCompleted
+  implementationStatus: implemented
   requirementAnchor: mkt-e005
   developmentAnchor: mkt-e005-dev
-  currentSymbols: [ResaleOrderService#confirmResaleOrderReceipt]
+  currentSymbols: [ResaleOrderService#confirmResaleOrderReceipt, MarketplaceFulfillmentCompleted#orderNo]
+  plannedTests: []
+  implementedTests:
+    - OutboxEventsWebTest#lifecycleEventsReachOutbox
 - <<: *marketplace_event
   id: MKT-E006
   eventType: MarketplaceReviewReported

@@ -159,3 +159,14 @@ INSERT INTO suno_operation_audit_log
 SELECT 2, 'UPDATE', 'RECYCLE_ORDER', '2', '回收订单RC-20250102-002状态变更为COMPLETED',
        '2025-01-02 14:30:00'
 WHERE NOT EXISTS (SELECT 1 FROM suno_operation_audit_log WHERE id = 2);
+
+-- M2 本地演示满减券：dev 环境开箱即可体验完整结算（领取 → 下单核销）。
+INSERT INTO suno_coupon
+    (name, coupon_type, discount_value, min_order_amount, total_count, remaining_count, per_user_limit, start_time, end_time, status, created_at)
+SELECT '新手满 500 减 50', 'FIXED', 50.00, 500.00, 1000, 1000, 1, CURRENT_TIMESTAMP, DATEADD('MONTH', 3, CURRENT_TIMESTAMP), 'ACTIVE', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_coupon WHERE name = '新手满 500 减 50');
+
+INSERT INTO suno_coupon
+    (name, coupon_type, discount_value, min_order_amount, total_count, remaining_count, per_user_limit, start_time, end_time, status, created_at)
+SELECT '循环生活九五折', 'PERCENT', 5.00, 200.00, 500, 500, 2, CURRENT_TIMESTAMP, DATEADD('MONTH', 2, CURRENT_TIMESTAMP), 'ACTIVE', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM suno_coupon WHERE name = '循环生活九五折');

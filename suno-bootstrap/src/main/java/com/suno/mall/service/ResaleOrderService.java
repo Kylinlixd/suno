@@ -370,6 +370,8 @@ public class ResaleOrderService {
         auditLogService.logAction("RESALE_ORDER_RECEIVE", "RESALE_ORDER", orderNo, "fulfillStatus=COMPLETED,buyerUserId=" + buyerUserId);
         notificationService.push(buyerUserId, "ORDER_COMPLETED", "订单已完成",
                 "订单 " + orderNo + " 已确认收货，欢迎评价这次的循环之旅。", order.getId(), "RESALE_ORDER");
+        eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceFulfillmentCompleted(
+                orderNo, buyerUserId));
         return Map.of("orderNo", orderNo, "buyerUserId", buyerUserId, "payStatus", "PAID", "fulfillStatus", "COMPLETED");
     }
 
@@ -399,6 +401,8 @@ public class ResaleOrderService {
         auditLogService.logAction("RESALE_ORDER_CANCEL", "RESALE_ORDER", orderNo, "fulfillStatus=CANCELLED,buyerUserId=" + buyerUserId);
         notificationService.push(buyerUserId, "ORDER_CANCELLED", "订单已取消",
                 "订单 " + orderNo + " 已取消，库存与优惠券已退回。", order.getId(), "RESALE_ORDER");
+        eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceStockReleased(
+                orderNo, order.getListing().getId(), "USER_CANCEL"));
         return Map.of("orderNo", orderNo, "payStatus", "UNPAID", "fulfillStatus", "CANCELLED");
     }
 
@@ -670,6 +674,8 @@ public class ResaleOrderService {
                 auditLogService.logAction("RESALE_ORDER_AUTO_CLOSE", "RESALE_ORDER", order.getOrderNo(), "expireMinutes=" + expireMinutes);
                 notificationService.push(order.getBuyerUser().getId(), "ORDER_AUTO_CLOSED", "订单超时未支付已关闭",
                         "订单 " + order.getOrderNo() + " 超时未支付已自动关闭，库存与优惠券已退回。", order.getId(), "RESALE_ORDER");
+                eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceStockReleased(
+                        order.getOrderNo(), order.getListing().getId(), "AUTO_CLOSE"));
                 closedCount++;
                 roundClosed++;
             }
@@ -694,6 +700,8 @@ public class ResaleOrderService {
                 if (updated == 0) continue;
                 auditLogService.logAction("RESALE_ORDER_AUTO_RECEIVE", "RESALE_ORDER", order.getOrderNo(),
                         "confirmAfterMinutes=" + confirmAfterMinutes + auditLogService.buildAuditContextSuffix(auditContext));
+                eventOutbox.publish(new com.suno.mall.marketplace.api.event.MarketplaceFulfillmentCompleted(
+                        order.getOrderNo(), order.getBuyerUser().getId()));
                 confirmedCount++;
                 roundConfirmed++;
             }
