@@ -987,7 +987,7 @@ flowchart TD
 
 ## OPS-060 经营报表总览
 
-管理员读取经营总览：订单/支付/完成/退款计数、退款率、GMV（按应付口径）、回收单量与近 N 日（默认 14，上限 90）逐日订单/支付趋势。当前为应用内聚合。实现测试：`AdminConsoleWebTest#reportOverviewAggregatesAndTrends`。
+管理员读取经营总览（时间切片 N 日，默认 14、上限 90）：订单/支付/完成/退款计数、退款率、GMV 与客单价（应付口径）、上一周期环比（previous/delta）、下单→支付→完成→退款漏斗、回收维度（总量/上架率/估价总额）、券维度（领取/核销/核销率）、用户维度（总量/活跃买家）与逐日趋势。聚合全部下推数据库（count/sum/group by 日历日）。实现测试：`AdminConsoleWebTest#reportOverviewAggregatesAndTrends`。
 
 ### Requirement flow {#ops-060}
 ```mermaid
@@ -1010,7 +1010,7 @@ flowchart TD
   H --> P[Pre-aggregated read model]
 ```
 ### Gaps
-- targetPhase: 5；全量拉取内存聚合，数据量大后应落预聚合表/物化视图。
+- targetPhase: 5；聚合已下推 SQL；超大规模仍建议预聚合表/物化视图与缓存。
 
 ## OPS-070 提交客服工单
 
@@ -1138,3 +1138,28 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 5；投递目标为日志（无外部订阅方）；无死信与退避。
+
+## OPS-061 报表 CSV 导出
+
+管理员按时间切片导出经营汇总 CSV（与 OPS-060 同口径：订单/GMV/客单价/回收/券核销/用户），`report-overview.csv`。实现测试：`AdminConsoleWebTest#reportOverviewAggregatesAndTrends`。
+
+### Requirement flow {#ops-061}
+```mermaid
+flowchart TD
+  A[ADMIN + trendDays] --> R[overview 同口径聚合] --> C[CSV] --> F[文件下载]
+```
+### Current development flow {#ops-061-dev}
+```mermaid
+sequenceDiagram
+  participant C as AdminCouponController#exportReport
+  participant S as AdminReportService#exportCsv
+  C->>S: trendDays
+  S-->>C: text/csv
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[Admin HTTP adapter] --> H[Export handler] --> P[Report port]
+```
+### Gaps
+- targetPhase: 5；同步导出，超大数据量应改异步导出任务。

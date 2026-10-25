@@ -188,6 +188,7 @@ OPS-051|GET|/api/notifications/unread-count|Operations
 OPS-052|POST|/api/notifications/{notificationId}/read|Operations
 OPS-053|POST|/api/notifications/read-all|Operations
 OPS-060|GET|/api/admin/reports/overview|Operations
+OPS-061|GET|/api/admin/reports/export|Operations
 OPS-070|POST|/api/support/tickets|Operations
 OPS-071|GET|/api/support/tickets/my|Operations
 OPS-072|GET|/api/admin/support/tickets|Operations
@@ -213,14 +214,14 @@ OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(175, catalog.size());
+        assertEquals(176, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
                 () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
-        assertEquals(142, http.size());
+        assertEquals(143, http.size());
         assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
@@ -250,7 +251,7 @@ OPS-S002|EventOutboxDispatcher#dispatchPending|operations.event-outbox.dispatch-
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 36L, 10, 31L, 11, 11L, 12, 68L, 13, 29L), catalog.stream()
+        assertEquals(Map.of(9, 36L, 10, 31L, 11, 11L, 12, 68L, 13, 30L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 

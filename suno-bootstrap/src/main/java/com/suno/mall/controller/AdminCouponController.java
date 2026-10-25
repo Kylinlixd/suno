@@ -54,6 +54,14 @@ public class AdminCouponController {
         return ApiResponse.ok(couponService.adminDisableCoupon(couponId));
     }
 
+    @GetMapping("/reports/export")
+    public org.springframework.http.ResponseEntity<String> exportReport(@RequestParam(required = false) Integer trendDays) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=report-overview.csv")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(adminReportService.exportCsv(trendDays));
+    }
+
     @GetMapping("/reports/overview")
     public ApiResponse<Map<String, Object>> reportOverview(@RequestParam(required = false) Integer trendDays) {
         return ApiResponse.ok(adminReportService.overview(trendDays));

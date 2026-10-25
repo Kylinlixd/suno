@@ -24,6 +24,21 @@ public interface CouponUserRepository extends JpaRepository<CouponUserEntity, Lo
 
     Optional<CouponUserEntity> findByOrderId(Long orderId);
 
+    // ==================== P3 报表聚合 ====================
+
+    @Query("""
+            SELECT count(cu) FROM CouponUserEntity cu
+            WHERE cu.createdAt >= :start AND (:end IS NULL OR cu.createdAt < :end)
+            """)
+    long countInWindow(@Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
+    @Query("""
+            SELECT count(cu) FROM CouponUserEntity cu
+            WHERE cu.createdAt >= :start AND (:end IS NULL OR cu.createdAt < :end) AND cu.status = :status
+            """)
+    long countByStatusInWindow(@Param("status") String status,
+                               @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
     /** P1 到期提醒：UNUSED、3 天内过期且未提醒过的券 */
     @Query("""
             SELECT cu FROM CouponUserEntity cu LEFT JOIN FETCH cu.coupon LEFT JOIN FETCH cu.user

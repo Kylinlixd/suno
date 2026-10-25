@@ -1368,6 +1368,19 @@
   implementedTests:
     - AdminConsoleWebTest#reportOverviewAggregatesAndTrends
 - <<: *operations_http
+  id: OPS-061
+  method: GET
+  path: /api/admin/reports/export
+  actor: administrator
+  permission: administrator
+  requirementAnchor: ops-061
+  developmentAnchor: ops-061-dev
+  implementationStatus: implemented
+  currentSymbols: [AdminCouponController#exportReport, AdminReportService#exportCsv]
+  plannedTests: []
+  implementedTests:
+    - AdminConsoleWebTest#reportOverviewAggregatesAndTrends
+- <<: *operations_http
   id: OPS-070
   method: POST
   path: /api/support/tickets

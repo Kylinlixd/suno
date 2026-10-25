@@ -125,6 +125,51 @@ public interface ResaleOrderRepository extends JpaRepository<ResaleOrderEntity, 
             """)
     int refundIfPaid(@Param("orderNo") String orderNo);
 
+    // ==================== P3 报表聚合下推（窗口 [start, end)，end null 开区间） ====================
+
+    @Query("""
+            SELECT count(o) FROM ResaleOrderEntity o
+            WHERE o.createdAt >= :start AND (:end IS NULL OR o.createdAt < :end)
+            """)
+    long countInWindow(@Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
+    @Query("""
+            SELECT count(o) FROM ResaleOrderEntity o
+            WHERE o.createdAt >= :start AND (:end IS NULL OR o.createdAt < :end) AND o.payStatus IN :statuses
+            """)
+    long countByPayStatusInWindow(@Param("statuses") java.util.Collection<String> statuses,
+                                  @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
+    @Query("""
+            SELECT count(o) FROM ResaleOrderEntity o
+            WHERE o.createdAt >= :start AND (:end IS NULL OR o.createdAt < :end) AND o.fulfillStatus = :status
+            """)
+    long countByFulfillStatusInWindow(@Param("status") String status,
+                                      @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
+    @Query("""
+            SELECT coalesce(sum(o.payableAmount), 0) FROM ResaleOrderEntity o
+            WHERE o.createdAt >= :start AND (:end IS NULL OR o.createdAt < :end) AND o.payStatus IN :statuses
+            """)
+    java.math.BigDecimal sumPayableInWindow(@Param("statuses") java.util.Collection<String> statuses,
+                                            @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
+    @Query("""
+            SELECT count(DISTINCT o.buyerUser.id) FROM ResaleOrderEntity o
+            WHERE o.createdAt >= :start AND (:end IS NULL OR o.createdAt < :end)
+            """)
+    long countDistinctBuyersInWindow(@Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
+    /** 按日历日分组：订单数与支付数（H2/MySQL 均支持 function('date', ...)） */
+    @Query("""
+            SELECT function('date', o.createdAt), count(o),
+                   sum(CASE WHEN o.payStatus IN ('PAID', 'REFUNDED') THEN 1 ELSE 0 END)
+            FROM ResaleOrderEntity o
+            WHERE o.createdAt >= :start
+            GROUP BY function('date', o.createdAt)
+            """)
+    java.util.List<Object[]> dailySeries(@Param("start") java.time.LocalDateTime start);
+
     /**
      * M3 支付渠道回填：仅 PAID 订单可回填，幂等（重复通知覆盖同一渠道信息）。
      */
