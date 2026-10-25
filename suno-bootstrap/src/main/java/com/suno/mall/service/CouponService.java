@@ -199,9 +199,12 @@ public class CouponService {
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
     public List<Map<String, Object>> adminListCoupons(String status) {
-        return couponRepository.findAll().stream()
-                .filter(coupon -> status == null || status.isBlank() || status.equals(coupon.getStatus()))
-                .sorted(java.util.Comparator.comparing(CouponEntity::getId).reversed())
+        var pageable = PageRequest.of(0, 200, org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "id"));
+        var page = (status == null || status.isBlank())
+                ? couponRepository.findAll(pageable)
+                : couponRepository.findByStatus(status, pageable);
+        return page.getContent().stream()
                 .map(coupon -> {
                     Map<String, Object> row = new HashMap<>(toCouponSummary(coupon));
                     row.put("totalCount", coupon.getTotalCount());

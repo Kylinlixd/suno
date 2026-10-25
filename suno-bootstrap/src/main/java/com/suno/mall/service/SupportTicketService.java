@@ -84,12 +84,13 @@ public class SupportTicketService {
     public Map<String, Object> adminPage(String status, Integer page, Integer size) {
         int safePage = page == null || page < 0 ? 0 : page;
         int safeSize = size == null || size < 1 ? 20 : Math.min(size, 100);
-        List<SupportTicketEntity> all = supportTicketRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
-                .filter(ticket -> status == null || status.isBlank() || status.equals(ticket.getStatus()))
-                .toList();
-        List<Map<String, Object>> content = all.stream().skip((long) safePage * safeSize).limit(safeSize)
+        var pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        var result = (status == null || status.isBlank())
+                ? supportTicketRepository.findAll(pageable)
+                : supportTicketRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+        List<Map<String, Object>> content = result.getContent().stream()
                 .map(SupportTicketService::toRow).toList();
-        return pageOf(content, all.size(), safePage, safeSize);
+        return pageOf(content, result.getTotalElements(), safePage, safeSize);
     }
 
     @Transactional

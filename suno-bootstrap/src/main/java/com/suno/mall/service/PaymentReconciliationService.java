@@ -43,7 +43,8 @@ public class PaymentReconciliationService {
                 (root, query, builder) -> builder.or(
                         builder.equal(root.get("payStatus"), "PAID"),
                         builder.equal(root.get("payStatus"), "REFUNDED")));
-        Set<String> successCallbackOrderNos = paymentCallbackLogRepository.findAll().stream()
+        Set<String> successCallbackOrderNos = paymentCallbackLogRepository
+                .findByCreatedAtAfter(java.time.LocalDateTime.now().minusHours(24)).stream()
                 .filter(entry -> "SUCCESS".equalsIgnoreCase(entry.getCallbackStatus()))
                 .map(PaymentCallbackLogEntity::getOrderNo)
                 .collect(Collectors.toSet());

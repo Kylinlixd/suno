@@ -15,5 +15,7 @@ public interface RefundOrderRepository extends JpaRepository<RefundOrderEntity, 
 
     Optional<RefundOrderEntity> findFirstByResaleOrderIdAndStatusOrderByCreatedAtDesc(Long resaleOrderId, String status);
 
+    org.springframework.data.domain.Page<RefundOrderEntity> findByStatusOrderByCreatedAtDesc(String status, org.springframework.data.domain.Pageable pageable);
+
     boolean existsByResaleOrderIdAndStatusIn(Long resaleOrderId, java.util.Collection<String> statuses);
 }

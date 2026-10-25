@@ -13,6 +13,8 @@ public interface CouponRepository extends JpaRepository<CouponEntity, Long> {
 
     List<CouponEntity> findByStatusAndEndTimeAfterOrderByEndTimeAsc(String status, LocalDateTime now);
 
+    org.springframework.data.domain.Page<CouponEntity> findByStatus(String status, org.springframework.data.domain.Pageable pageable);
+
     /** 原子扣减一张券的库存；不足或停用返回 0，配合 per-user 领取上限使用 */
     @Modifying(flushAutomatically = true)
     @Query("""

@@ -146,12 +146,12 @@ public class RefundService {
     public Map<String, Object> adminPageRefunds(String status, Integer page, Integer size) {
         int safePage = page == null || page < 0 ? 0 : page;
         int safeSize = size == null || size < 1 ? 20 : Math.min(size, 100);
-        var all = refundOrderRepository.findAll(org.springframework.data.domain.Sort.by(
+        var pageable = PageRequest.of(safePage, safeSize, org.springframework.data.domain.Sort.by(
                 org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
-        var filtered = all.stream()
-                .filter(refund -> status == null || status.isBlank() || status.equals(refund.getStatus()))
-                .toList();
-        var content = filtered.stream().skip((long) safePage * safeSize).limit(safeSize).map(refund -> {
+        var page_ = (status == null || status.isBlank())
+                ? refundOrderRepository.findAll(pageable)
+                : refundOrderRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+        var content = page_.getContent().stream().map(refund -> {
             Map<String, Object> row = new HashMap<>();
             row.put("refundId", refund.getId());
             row.put("refundNo", refund.getRefundNo());
@@ -171,8 +171,8 @@ public class RefundService {
         }).toList();
         Map<String, Object> payload = new HashMap<>();
         payload.put("content", content);
-        payload.put("totalElements", filtered.size());
-        payload.put("totalPages", (filtered.size() + safeSize - 1) / safeSize);
+        payload.put("totalElements", page_.getTotalElements());
+        payload.put("totalPages", page_.getTotalPages());
         payload.put("page", safePage);
         payload.put("size", safeSize);
         return payload;
