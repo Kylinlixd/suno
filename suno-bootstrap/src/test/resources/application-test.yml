@@ -31,3 +31,5 @@ security:
   auth:
     jwt:
       secret: test-only-jwt-secret-that-is-not-for-production
+    sms:
+      dev-echo: true

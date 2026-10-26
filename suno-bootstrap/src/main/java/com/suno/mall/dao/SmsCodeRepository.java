@@ -24,4 +24,7 @@ public interface SmsCodeRepository extends JpaRepository<SmsCodeEntity, Long> {
     int consume(@Param("id") Long id, @Param("now") LocalDateTime now);
 
     Optional<SmsCodeEntity> findByIdAndPhoneAndCodeAndUsedFalse(Long id, String phone, String code);
+
+    /** 过期验证码批量删除（清理调度器用） */
+    long deleteByExpireAtBefore(java.time.LocalDateTime cutoff);
 }

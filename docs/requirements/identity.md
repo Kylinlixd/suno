@@ -679,3 +679,28 @@ flowchart TD
 ```
 ### Gaps
 - targetPhase: 1；未接微信/Apple 等第三方登录；自动注册无手机号唯一性之外的资料收集。
+
+## IDN-S001 短信验证码清理调度器
+
+每小时（`security.auth.sms.cleanup-fixed-delay-ms`）删除过期验证码（含已用/未用），防止 `suno_sms_code` 无界增长。实现测试：`ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence`（共享调度器存活路径）。
+
+### Requirement flow {#idn-s001}
+```mermaid
+flowchart TD
+  T[定时触发] --> D[删除 expire_at < now] --> R[清理条数]
+```
+### Current development flow {#idn-s001-dev}
+```mermaid
+sequenceDiagram
+  participant S as SmsCodeCleanupScheduler#cleanupExpiredCodes
+  participant R as SmsCodeRepository#deleteByExpireAtBefore
+  S->>R: now
+  R-->>S: 删除条数
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  S[Scheduler] --> H[Retention handler] --> P[Batch delete port]
+```
+### Gaps
+- targetPhase: 1；保留期固定（过期即删）；无分批上限。

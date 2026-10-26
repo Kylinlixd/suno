@@ -118,6 +118,12 @@ security:
       secret: ${SUNO_JWT_SECRET}
       expire-minutes: 120
       refresh-expire-minutes: 10080
+    sms:
+      resend-interval-seconds: 60
+      cleanup-fixed-delay-ms: 3600000
+      expire-minutes: 5
+      # 验证码回显仅限本地联调；生产必须 false（默认即 false）
+      dev-echo: ${SMS_DEV_ECHO:false}
     export-task:
       retain-days: 7
       cleanup-fixed-delay-ms: 3600000

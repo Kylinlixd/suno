@@ -200,6 +200,7 @@ PAY-S002|PaymentReplayTaskScheduler#consumeReplayTasks|payment.callback.replay-c
 PAY-S003|PaymentReplayAutoHandleIdempotencyCleanupScheduler#cleanupAutoHandleIdempotencyRecords|payment.callback.replay-auto-handle-idempotency-cleanup-fixed-delay-ms|Payment
 PAY-S004|PaymentReconciliationScheduler#reconcilePayments|payment.reconciliation.fixed-delay-ms|Payment
 PAY-S005|AlipayCompensationScheduler#compensateMissedNotifies|payment.alipay.query-compensation-fixed-delay-ms|Payment
+IDN-S001|SmsCodeCleanupScheduler#cleanupExpiredCodes|security.auth.sms.cleanup-fixed-delay-ms|Identity
 MKT-S001|ResaleOrderScheduler#autoCloseExpiredUnpaidOrders|mall.order.auto-close-fixed-delay-ms|Marketplace
 MKT-S002|ResaleOrderScheduler#autoConfirmDeliveredOrders|mall.order.auto-confirm-receipt-fixed-delay-ms|Marketplace
 MKT-S003|CouponExpireReminderScheduler#remindExpiringCoupons|mall.coupon.expire-reminder-fixed-delay-ms|Marketplace
@@ -215,7 +216,7 @@ OPS-S003|NotificationCleanupScheduler#cleanupExpiredReadNotifications|operations
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(177, catalog.size());
+        assertEquals(178, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
@@ -236,7 +237,7 @@ OPS-S003|NotificationCleanupScheduler#cleanupExpiredReadNotifications|operations
         assertEquals(http.size(), catalogRoutes.size(), "each route has exactly one owner");
 
         List<Map<String, Object>> schedulers = ofKind(catalog, "SCHEDULER");
-        assertEquals(11, schedulers.size());
+        assertEquals(12, schedulers.size());
         assertEquals(EXPECTED_SCHEDULERS, contractMap(schedulers, "scheduledMethod", "scheduleProperty"),
                 "scheduler ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_SCHEDULERS.keySet()), schedulers.stream().map(entry -> string(entry, "id")).toList());
@@ -252,7 +253,7 @@ OPS-S003|NotificationCleanupScheduler#cleanupExpiredReadNotifications|operations
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 37L, 10, 31L, 11, 11L, 12, 68L, 13, 30L), catalog.stream()
+        assertEquals(Map.of(9, 38L, 10, 31L, 11, 11L, 12, 68L, 13, 30L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 

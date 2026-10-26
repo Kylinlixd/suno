@@ -41,7 +41,7 @@ public class SmsCodeService {
                           AuthApplicationService authApplicationService,
                           @Value("${security.auth.sms.resend-interval-seconds:60}") int resendIntervalSeconds,
                           @Value("${security.auth.sms.expire-minutes:5}") int expireMinutes,
-                          @Value("${security.auth.sms.dev-echo:true}") boolean devEcho) {
+                          @Value("${security.auth.sms.dev-echo:false}") boolean devEcho) {
         this.smsCodeRepository = smsCodeRepository;
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;

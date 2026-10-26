@@ -55,6 +55,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         String key = clientIp(request) + "|" + request.getRequestURI();
         long now = System.currentTimeMillis();
+        // 过期窗口懒清理：每次请求顺带清扫（上限 64 条/次），防伪造 IP 撑爆内存
+        if (windows.size() > 1024) {
+            windows.entrySet().removeIf(entry -> now - entry.getValue().start >= windowMillis);
+        }
         Window window = windows.compute(key, (ignored, existing) -> {
             if (existing == null || now - existing.start >= windowMillis) {
                 return new Window(now);

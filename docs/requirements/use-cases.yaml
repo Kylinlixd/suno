@@ -1489,6 +1489,27 @@
     - ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence
   scheduledMethod: AlipayCompensationScheduler#compensateMissedNotifies
   scheduleProperty: payment.alipay.query-compensation-fixed-delay-ms
+- &identity_scheduler
+  id: IDN-S001
+  kind: SCHEDULER
+  owner: Identity
+  actor: scheduler
+  trigger: fixed-delay
+  permission: internal
+  invariants: [contract-documented]
+  errors: [RETRYABLE_FAILURE]
+  requirementDoc: docs/requirements/identity.md
+  requirementAnchor: idn-s001
+  developmentAnchor: idn-s001-dev
+  implementationStatus: implemented
+  currentSymbols: [SmsCodeCleanupScheduler#cleanupExpiredCodes]
+  targetPhase: 1
+  documentationTask: 9
+  implementedTests:
+    - ReconciliationServiceTest#flagsPaidOrdersWithoutPaymentEvidence
+  scheduledMethod: SmsCodeCleanupScheduler#cleanupExpiredCodes
+  scheduleProperty: security.auth.sms.cleanup-fixed-delay-ms
+  plannedTests: []
 - &marketplace_scheduler
   id: MKT-S001
   kind: SCHEDULER

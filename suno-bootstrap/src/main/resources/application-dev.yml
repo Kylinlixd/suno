@@ -1,3 +1,9 @@
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/dev
+
+# 本地联调：短信验证码回显到响应（仅 dev）
+security:
+  auth:
+    sms:
+      dev-echo: true
