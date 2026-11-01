@@ -96,6 +96,11 @@ REC-001|POST|/api/recycle/orders|Recycle
 REC-002|GET|/api/recycle/logistics/status|Recycle
 REC-003|GET|/api/recycle/orders/my|Recycle
 REC-004|GET|/api/recycle/points/ledger|Recycle
+REC-070|POST|/api/recycle/scan|Recycle
+REC-071|GET|/api/recycle/cart|Recycle
+REC-072|POST|/api/recycle/cart|Recycle
+REC-073|DELETE|/api/recycle/cart/{itemId}|Recycle
+REC-074|POST|/api/recycle/cart/submit|Recycle
 REC-101|GET|/api/admin/recycle/orders|Recycle
 REC-102|PATCH|/api/admin/recycle/orders/review|Recycle
 MKT-001|GET|/products/{id}.html|Marketplace
@@ -216,14 +221,14 @@ OPS-S003|NotificationCleanupScheduler#cleanupExpiredReadNotifications|operations
     @Test
     void catalogOwnsTheExactApplicationRoutesSchedulersEventsAndTasks() throws Exception {
         List<Map<String, Object>> catalog = yaml(CATALOG);
-        assertEquals(178, catalog.size());
+        assertEquals(183, catalog.size());
         assertEquals(catalog.size(), catalog.stream().map(entry -> string(entry, "id")).collect(Collectors.toSet()).size());
         catalog.forEach(this::assertShape);
         catalog.forEach(entry -> assertEquals(ownerForId(string(entry, "id")), string(entry, "owner"),
                 () -> "owner does not match the mandated ID decision group: " + string(entry, "id")));
 
         List<Map<String, Object>> http = ofKind(catalog, "HTTP");
-        assertEquals(143, http.size());
+        assertEquals(148, http.size());
         assertEquals(EXPECTED_HTTP, contractMap(http, "method", "path"), "HTTP ID ownership and source order");
         assertEquals(List.copyOf(EXPECTED_HTTP.keySet()), http.stream().map(entry -> string(entry, "id")).toList());
         Set<String> actualRoutes = mappings.getHandlerMethods().entrySet().stream()
@@ -253,7 +258,7 @@ OPS-S003|NotificationCleanupScheduler#cleanupExpiredReadNotifications|operations
         assertEquals(23, events.size());
         assertEquals(eventKeys(events), eventKeys(registry));
         assertEventBoundary(events, registry);
-        assertEquals(Map.of(9, 38L, 10, 31L, 11, 11L, 12, 68L, 13, 30L), catalog.stream()
+        assertEquals(Map.of(9, 38L, 10, 31L, 11, 16L, 12, 68L, 13, 30L), catalog.stream()
                 .collect(Collectors.groupingBy(entry -> integer(entry, "documentationTask"), Collectors.counting())));
     }
 

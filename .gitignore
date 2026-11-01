@@ -48,3 +48,4 @@ logs/
 # Virtual machine crash logs
 hs_err_pid*
 replay_pid*
+suno-bootstrap/data/uploads/

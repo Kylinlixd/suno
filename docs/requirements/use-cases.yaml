@@ -451,6 +451,63 @@
   implementedTests:
     - RecycleHistoryWebTest#listsMyPointsLedgerWithBalance
 - <<: *recycle_http
+  id: REC-070
+  method: POST
+  path: /api/recycle/scan
+  requirementAnchor: rec-070
+  developmentAnchor: rec-070-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleCartController#scan, RecycleCartService#scanAndAdd, BookScanService#scanByIsbn, BookScanService#estimatePrice]
+  plannedTests: []
+  implementedTests:
+    - RecycleCartWebTest#scanAndAddBookAndSubmitCart
+- <<: *recycle_http
+  id: REC-071
+  method: GET
+  path: /api/recycle/cart
+  requirementAnchor: rec-071
+  developmentAnchor: rec-071-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleCartController#listCart, RecycleCartService#listCart]
+  plannedTests: []
+  implementedTests:
+    - RecycleCartWebTest#scanAndAddBookAndSubmitCart
+    - RecycleCartWebTest#removeFromCart
+- <<: *recycle_http
+  id: REC-072
+  method: POST
+  path: /api/recycle/cart
+  requirementAnchor: rec-072
+  developmentAnchor: rec-072-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleCartController#addManual, RecycleCartService#addManualItem]
+  plannedTests: []
+  implementedTests:
+    - RecycleCartWebTest#manualAddAndSubmit
+- <<: *recycle_http
+  id: REC-073
+  method: DELETE
+  path: /api/recycle/cart/{itemId}
+  requirementAnchor: rec-073
+  developmentAnchor: rec-073-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleCartController#removeItem, RecycleCartService#removeItem]
+  plannedTests: []
+  implementedTests:
+    - RecycleCartWebTest#removeFromCart
+- <<: *recycle_http
+  id: REC-074
+  method: POST
+  path: /api/recycle/cart/submit
+  requirementAnchor: rec-074
+  developmentAnchor: rec-074-dev
+  implementationStatus: implemented
+  currentSymbols: [RecycleCartController#submit, RecycleCartService#submitCart]
+  plannedTests: []
+  implementedTests:
+    - RecycleCartWebTest#scanAndAddBookAndSubmitCart
+    - RecycleCartWebTest#manualAddAndSubmit
+- <<: *recycle_http
   id: REC-101
   method: GET
   path: /api/admin/recycle/orders

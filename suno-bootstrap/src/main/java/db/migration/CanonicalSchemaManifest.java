@@ -20,6 +20,7 @@ final class CanonicalSchemaManifest {
                 recycleProductImage(),
                 recycleValuationRule(),
                 recycleOrder(),
+                recycleCartItem(),
                 recycleLogisticsTrack(),
                 recyclePointsLedger(),
                 marketplaceListing(),
@@ -182,6 +183,27 @@ final class CanonicalSchemaManifest {
         );
     }
 
+
+    private static TableSpec recycleCartItem() {
+        return table("suno_recycle_cart",
+                cols(
+                        id(), bigint("user_id", false), varchar("barcode", 64, true),
+                        varchar("title", 256, false), varchar("author", 256, true),
+                        varchar("publisher", 256, true), integer("publish_year", true),
+                        varchar("category", 64, true), integer("wear_score", false),
+                        decimal("estimated_price", false), varchar("grade", 32, false),
+                        varchar("source", 32, false, "'SCAN'", "'SCAN'"),
+                        varchar("status", 16, false, "'IN_CART'", "'IN_CART'"),
+                        timestamp("created_at", false), timestamp("updated_at", true)
+                ),
+                uniques(),
+                fks(fk("fk_recycle_cart_user", "user_id", "suno_user_account", "id")),
+                indexes(
+                        index("idx_recycle_cart_user", "user_id"),
+                        index("idx_recycle_cart_status", "status")
+                )
+        );
+    }
     private static TableSpec recycleLogisticsTrack() {
         return table("suno_logistics_track",
                 cols(

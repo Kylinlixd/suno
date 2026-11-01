@@ -135,6 +135,8 @@ public final class ErrorCode {
     public static final String RECYCLE_IMAGE_AUDIT_FAILED = "RECYCLE_IMAGE_AUDIT_FAILED";
     /** 物流单不存在 */
     public static final String RECYCLE_LOGISTICS_NOT_FOUND = "RECYCLE_LOGISTICS_NOT_FOUND";
+    /** 通用资源不存在 */
+    public static final String NOT_FOUND = "NOT_FOUND";
 
     // ==================== 系统级 ====================
 

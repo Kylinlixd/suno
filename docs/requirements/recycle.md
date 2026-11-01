@@ -412,3 +412,150 @@ flowchart LR
 ### Gaps
 - targetPhase: 4；当前上架状态迁移不会发出 listing 请求事实，缺少 eventId、outbox、重试和 Marketplace 消费幂等性。
 - targetPhase: 4；规范表虽定义 `recycle_order_id` 唯一约束，当前发布路径未将唯一冲突处理为“取得已有 listing”的幂等结果。
+## REC-070 扫码估价添加旧物
+
+已认证用户提交 ISBN 与磨损评分，服务端调用 Open Library 公开 API 获取书籍元数据（书名/作者/出版社/出版年），按出版年份与磨损评分估算回收价并加入回收车。ISBN 格式校验（10/13 位）、API 不可用时返回"请手动填写"提示。磨损评分默认 85。实现测试：`RecycleCartWebTest#scanAndAddBookAndSubmitCart`。
+
+### Requirement flow {#rec-070}
+```mermaid
+flowchart TD
+  J[用户 + ISBN + wearScore] --> V[ISBN 格式校验]
+  V -->|不合法| E[PARAM_INVALID]
+  V --> API[Open Library API 查询书籍信息]
+  API -->|未找到| E2[NOT_FOUND → 提示手动填写]
+  API --> EST[按年份+磨损估价]
+  EST --> W[写入回收车 IN_CART]
+```
+### Current development flow {#rec-070-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleCartController#scan
+  participant S as RecycleCartService#scanAndAdd
+  participant B as BookScanService#scanByIsbn
+  C->>S: userId、isbn、wearScore
+  S->>B: scanByIsbn
+  B-->>S: 书籍元数据
+  S-->>C: 估价 + 入库
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Scan command handler]
+  H --> P[Book lookup port]
+  P --> E[RecycleCartAdded v1]
+```
+### Gaps
+- targetPhase: 4；Open Library API 无鉴权无配额，大规模时需自建书籍库；估价公式为启发式，未接入市场行情。
+
+## REC-071 查看回收车
+
+已认证用户查询本人回收车中 IN_CART 状态的旧物列表（倒序），每条含扫码/手动信息、估价、成色、来源。实现测试：`RecycleCartWebTest#scanAndAddBookAndSubmitCart`。
+
+### Requirement flow {#rec-071}
+```mermaid
+flowchart TD
+  J[本人] --> Q[查询 IN_CART 条目倒序] --> R[返回列表]
+```
+### Current development flow {#rec-071-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleCartController#listCart
+  participant S as RecycleCartService#listCart
+  C->>S: userId
+  S-->>C: 回收车列表
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Recycle cart read handler] --> P[Cart read port]
+```
+### Gaps
+- targetPhase: 4；无分页，回收车条目数量有限（用户单次提交），不构成性能问题。
+
+## REC-072 手动添加旧物
+
+已认证用户手动添加非书籍类旧物（衣物/家居/美妆等），填写物品名称、品类、磨损评分与估价，直接加入回收车。标题必填，磨损评分 0-100 校验。实现测试：`RecycleCartWebTest#manualAddAndSubmit`。
+
+### Requirement flow {#rec-072}
+```mermaid
+flowchart TD
+  J[用户 + title + category + wearScore + estimatedPrice] --> V[标题必填/磨损评分 0-100]
+  V -->|不合法| E[PARAM_INVALID]
+  V --> W[写入回收车 IN_CART]
+```
+### Current development flow {#rec-072-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleCartController#addManual
+  participant S as RecycleCartService#addManualItem
+  C->>S: userId、title、category、wearScore、estimatedPrice
+  S-->>C: 回收车条目
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Manual add command handler] --> P[Cart write port]
+```
+### Gaps
+- targetPhase: 4；无图片上传（扫码类书籍有元数据，手动类暂不要求图）；估价由用户填写，无服务端复核。
+
+## REC-073 从回收车移除
+
+已认证用户从回收车移除 IN_CART 状态的条目，归属校验（userId 匹配），非 IN_CART 状态拒绝。实现测试：`RecycleCartWebTest#removeFromCart`。
+
+### Requirement flow {#rec-073}
+```mermaid
+flowchart TD
+  J[本人 + itemId] --> V{归属 + IN_CART}
+  V -->|不匹配| E[PARAM_INVALID]
+  V --> W[删除条目]
+```
+### Current development flow {#rec-073-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleCartController#removeItem
+  participant S as RecycleCartService#removeItem
+  C->>S: userId、itemId
+  S-->>C: removed=true
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Remove command handler] --> P[Cart write port]
+```
+### Gaps
+- targetPhase: 4；已提交条目不可移除（进入回收单后由回收单取消流程处理）。
+
+## REC-074 提交回收车
+
+已认证用户一次性提交回收车中全部 IN_CART 旧物，每件生成：商品（书名/作者/品类/磨损/估价/成色）+ 回收单（CREATED 状态）+ 物流追踪单 + 积分流水 + 通知 + 领域事件（RecycleOrderSubmitted/RecyclePointsPosted）。回收车条目标记为 SUBMITTED。空回收车返回"请先添加旧物"。实现测试：`RecycleCartWebTest#scanAndAddBookAndSubmitCart`、`RecycleCartWebTest#manualAddAndSubmit`。
+
+### Requirement flow {#rec-074}
+```mermaid
+flowchart TD
+  J[本人] --> Q[取 IN_CART 条目]
+  Q -->|空| E[回收车为空]
+  Q --> F[逐件创建商品+回收单+物流+积分+通知+事件]
+  F --> M[标记 SUBMITTED]
+  F --> U[更新积分+会员等级]
+  U --> R[返回提交摘要]
+```
+### Current development flow {#rec-074-dev}
+```mermaid
+sequenceDiagram
+  participant C as RecycleCartController#submit
+  participant S as RecycleCartService#submitCart
+  participant R as RecycleOrderRepository
+  C->>S: userId
+  S->>R: 逐件创建回收单
+  S-->>C: submittedCount/orderNumbers/totalEstimatedPrice/totalPoints
+```
+### Target architecture flow
+```mermaid
+flowchart TD
+  C[HTTP adapter] --> H[Batch submit handler]
+  H --> P[Recycle order ports]
+  H --> E[RecycleOrderSubmitted v1, RecyclePointsPosted v1]
+```
+### Gaps
+- targetPhase: 4；提交为整批事务（任一件失败整批回滚）；无分批上限；回收单初始状态 CREATED，等待平台审核（QUALITY_CHECK → PRICE_REVIEW → LIST_ON_SHELF）。
