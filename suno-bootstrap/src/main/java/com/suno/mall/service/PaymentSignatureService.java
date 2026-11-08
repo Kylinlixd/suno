@@ -10,6 +10,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class PaymentSignatureService {
@@ -48,6 +50,20 @@ public class PaymentSignatureService {
         nonceEntity.setCreatedAt(LocalDateTime.now());
         nonceEntity.setExpireAt(LocalDateTime.now().plusSeconds(maxSkewSeconds));
         paymentNonceRepository.save(nonceEntity);
+    }
+
+    /**
+     * 为待支付订单签发支付参数：secret 只保存在服务端，客户端凭此调用 /orders/pay。
+     * 归属与状态校验由调用方完成。
+     */
+    public Map<String, Object> issuePayParams(String orderNo) {
+        cleanupExpiredNonces();
+        String idempotencyKey = "pay-" + orderNo + "-" + System.currentTimeMillis();
+        long timestamp = Instant.now().getEpochSecond();
+        String nonce = UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+        String signature = hmacSha256Hex(orderNo + "|" + idempotencyKey + "|" + timestamp + "|" + nonce, callbackSecret);
+        return Map.of("orderNo", orderNo, "idempotencyKey", idempotencyKey,
+                "timestamp", timestamp, "nonce", nonce, "signature", signature);
     }
 
     public void cleanupExpiredNonces() {

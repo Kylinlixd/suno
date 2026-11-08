@@ -73,6 +73,7 @@ public class ResaleOrderService {
     private final MemberLevelService memberLevelService;
     private final com.suno.mall.core.event.EventOutbox eventOutbox;
     private final AuditLogService auditLogService;
+    private final PaymentSignatureService paymentSignatureService;
 
     public ResaleOrderService(
             UserAccountRepository userAccountRepository,
@@ -88,7 +89,8 @@ public class ResaleOrderService {
             com.suno.mall.dao.PointsLedgerRepository pointsLedgerRepository,
             MemberLevelService memberLevelService,
             com.suno.mall.core.event.EventOutbox eventOutbox,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            PaymentSignatureService paymentSignatureService
     ) {
         this.userAccountRepository = userAccountRepository;
         this.resaleOrderRepository = resaleOrderRepository;
@@ -104,6 +106,7 @@ public class ResaleOrderService {
         this.memberLevelService = memberLevelService;
         this.eventOutbox = eventOutbox;
         this.auditLogService = auditLogService;
+        this.paymentSignatureService = paymentSignatureService;
     }
 
     @ResaleTransactional
@@ -381,6 +384,24 @@ public class ResaleOrderService {
 
     @ResaleTransactional
     @CacheEvict(value = "resaleOrder", allEntries = true)
+    /**
+     * 签发待支付订单的支付参数：校验订单归属与状态，secret 不离开服务端。
+     */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, timeout = 30)
+    public Map<String, Object> createPayParams(String username, String orderNo) {
+        UserAccountEntity user = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new BizException("用户不存在: " + username, ErrorCode.ORDER_NOT_FOUND));
+        ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
+                .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));
+        if (!order.getBuyerUser().getId().equals(user.getId())) {
+            throw new BizException("仅允许为本人订单获取支付参数", ErrorCode.ORDER_NOT_OWNER);
+        }
+        if (!"UNPAID".equals(order.getPayStatus())) {
+            throw new BizException("订单不是待支付状态", ErrorCode.ORDER_STATUS_CONFLICT);
+        }
+        return paymentSignatureService.issuePayParams(orderNo);
+    }
+
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo, Long buyerUserId) {
         ResaleOrderEntity order = resaleOrderRepository.findWithDetailsByOrderNo(orderNo)
                 .orElseThrow(() -> new BizException("二销订单不存在: " + orderNo, ErrorCode.ORDER_NOT_FOUND));

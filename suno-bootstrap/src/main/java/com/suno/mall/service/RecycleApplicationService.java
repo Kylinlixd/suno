@@ -232,6 +232,13 @@ public class RecycleApplicationService {
     }
 
     @RecycleTransactional
+    /**
+     * 为本人待支付订单签发支付参数（secret 不离开服务端）。
+     */
+    public Map<String, Object> createPayParams(String username, String orderNo) {
+        return resaleOrderService.createPayParams(username, orderNo);
+    }
+
     public Map<String, Object> cancelUnpaidResaleOrder(String orderNo, Long buyerUserId) {
         return resaleOrderService.cancelUnpaidResaleOrder(orderNo, buyerUserId);
     }

@@ -170,6 +170,14 @@ public class ResaleMallController {
         ));
     }
 
+    @PostMapping("/orders/pay-params")
+    public ApiResponse<Map<String, Object>> issuePayParams(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody PayParamsRequest request
+    ) {
+        return ApiResponse.ok(recycleApplicationService.createPayParams(jwt.getSubject(), request.orderNo()));
+    }
+
     @PostMapping("/orders/cancel")
     public ApiResponse<Map<String, Object>> cancelOrder(
             @AuthenticationPrincipal Jwt jwt,
@@ -301,6 +309,11 @@ public class ResaleMallController {
             long timestamp,
             @NotBlank String nonce,
             @NotBlank String signature
+    ) {
+    }
+
+    public record PayParamsRequest(
+            @NotBlank String orderNo
     ) {
     }
 
